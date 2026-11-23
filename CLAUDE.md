@@ -32,12 +32,13 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - **Optional follow-up (added by the owner):** right after "Take a number and have a seat.", choices open by themselves (no E press needed):
   - Player: "But I have an appointment at 2." → Receptionist: **"What time is it now?"**
   - Player chooses either the **exact time on the wall clock** (e.g. "It's 1:57.") or **"It's 2:00."**
-    - "It's 2:00." → **"No it's not."** The question stands; the same two choices come back. *Exception:* if the clock really reads 2:00, "It's 2:00." is the true answer: it's the only choice shown, and she moves on to "And what time is your appointment?"
+    - "It's 2:00." → she glances over her shoulder at the wall clock, then: **"No it's not."** The question stands; the same two choices come back. *Exception:* if the clock really reads 2:00, "It's 2:00." is the true answer: it's the only choice shown, and she moves on to "And what time is your appointment?"
     - The exact time → **"And what time is your appointment?"** → Player: "My appointment is at 2:00." → **"Well it's not 2:00 yet, is it?"** → **"Take a seat and wait."**
       - The clock runs in real time, so her reply depends on what it reads when she answers. **On time = the clock reads 2:00 to 2:02** (`config.appointment.onTimeMinutes`; the owner may narrow it):
         - before 2:00: "Well it's not 2:00 yet, is it?" → "Take a seat and wait." (as above)
-        - 2:00 to 2:02: **"Did you sign the check-in sheet?"** Without looking up, she slides a clipboard (the check-in sheet) across the counter towards the player, then goes back to solitaire. The clipboard cannot be signed (owner's decision, for now).
+        - 2:00 to 2:02: **"Did you sign the check-in sheet?"** Without looking up, she slides a clipboard (the check-in sheet) across the counter towards the player, then goes back to solitaire. The clipboard cannot be signed (owner's decision, for now). Choices then open right away (beat `checkin_sheet`, written by the owner): "No." → **"Everybody gotta sign the check-in sheet. Did you sign it?"**, or "I'm trying to check in now" (no reply); either way the same choices return.
         - 2:03 or later: **"You're late. You'll have to take a number and have a seat."**
+      - The player can instead say "My appointment is right now." Unless the clock reads 2:00 to 2:02, she replies **"We don't have any appointments scheduled for {the time on the clock}."** and the same two choices come back. If it is 2:00 to 2:02, she answers as for an on-time player (the check-in sheet).
   - The player can also say nothing and walk away; pressing E on her later picks the conversation up where it stopped.
 - **During a wait (decided by the owner):** the player can still walk up and press E, but **no dialogue options appear**. Beat data has a `lockedOptions` list (empty for now) so recorded lines can be added there later without engine changes.
 

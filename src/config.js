@@ -69,6 +69,7 @@ export const config = {
       beat3PauseBeforeLine: 1.2,    // beat 3: pause before "Take a number..."
       sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
       clipboardSlide: 2.0,          // on time: she slides the check-in sheet over (whole motion)
+      clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
     },
     dialogue: {
       charsPerSecond: 30,           // typewriter speed
@@ -164,6 +165,7 @@ export const config = {
       scale: 0.94,
       voicePitch: 320,              // Hz, dialogue blips
       headTurnSpeed: 5,             // how quickly she turns to look
+      clockGlanceTwist: 0.75,       // radians of upper-body turn to see the clock behind her
     },
     playerVoicePitch: 190,
   },

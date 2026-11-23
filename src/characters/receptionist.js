@@ -6,9 +6,10 @@ import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 /*
   The receptionist. Sits behind the desk playing solitaire.
   States: 'solitaire' (clicking, eyes on the CRT), 'look' (turned to the player, silent),
+  'clock' (a glance over her shoulder at the wall clock),
   'clipboard' (slides the check-in sheet onto the counter without looking up, then
   goes back to solitaire by herself).
-  The director drives her with play('lookAtPlayer' | 'resumeSolitaire' | 'slideClipboard').
+  The director drives her with play('lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard').
   She clicks the mouse on her own schedule (config.timings.receptionistClicks),
   and keeps doing so no matter what happens around her.
 */
@@ -45,6 +46,8 @@ export class Receptionist {
     this.mouse = anchors.mouse;
     this.keyboard = anchors.keyboard;
     this.screen = anchors.crtScreen;
+    this.clockPos = anchors.clock.getWorldPosition(new THREE.Vector3());
+    this.clockTwist = 0; // upper-body turn for glancing at the clock behind her
 
     this.state = 'solitaire';
     this.lookTarget = new THREE.Vector3();
@@ -62,6 +65,7 @@ export class Receptionist {
   /** Called by the director's 'anim' action. */
   play(name) {
     if (name === 'lookAtPlayer') { this.state = 'look'; this.face?.setExpression('unimpressed'); }
+    else if (name === 'glanceAtClock') { this.state = 'clock'; this.face?.setExpression('unimpressed'); }
     else if (name === 'resumeSolitaire') { this.state = 'solitaire'; this.face?.setExpression(this.baseExpression); }
     else if (name === 'slideClipboard') {
       this.state = 'clipboard';
@@ -146,7 +150,10 @@ export class Receptionist {
 
     // --- body: lean towards the desk, breathe (and lean further to reach the counter) ---
     const breathe = Math.sin(this.time * 1.6) * 0.01;
-    j.spine.rotation.set(0.12 + breathe + 0.35 * engage, 0.3 * engage, 0);
+    // The wall clock is behind her left shoulder: twist the upper body to see it
+    const twistGoal = this.state === 'clock' ? config.characters.receptionist.clockGlanceTwist : 0;
+    this.clockTwist += (twistGoal - this.clockTwist) * (1 - Math.exp(-6 * dt));
+    j.spine.rotation.set(0.12 + breathe + 0.35 * engage, 0.3 * engage + this.clockTwist, 0);
 
     // --- legs: feet flat on the floor in front of the chair ---
     this.root.updateMatrixWorld(true);
@@ -177,6 +184,9 @@ export class Receptionist {
     if (this.state === 'look' && cameraPos) {
       aimJoint(j.neck, cameraPos, { maxYaw: 1.1, maxPitch: 0.5, alpha: turn });
       this.face?.lookAt(cameraPos);
+    } else if (this.state === 'clock') {
+      aimJoint(j.neck, this.clockPos, { maxYaw: 1.6, maxPitch: 0.6, alpha: turn * 1.5 });
+      this.face?.lookAt(this.clockPos);
     } else {
       const s = this.screen.getWorldPosition(new THREE.Vector3());
       s.x += Math.sin(this.time * 0.37) * 0.04; // eyes wander over the tableau

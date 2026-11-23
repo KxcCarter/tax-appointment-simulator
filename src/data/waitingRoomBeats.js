@@ -28,6 +28,14 @@ const apptMinute = (AP.hour % 12) * 60 + AP.minute;
 const beforeAppointment = (state) => clockMinute(state) < apptMinute;
 const late = (state) => clockMinute(state) > apptMinute + AP.onTimeMinutes;
 const clockReadsTwo = (state) => clockMinute(state) === apptMinute;
+const onTime = (state) => !beforeAppointment(state) && !late(state);
+
+// On time (2:00-2:02): the check-in sheet. She doesn't look up.
+const checkInSheet = [
+  { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
+  { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
+  { do: 'set', key: 'clipboardOffered', value: true },
+];
 const flat = (text) => [
   { do: 'wait', seconds: T.sideOptionPause },
   { do: 'say', who: 'receptionist', text },
@@ -100,7 +108,7 @@ export const waitingRoomBeats = {
       options: [
         { text: "I'm here for my appointment.", response: silence },
         { text: 'I have an appointment at 2:00 PM.', advance: true },
-        { text: "I'm here for my 2:00 PM appointment.", response: flat('Mamma's playin' her game.') },
+        { text: "I'm here for my 2:00 PM appointment.", response: flat("Mamma's playin' her game.") },
         { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
@@ -156,7 +164,12 @@ export const waitingRoomBeats = {
               do: 'if',
               test: clockReadsTwo,
               then: [{ do: 'say', who: 'receptionist', text: 'And what time is your appointment?' }],
-              else: [{ do: 'say', who: 'receptionist', text: "No it's not." }],
+              // Untrue: a glance over her shoulder at the wall clock first
+              else: [
+                { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+                { do: 'say', who: 'receptionist', text: "No it's not." },
+              ],
             },
           ],
         },
@@ -170,7 +183,8 @@ export const waitingRoomBeats = {
       options: [
         {
           text: 'My appointment is at 2:00.',
-          goto: null, // end of the exchange
+          // On time she asks about the check-in sheet (checkin_sheet); otherwise the exchange is over
+          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : null),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -188,33 +202,47 @@ export const waitingRoomBeats = {
                     { do: 'wait', seconds: T.sideOptionPause },
                     { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },
                   ],
-                  // On time (2:00-2:02): the check-in sheet. She doesn't look up.
-                  else: [
-                    { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
-                    { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
-                    { do: 'set', key: 'clipboardOffered', value: true },
-                  ],
+                  else: checkInSheet, // on time (2:00-2:02)
                 },
+              ],
+            },
+          ],
+        },
+        {
+          text: 'My appointment is right now.',
+          // Unless it really is 2:00-2:02, she has no appointment at whatever time it is,
+          // and the question stands. (On time it's the check-in sheet, as above.)
+          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : 'appointment_time'),
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: onTime,
+              then: checkInSheet,
+              else: [
+                { do: 'say', who: 'receptionist', text: (state) => `We don't have any appointments scheduled for ${clockReading(state)}.` },
               ],
             },
           ],
         },
       ],
       lockedOptions: [],
-      next: 'checkin_sheet',
     },
     {
       id: 'checkin_sheet',
       trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true, // she just asked a question: answer right away
       options: [
         {
           text: 'No.',
           actions: [],
           response: [
-            { do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet. Did you sign it?' },
+            { do: 'say', who: 'receptionist', text: "Everybody gotta sign the check-in sheet. Did you sign it?" },
           ],
         },
-        { text: "I'm trying to check in now", response: [] },
+        { text: "I'm trying to check in now", advance: true, response: [
+          { do: 'say', who: 'receptionist', text: "You gotta sign the check-in sheet." }
+        ] },
       ],
       lockedOptions: [],
       onAdvance: [],

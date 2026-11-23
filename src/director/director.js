@@ -20,7 +20,7 @@
     nextUnlockAfter: seconds, or [min, max], before `next` accepts an attempt
 
   Actions ({ do: ... }):
-    say      { who, text }            typewriter line with voice blips
+    say      { who, text }            typewriter line with voice blips; text may be (state) => string
     anim     { who, name, duration? } actors[who].play(name); waits `duration` if given
     wait     { seconds }              (number or [min, max])
     setPhase { phase }
@@ -194,7 +194,8 @@ export class Director {
   async runAction(a) {
     switch (a.do) {
       case 'say':
-        return this.say(a.who, a.text);
+        // text may be (state) => string for live values, e.g. the time on the clock
+        return this.say(a.who, typeof a.text === 'function' ? a.text(this.state) : a.text);
       case 'anim':
         this.actors[a.who]?.play(a.name);
         if (a.duration) await this.wait(a.duration);
