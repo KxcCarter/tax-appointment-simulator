@@ -5,8 +5,10 @@ import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 
 /*
   The receptionist. Sits behind the desk playing solitaire.
-  States: 'solitaire' (clicking, eyes on the CRT) and 'look' (turned to the player, silent).
-  The director drives her with play('lookAtPlayer') / play('resumeSolitaire').
+  States: 'solitaire' (clicking, eyes on the CRT), 'look' (turned to the player, silent),
+  'clipboard' (slides the check-in sheet onto the counter without looking up, then
+  goes back to solitaire by herself).
+  The director drives her with play('lookAtPlayer' | 'resumeSolitaire' | 'slideClipboard').
   She clicks the mouse on her own schedule (config.timings.receptionistClicks),
   and keeps doing so no matter what happens around her.
 */
@@ -48,12 +50,22 @@ export class Receptionist {
     this.press = 0;            // 0..1 hand dip for a click
     this.time = 0;
     this.mouseRest = this.mouse.position.clone();
+
+    this.clipboard = anchors.clipboard;
+    this.clipPath = anchors.clipboardPath;
+    this.clipT = 0;
   }
 
   /** Called by the director's 'anim' action. */
   play(name) {
     if (name === 'lookAtPlayer') this.state = 'look';
     else if (name === 'resumeSolitaire') this.state = 'solitaire';
+    else if (name === 'slideClipboard') {
+      this.state = 'clipboard';
+      this.clipT = 0;
+      this.clipSounded = false;
+      this.clipHandHold = null;
+    }
   }
 
   /** Where her voice comes from. */
@@ -89,9 +101,40 @@ export class Receptionist {
     }
     this.press = Math.max(0, this.press - dt * 12);
 
-    // --- body: lean towards the desk, breathe ---
+    // --- the check-in sheet: reach, lift onto the counter, shove, back to the keyboard ---
+    let engage = 0, clipHand = null;
+    if (this.state === 'clipboard') {
+      this.clipT += dt;
+      const u = Math.min(1, this.clipT / config.timings.reception.clipboardSlide);
+      const P = this.clipPath;
+      const smooth = (x) => x * x * (3 - 2 * x);
+      const pos = new THREE.Vector3();
+      if (u < 0.25) {
+        pos.copy(P.start);
+      } else if (u < 0.55) {
+        const k = smooth((u - 0.25) / 0.3);
+        pos.lerpVectors(P.start, P.lift, k);
+        pos.y += Math.sin(k * Math.PI) * 0.06;
+        this.clipboard.rotation.y = 0.15 * (1 - k);
+      } else if (u < 0.7) {
+        const k = 1 - Math.pow(1 - (u - 0.55) / 0.15, 3); // shoved: fast, then coasting
+        pos.lerpVectors(P.lift, P.end, k);
+        if (!this.clipSounded) { this.clipSounded = true; this.sfx.paperSlide(P.lift); }
+      } else {
+        pos.copy(P.end);
+      }
+      this.clipboard.position.copy(pos);
+      // Her hand rides on the clip end until the shove, then lets go
+      const onClip = pos.clone().add(new THREE.Vector3(0, 0.035, -0.12));
+      if (u < 0.6) clipHand = onClip;
+      else clipHand = this.clipHandHold ??= onClip;
+      engage = u < 0.25 ? smooth(u / 0.25) : u < 0.7 ? 1 : 1 - smooth((u - 0.7) / 0.3);
+      if (u >= 1) this.state = 'solitaire';
+    }
+
+    // --- body: lean towards the desk, breathe (and lean further to reach the counter) ---
     const breathe = Math.sin(this.time * 1.6) * 0.01;
-    j.spine.rotation.set(0.12 + breathe, 0, 0);
+    j.spine.rotation.set(0.12 + breathe + 0.35 * engage, 0.3 * engage, 0);
 
     // --- legs: feet flat on the floor in front of the chair ---
     this.root.updateMatrixWorld(true);
@@ -113,6 +156,7 @@ export class Receptionist {
     const kb = this.keyboard.getWorldPosition(new THREE.Vector3());
     const handOnKeys = kb.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.12);
     handOnKeys.y += 0.05;
+    if (clipHand) handOnKeys.lerp(clipHand, engage);
     solveTwoBone(j.lShoulder, j.lElbow, handOnKeys, L.upperArm, L.lowerArm,
       new THREE.Vector3(0.6, -0.4, -1).applyQuaternion(this.root.quaternion));
 

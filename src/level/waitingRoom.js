@@ -236,6 +236,50 @@ export function buildWaitingRoom(scene, physics) {
     cyl(0.04, 0.04, 0.1, mat('mug'), -1.7, 0.81, -3.4);                       // mug
     box(0.2, 0.07, 0.22, mat('deskPhone'), -1.35, 0.79, -3.9);                      // desk phone
 
+    // Check-in sheet on a clipboard, on her left. She slides it onto the counter if you're on time.
+    // The clip end points at her, so the sheet reads the right way up for the player.
+    {
+      const sheetTex = theme.canvasTexture(128, 176, (c, w, h) => {
+        c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+        c.fillStyle = theme.css('inkBlack'); c.textAlign = 'center';
+        c.font = 'bold 11px monospace'; c.fillText('CHECK-IN SHEET', w / 2, 34);
+        c.font = '7px monospace'; c.textAlign = 'left';
+        c.fillText('NAME', 8, 48); c.fillText('ARRIVED', 70, 48); c.fillText('APPT', 104, 48);
+        c.strokeStyle = theme.css('inkBlack'); c.lineWidth = 0.5;
+        const rnd = seeded(31);
+        const arrived = ['8:58', '9:14', '10:41', '11:20', '1:47'];
+        for (let r = 0; r < 11; r++) {
+          const y = 60 + r * 10;
+          c.beginPath(); c.moveTo(6, y + 2); c.lineTo(w - 6, y + 2); c.stroke();
+          if (r < arrived.length) {
+            // a signature squiggle, an arrival time, an appointment time
+            c.strokeStyle = theme.css('inkBlue'); c.lineWidth = 0.8; c.beginPath(); c.moveTo(8, y);
+            for (let x = 8; x < 58; x += 3) c.lineTo(x, y - 1 - rnd() * 5);
+            c.stroke();
+            c.fillStyle = theme.css('inkBlue'); c.fillText(arrived[r], 72, y); c.fillText(r === 4 ? '2:00' : '9:00', 104, y);
+            c.strokeStyle = theme.css('inkBlack'); c.lineWidth = 0.5;
+          }
+        }
+      });
+      const clip = new THREE.Group();
+      scene.add(clip);
+      box(0.23, 0.012, 0.32, mat('clipboardBoard'), 0, 0, 0, clip);
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.29), theme.textured(sheetTex, { lit: true }));
+      sheet.rotation.x = -Math.PI / 2;
+      sheet.position.set(0, 0.0065, 0.01);
+      clip.add(sheet);
+      box(0.1, 0.02, 0.04, mat('clipboardClip'), 0, 0.012, -0.135, clip);
+      // Path: on the work surface by her left hand -> up onto the counter -> shoved to its front edge
+      anchors.clipboard = clip;
+      anchors.clipboardPath = {
+        start: new THREE.Vector3(-2.2, 0.766, -3.42),
+        lift: new THREE.Vector3(-2.3, 1.152, -3.02),
+        end: new THREE.Vector3(-2.3, 1.152, -2.83),
+      };
+      clip.position.copy(anchors.clipboardPath.start);
+      clip.rotation.y = 0.15;
+    }
+
     // Receptionist's office chair
     const oc = new THREE.Group();
     oc.position.set(-2.65, 0, -3.98);

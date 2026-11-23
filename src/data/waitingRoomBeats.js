@@ -13,6 +13,21 @@ const T = config.timings.reception;
 
 // Non-advancing options get silence or a flat reply. Near-duplicates are the joke.
 const silence = [];
+
+// The time on the wall clock, as the player would read it: "1:57"
+const clockReading = (state) => {
+  const t = Math.floor(state.clockTime / 60) % 720;
+  const h = Math.floor(t / 60) || 12;
+  return `${h}:${String(t % 60).padStart(2, '0')}`;
+};
+// The appointment, in clock minutes (config.appointment). The player reads whole minutes,
+// so "on time" means the clock READS between 2:00 and 2:02.
+const AP = config.appointment;
+const clockMinute = (state) => Math.floor(state.clockTime / 60) % 720;
+const apptMinute = (AP.hour % 12) * 60 + AP.minute;
+const beforeAppointment = (state) => clockMinute(state) < apptMinute;
+const late = (state) => clockMinute(state) > apptMinute + AP.onTimeMinutes;
+const clockReadsTwo = (state) => clockMinute(state) === apptMinute;
 const flat = (text) => [
   { do: 'wait', seconds: T.sideOptionPause },
   { do: 'say', who: 'receptionist', text },
@@ -81,8 +96,98 @@ export const waitingRoomBeats = {
         { do: 'say', who: 'receptionist', text: 'Take a number and have a seat.' },
         { do: 'set', key: 'toldToTakeNumber', value: true },
       ],
-      next: null,
+      next: 'protest',
       nextUnlockAfter: 0,
+    },
+
+    // ---- Optional: the player objects. Choices open right after "Take a number...". ----
+    {
+      id: 'protest',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'But I have an appointment at 2.',
+          goto: 'what_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'What time is it now?' },
+          ],
+        },
+        { text: '(Say nothing)', silent: true, goto: null },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'what_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          // Read off the wall clock at the moment the choices appear
+          text: (state) => `It's ${clockReading(state)}.`,
+          showIf: (state) => !clockReadsTwo(state), // at exactly 2:00, "It's 2:00." below is the true answer
+          goto: 'appointment_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'And what time is your appointment?' },
+          ],
+        },
+        {
+          text: "It's 2:00.",
+          // Untrue: she isn't having it and the question stands. True (clock reads 2:00): accepted.
+          goto: (state) => (clockReadsTwo(state) ? 'appointment_time' : 'what_time'),
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: clockReadsTwo,
+              then: [{ do: 'say', who: 'receptionist', text: 'And what time is your appointment?' }],
+              else: [{ do: 'say', who: 'receptionist', text: "No it's not." }],
+            },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'appointment_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'My appointment is at 2:00.',
+          goto: null, // end of the exchange
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: late, // the clock runs in real time; 2:03 or later is late
+              then: [
+                { do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
+              ],
+              else: [
+                {
+                  do: 'if',
+                  test: beforeAppointment,
+                  then: [
+                    { do: 'say', who: 'receptionist', text: "Well it's not 2:00 yet, is it?" },
+                    { do: 'wait', seconds: T.sideOptionPause },
+                    { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },
+                  ],
+                  // On time (2:00-2:02): the check-in sheet. She doesn't look up.
+                  else: [
+                    { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
+                    { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
+                    { do: 'set', key: 'clipboardOffered', value: true },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      lockedOptions: [],
     },
   ],
 };

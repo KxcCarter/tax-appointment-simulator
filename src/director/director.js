@@ -5,7 +5,15 @@
   Beat fields:
     id, trigger: { type: 'interact', target },
     onOpen:        actions run each time the choices open
-    options:       [{ text, advance?, silent?, response?: [actions] }]
+    autoOpen:      true = choices open by themselves as soon as this beat becomes current
+                   (no E press needed; E still reopens them if the player steps away)
+    options:       [{ text, advance?, goto?, actions?, silent?, response?: [actions] }]
+                     text      string, or (state) => string for live values (e.g. the clock)
+                     showIf    (state) => bool; hide the option when false
+                     advance   run beat.onAdvance, then move to beat.next
+                     goto      run option.actions, then move to that beat id (null = end;
+                               may be this same beat, to ask again). May be (state) => id.
+                     response  neither: run these actions and stay (counts as being ignored)
     lockedOptions: options offered while the next attempt is still gated ([] = nothing appears)
     onAdvance:     actions run when an advancing option is picked
     next:          id of the next beat (null = done)
@@ -19,6 +27,7 @@
     set      { key, value }           write to the global state
     sound    { name, who? }           sfx[name](actor position)
     emit     { event }                tell the game something happened (hooks.onEvent)
+    if       { test: (state) => bool, then: [actions], else: [actions] }   checked when reached
 
   All waiting runs on game time, so pausing freezes the scene.
 */
@@ -91,15 +100,30 @@ export class Director {
     // After the last beat, the target stays "handled" (nothing happens) rather than falling through
     if (!isTarget) return this.data.targets?.includes(target) ?? false;
     if (this.busy || this.choosing) return true;
+    this.openChoices(beat);
+    return true;
+  }
 
+  /** Show the beat's choices (or nothing, if it's gated and has no lockedOptions). */
+  openChoices(beat) {
     const locked = this.time < this.lockedUntil;
-    const options = locked ? beat.lockedOptions ?? [] : beat.options;
-    if (!options.length) return true; // nothing appears. She keeps clicking.
+    const source = locked ? beat.lockedOptions ?? [] : beat.options;
+    // Resolve live text now, so what's shown is what gets said
+    const options = source
+      .filter((o) => !o.showIf || o.showIf(this.state))
+      .map((o) => ({ ...o, text: typeof o.text === 'function' ? o.text(this.state) : o.text }));
+
+    if (!options.length) return; // nothing appears. She keeps clicking.
+
+    // If a line is still on screen, keep it above the choices
+    const ty = this.typing;
+    const context = ty && ty.speaker !== this.data.speakers.player?.name ? { speaker: ty.speaker, text: ty.text } : null;
 
     this.choosing = true;
     this.player.block('dialogue', true);
     this.runActions(beat.onOpen ?? []);
     this.ui.showChoices(options, {
+      context,
       canInput: () => !this.state.paused,
       onPick: (i) => {
         this.choosing = false;
@@ -120,8 +144,11 @@ export class Director {
       if (!option.silent) await this.say('player', option.text);
       if (option.advance && !wasLocked) {
         await this.runActions(beat.onAdvance ?? []);
-        this.currentId = beat.next ?? null;
-        this.lockedUntil = this.time + pick(beat.nextUnlockAfter);
+        this.moveTo(beat.next ?? null, beat.nextUnlockAfter);
+      } else if ('goto' in option && !wasLocked) {
+        await this.runActions(option.actions ?? []);
+        const target = typeof option.goto === 'function' ? option.goto(this.state) : option.goto;
+        this.moveTo(target, option.unlockAfter ?? 0);
       } else {
         this.state.timesIgnored++;
         await this.runActions(option.response ?? []);
@@ -129,6 +156,13 @@ export class Director {
     } finally {
       this.busy = false;
     }
+    const next = this.current;
+    if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing) this.openChoices(next);
+  }
+
+  moveTo(id, unlockAfter) {
+    this.currentId = id;
+    this.lockedUntil = this.time + pick(unlockAfter);
   }
 
   async runActions(list) {
@@ -161,6 +195,8 @@ export class Director {
       case 'emit':
         this.onEvent(a.event);
         return;
+      case 'if':
+        return this.runActions(a.test(this.state) ? a.then ?? [] : a.else ?? []);
       default:
         console.warn('Director: unknown action', a);
     }

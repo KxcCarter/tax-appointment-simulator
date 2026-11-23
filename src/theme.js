@@ -87,6 +87,9 @@ export const palette = {
   inkBlack: 0x1b1a18,
   inkDark: 0x2b2a26,
   inkRed: 0xb5332b,
+  inkBlue: 0x23408e,          // ballpoint signatures
+  clipboardBoard: 0x8a5a32,   // masonite
+  clipboardClip: 0x9a9c96,
   frostedGlass: 0xb9c8c0,
   nameplate: 0x2b2416,
   nameplateText: 0xd9c27a,

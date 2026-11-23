@@ -96,12 +96,14 @@ export class UI {
    * Show numbered choices. onPick(index) or onCancel() is called once.
    * canInput() lets the caller ignore input while paused.
    */
-  showChoices(options, { onPick, onCancel, canInput }) {
+  showChoices(options, { onPick, onCancel, canInput, context = null }) {
     const box = this.$('dialogue');
     const list = this.$('dlg-choices');
     box.classList.remove('hidden');
-    this.$('dlg-speaker').textContent = 'YOU';
-    this.$('dlg-text').classList.add('hidden');
+    // Optionally keep the line being answered above the choices
+    this.$('dlg-speaker').textContent = context ? context.speaker : 'YOU';
+    this.$('dlg-text').textContent = context ? context.text : '';
+    this.$('dlg-text').classList.toggle('hidden', !context);
     list.classList.remove('hidden');
     this.$('dlg-hint').classList.remove('hidden');
     list.innerHTML = '';

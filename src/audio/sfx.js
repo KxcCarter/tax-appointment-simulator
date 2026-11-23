@@ -212,6 +212,16 @@ export class Sfx {
     lfo.stop(t + dur + 0.05);
   }
 
+  /** A clipboard shoved across a laminate counter, ending in a small tap. */
+  paperSlide(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.paperSlide.volume, position, { refDistance: 1.2, rolloff: 1 });
+    const n = this._noise(t, 0.3, out, 'bandpass', 700, 1.2, 0.9, 0.015);
+    n.filter.frequency.exponentialRampToValueAtTime(380, t + 0.3);
+    this._tone(t + 0.28, 0.06, out, 'sine', 160, 0.5, 0.002, 90);
+  }
+
   ticketTear(position = null) {
     if (!this.ctx) return;
     const c = this.ctx;

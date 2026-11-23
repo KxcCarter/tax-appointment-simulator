@@ -53,6 +53,13 @@ export const config = {
     number: 847,
   },
 
+  // The player's appointment, as read on the wall clock (12-hour face)
+  appointment: {
+    hour: 2,
+    minute: 0,
+    onTimeMinutes: 2,         // readings 2:00 .. 2:02 count as on time; 2:03 and later is late
+  },
+
   // ---- Pacing. The beat data (src/data/waitingRoomBeats.js) reads these. ----
   timings: {
     reception: {
@@ -61,6 +68,7 @@ export const config = {
       beat2IgnoreBeforeLine: 3.5,   // beat 2: clicks continue this long before "Sshhh..."
       beat3PauseBeforeLine: 1.2,    // beat 3: pause before "Take a number..."
       sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
+      clipboardSlide: 2.0,          // on time: she slides the check-in sheet over (whole motion)
     },
     dialogue: {
       charsPerSecond: 30,           // typewriter speed
@@ -124,6 +132,7 @@ export const config = {
     footsteps: { volume: 0.22, strideLength: 0.7 },
     voice: { volume: 0.18 },
     ticketTear: { volume: 0.5 },
+    paperSlide: { volume: 0.45 },
     chairCreak: { volume: 0.35 },
   },
 

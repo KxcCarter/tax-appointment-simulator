@@ -10,6 +10,7 @@ export const state = {
   playerHealth: 100,
   heldWeapon: null,
   toldToTakeNumber: false, // receptionist said "Take a number..."
+  clipboardOffered: false, // on time: she slid the check-in sheet over
   clockTime:               // seconds since midnight (12h face)
     config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond,
 
