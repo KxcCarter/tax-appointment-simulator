@@ -5,6 +5,7 @@ import { buildWaitingRoom } from './waitingRoom.js';
 import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
+import { npcConversations } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
 import { Npc } from '../characters/npc.js';
 import { waitingRoomCast } from '../data/waitingRoomCast.js';
@@ -29,8 +30,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     return npc;
   });
 
+  // Small talk: one director per waiting person (each remembers where it stopped).
+  // Only one conversation owns the dialogue box at a time.
+  const smallTalk = [];
+  const anyActive = (except) => [director, ...smallTalk].some((d) => d !== except && d.active);
+
   const director = new Director({
     data: waitingRoomBeats, state, ui, sfx, actors, player, config,
+    isBlocked: () => anyActive(director),
     onEvent: (type, key) => {
       if (type === 'set' && key === 'nowServing') {
         room.nowServing.setNumber(state.nowServing);
@@ -41,7 +48,27 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     },
   });
 
+  for (const n of npcs) {
+    const data = npcConversations[n.id];
+    if (!data) continue;
+    const d = new Director({
+      data, state, ui, sfx, actors, player, config,
+      isBlocked: () => anyActive(d) || state.called, // after the call nobody's chatty
+    });
+    smallTalk.push(d);
+    n.conversation = d;
+  }
+
   const interaction = new Interaction(camera, scene, ui, player);
+
+  // --- waiting people: small talk until the player's number is called ---
+  for (const n of npcs) {
+    if (!n.conversation) continue;
+    interaction.register(n.rig.root, {
+      prompt: () => (state.called || n.busyElsewhere ? null : '[E] Talk'),
+      onInteract: () => n.conversation.interact(n.id),
+    });
+  }
 
   // --- receptionist ---
   interaction.register(receptionist.root, {
@@ -102,6 +129,17 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- ambient: footsteps, clock tick ---
   player.onStep = () => sfx.footstep();
   let lastSecond = Math.floor(state.clockTime);
+  // --- the radio ---
+  let radioStarted = false, radioLoop = null;
+  const radioPos = () => A.radio.speaker.getWorldPosition(new THREE.Vector3());
+  async function turnOnRadio() {
+    state.radioOn = true;
+    A.radio.turnOn();
+    sfx.radioClick(radioPos());
+    const buffer = await sfx.loadAudio(import.meta.env.BASE_URL + config.radio.file);
+    if (buffer && state.phase !== config.radio.stopAtPhase) radioLoop = sfx.playLoop(buffer, radioPos(), config.radio);
+  }
+
   const waitDuration = fastWait ? config.timings.waiting.fastDuration : config.timings.waiting.duration;
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
@@ -111,10 +149,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     receptionist,
     npcs,
     interaction,
+    radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     /** Game-time update (not called while paused). */
     update(dt) {
       room.update(dt);
       director.update(dt);
+      for (const d of smallTalk) d.update(dt);
       receptionist.update(dt, camera.position);
 
       // The wait: counts no matter what the player does (owner's decision)
@@ -124,6 +164,26 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
           this.callStarted = true;
           director.play('call');
         }
+      }
+
+      // The radio: at config.radio.at seconds of play, someone gets up and turns it on
+      state.playTime += dt;
+      const R = config.radio;
+      if (!radioStarted && state.playTime >= R.at) {
+        const who = npcs.find((n) => n.id === R.who);
+        if (who && !who.attending && !who.conversation?.active) {
+          radioStarted = true;
+          who.startErrand({
+            standSpot: A.radio.standSpot,
+            faceYaw: A.radio.faceYaw,
+            reachTarget: () => A.radio.knob.getWorldPosition(new THREE.Vector3()),
+            onReach: () => turnOnRadio(),
+          });
+        }
+      }
+      if (radioLoop && state.phase === R.stopAtPhase) {
+        radioLoop.stop();
+        radioLoop = null;
       }
 
       // Sitting right next to someone makes them lean away

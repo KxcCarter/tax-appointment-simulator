@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { theme } from '../theme.js';
 import { seeded } from '../util/random.js';
+import { partGeometry } from '../characters/partShapes.js';
 
 const mat = (name, opts) => theme.material(name, opts);
 import { createClock } from './clock.js';
@@ -406,8 +407,9 @@ export function buildWaitingRoom(scene, physics) {
         c.fillStyle = theme.css('magazineHighlight', 0.35); c.fillRect(8, 30, w - 16, 18);
       });
       const mg = new THREE.Group();
-      mg.position.set(tx + (i % 2 ? 0.08 : -0.08), 0.53 + i * 0.012, tz + (i < 2 ? -0.1 : 0.12));
-      mg.rotation.y = (i - 1.5) * 0.35;
+      // A loose pile at the back of the table (the radio sits at the front)
+      mg.position.set(tx + 0.1 + (i % 2 ? 0.02 : -0.02), 0.53 + i * 0.012, tz + (i % 2 ? 0.03 : -0.03));
+      mg.rotation.y = (i - 1.5) * 0.3;
       scene.add(mg);
       const page = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.01, 0.28), [
         mat('paperWhite'), mat('paperWhite'), theme.textured(tex, { lit: true }), mat('paperWhite'), mat('paperWhite'), mat('paperWhite'),
@@ -416,6 +418,38 @@ export function buildWaitingRoom(scene, physics) {
       mg.add(page);
       physics.addDynamic(mg, [{ type: 'box', half: { x: 0.105, y: 0.005, z: 0.14 } }], { density: 700 });
     });
+
+    // A small 1980s radio at the front edge of the table, dial facing the room (-x).
+    // Turned on by one of the waiting people at config.radio.at seconds.
+    const radio = new THREE.Group();
+    radio.position.set(tx - 0.12, 0.52, tz);
+    radio.rotation.y = -Math.PI / 2; // local +z (its front) faces the room
+    scene.add(radio);
+    const caseMesh = new THREE.Mesh(partGeometry('rounded', 'trim', 0.32, 0.17, 0.11), mat('radioCase'));
+    caseMesh.position.y = 0.085;
+    radio.add(caseMesh);
+    const grille = box(0.15, 0.11, 0.01, mat('radioGrille'), -0.07, 0.09, 0.056, radio);
+    grille.name = 'radioGrille';
+    const dial = box(0.11, 0.04, 0.01, theme.unlit('radioDialOff'), 0.085, 0.115, 0.056, radio);
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 14), mat('black'));
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(0.085, 0.055, 0.062);
+    radio.add(knob);
+    const handle = box(0.2, 0.015, 0.015, mat('metalGrey'), 0, 0.18, 0, radio);
+    handle.name = 'radioHandle';
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.3, 6), mat('metalGrey'));
+    antenna.position.set(0.13, 0.3, -0.03);
+    antenna.rotation.z = -0.35;
+    radio.add(antenna);
+    anchors.radio = {
+      group: radio,
+      knob,
+      speaker: grille,
+      turnOn() { dial.material = theme.unlit('radioDialOn'); },
+      // Where someone stands to reach it, and which way they face (towards the wall, +x)
+      standSpot: new THREE.Vector3(tx - 0.6, 0, tz),
+      faceYaw: Math.PI / 2,
+    };
   }
 
   // ---------- potted plants (dynamic pots) ----------

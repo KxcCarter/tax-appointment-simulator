@@ -67,6 +67,10 @@ export const palette = {
   watchStrap: 0x3b2a1a,
   watchFace: 0xd9c27a,
   briefcase: 0x5a3a22,
+  radioCase: 0x7a5232,          // wood-grain plastic
+  radioGrille: 0x2b2a26,
+  radioDialOff: 0x5a5440,
+  radioDialOn: 0xffc870,         // warm glow once it's on
   briefcaseLatch: 0xc8a54a,
   mouthDark: 0x4a2222,           // neutral base under textures
 

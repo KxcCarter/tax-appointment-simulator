@@ -18,6 +18,9 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 /** Animations the receptionist understands (characters/receptionist.js). */
 export type ReceptionistAnim = 'lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard';
 
+/** Animations a waiting NPC understands (characters/npc.js): turn to the player / go back to fidgeting. */
+export type NpcAnim = 'attend' | 'resume';
+
 /** Expression presets (config.characters.expressions). */
 export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased';
 
@@ -28,7 +31,7 @@ export type SoundName =
 
 export type Action =
   | { do: 'say'; who: string; text: Live<string> }
-  | { do: 'anim'; who: string; name: ReceptionistAnim; duration?: number }
+  | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number }
   | { do: 'wait'; seconds: Seconds }
   | { do: 'setPhase'; phase: Phase }
   | { do: 'set'; key: keyof GameState; value: unknown }
@@ -88,4 +91,7 @@ export interface Scene {
   /** Action lists the game starts itself with director.play(name). */
   sequences?: Record<string, Action[]>;
   beats: Beat[];
+  /** Walking away mid-conversation (E) sends the scene back to `start` and runs onLeave. */
+  resetOnLeave?: boolean;
+  onLeave?: Action[];
 }

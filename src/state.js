@@ -13,6 +13,8 @@ export const state = {
   clipboardOffered: false, // on time: she slid the check-in sheet over
   waitElapsed: 0,          // seconds spent in the waiting phase
   called: false,           // the receptionist called the player's number
+  playTime: 0,             // seconds of play (pauses don't count)
+  radioOn: false,
   clockTime:               // seconds since midnight (12h face)
     config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond,
 

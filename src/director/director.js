@@ -42,7 +42,9 @@
 const pick = (v) => (Array.isArray(v) ? v[0] + Math.random() * (v[1] - v[0]) : v ?? 0);
 
 export class Director {
-  constructor({ data, state, ui, sfx, actors, player, config, onEvent }) {
+  constructor({ data, state, ui, sfx, actors, player, config, onEvent, isBlocked }) {
+    // isBlocked(): true while another conversation owns the dialogue box (one at a time)
+    this.isBlocked = isBlocked ?? (() => false);
     this.data = data;
     this.state = state;
     this.ui = ui;
@@ -63,6 +65,11 @@ export class Director {
 
   get current() {
     return this.beats.get(this.currentId) ?? null;
+  }
+
+  /** A line is playing or choices are open. */
+  get active() {
+    return this.busy || this.choosing;
   }
 
   /** Seconds until the next attempt unlocks (0 = open). */
@@ -106,7 +113,7 @@ export class Director {
     const isTarget = beat && beat.trigger?.type === 'interact' && beat.trigger.target === target;
     // After the last beat, the target stays "handled" (nothing happens) rather than falling through
     if (!isTarget) return this.data.targets?.includes(target) ?? false;
-    if (this.busy || this.choosing) return true;
+    if (this.busy || this.choosing || this.isBlocked()) return true;
     this.openChoices(beat);
     return true;
   }
@@ -140,6 +147,11 @@ export class Director {
       onCancel: () => {
         this.choosing = false;
         this.player.block('dialogue', false);
+        // Walking away mid-conversation: start over next time (data.resetOnLeave)
+        if (this.data.resetOnLeave) {
+          this.moveTo(this.data.start, 0);
+          this.runActions(this.data.onLeave ?? []);
+        }
       },
     });
     return true;
@@ -173,7 +185,7 @@ export class Director {
     const list = this.data.sequences?.[name];
     if (!list) return console.warn('Director: no sequence', name);
     this.pendingSequence = name;
-    while (this.busy || this.choosing) await this.wait(0.2);
+    while (this.busy || this.choosing || this.isBlocked()) await this.wait(0.2);
     this.busy = true;
     try {
       await this.runActions(list);

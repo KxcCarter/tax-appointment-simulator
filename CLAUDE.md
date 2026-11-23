@@ -50,8 +50,9 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - The player can sit in an empty chair (interact to sit and stand) or wander around.
 - **The wait counts no matter what** the player does (sitting, standing, wandering) (decided by the owner).
 - **Placeholder for content not yet designed:** the time between taking a number and being called. For the first draft, use a configurable wait (default about 60 s) with small ambient beats: NPC idle animations, a sigh, someone checking their watch, someone coughing too often, the clock ticking. **The clock always runs in real time** (decided by the owner).
-- **The waiting people (first draft, Milestone 3):** each has one idle personality: the **cougher** (coughs too often), the **watch-checker** (checks his watch, then the clock, sighs; has a briefcase), the **reader** (reads a magazine, turns pages), the **leg-jiggler** (arms crossed, knee bouncing, long exhales at the ceiling), and the **sitter** (barely moves, shifts occasionally). All glance at the clock now and then. Their eyes (not heads) follow the player up close; everyone looks over when the player takes a ticket; sitting right next to someone makes them lean away. They can't be talked to (their dialogue is still to be designed by the owner).
+- **The waiting people (first draft, Milestone 3):** each has one idle personality: the **cougher** (coughs too often), the **watch-checker** (checks his watch, then the clock, sighs; has a briefcase), the **reader** (reads a magazine, turns pages), the **leg-jiggler** (arms crossed, knee bouncing, long exhales at the ceiling), and the **sitter** (barely moves, shifts occasionally). All glance at the clock now and then. Their eyes (not heads) follow the player up close; everyone looks over when the player takes a ticket; sitting right next to someone makes them lean away. **Small talk (designed by the owner):** the player can talk to each of them: "Hello."/"Excuse me." → their greeting ("Hello." / "Hi." / "Hey.") → "What time is your appointment?" → "I don't have an appointment." / "My appointment is at 3:00." / "...at 5:30." → "Okay, thank you." (ends) or "How long have you been waiting?" → people without an appointment answer anything from an hour to since yesterday. Lines live in `src/data/npcConversations.ts`. While talking they turn to the player and stop fidgeting. Only one conversation runs at a time (the receptionist's call waits for it). After the call, nobody talks to the player.
 - **At the call** the Now Serving display chimes and jumps to the ticket number, and all five heads turn to the player one by one and stay there, annoyed. That's where the brawl (Milestone 4) takes over. If the player is mid-conversation with the receptionist, the call waits for the current line to finish, then ends the exchange.
+- **The radio (owner's request):** after exactly 2 minutes of play (pauses don't count; `config.radio.at`), one of the waiting people (the reader, `config.radio.who`) gets up, walks to a small radio on the side table, turns it on and sits back down. It plays `look_to_the_sky.wav` (supplied by the owner, in `public/audio/`) very, very softly, slightly tinny, on repeat, until the player can leave for the accountant (`doorOpen`). It keeps playing through the brawl.
 - When the wait is over, the receptionist calls the player: *(proposal)* "Eight hundred forty-seven. He'll see you now." The Now Serving display jumps to 847.
 
 ### 2.4 The brawl
@@ -70,7 +71,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - **Three.js** for rendering.
 - **Rapier** (`@dimforge/rapier3d-compat`, which embeds the WASM so no separate file is needed) for physics, player movement and ragdolls.
 - **Vite** dev server and bundler, plain JavaScript (ES modules). **Exception (owner's decision): scene data is TypeScript** (`src/data/waitingRoomBeats.ts`, types in `src/director/types.ts`); `npm run typecheck` checks it. Vite runs .ts directly.
-- **No external art or sound assets in the first draft.** All geometry is built from primitives in code, and all sounds are synthesized with the Web Audio API (clock tick, mouse clicks, punches, thuds, voice blips).
+- **No external art or sound assets in the first draft**, with one exception chosen by the owner: the radio song `public/audio/look_to_the_sky.wav`. All geometry is built from primitives in code, and all sounds are synthesized with the Web Audio API (clock tick, mouse clicks, punches, thuds, voice blips).
 - **Fallback if npm installs are unavailable in the session:** build a single HTML file that loads Three.js and Rapier from a CDN via an import map. Same architecture, fewer files.
 
 ### 3.2 Visual style
@@ -179,7 +180,9 @@ income-tax-sim/
 │  │  ├─ director.js        # beat runner
 │  │  └─ types.ts           # types for scene data (beats, options, actions)
 │  ├─ data/
-│  │  └─ waitingRoomBeats.ts
+│  │  ├─ waitingRoomBeats.ts
+│  │  ├─ waitingRoomCast.js
+│  │  └─ npcConversations.ts
 │  ├─ audio/
 │  │  └─ sfx.js             # Web Audio synthesis
 │  ├─ util/

@@ -89,6 +89,8 @@ async function boot() {
   await initRapier();
   physics = new Physics();
   player = new PlayerController(physics, camera);
+  // Debug: ?radio=10 makes the radio come on after 10 s instead of config.radio.at
+  if (params.get('radio')) config.radio.at = Number(params.get('radio'));
   level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait: params.has('fastwait') });
   scene.add(camera);
 

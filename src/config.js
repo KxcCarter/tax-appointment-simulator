@@ -108,6 +108,22 @@ export const config = {
     exhale: { every: [10, 18], duration: 2.2 },
     shift: { every: [15, 26], duration: 1.2 },
     calledLookDelay: [0.2, 0.9],  // after the call, each head turns to the player after a moment
+    // Getting up, walking and sitting back down (the radio errand; the brawl reuses it)
+    walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55 },
+  },
+
+  // ---- The radio (owner's request) ----
+  radio: {
+    at: 120,                    // seconds of play (pauses don't count) before someone turns it on
+    who: 'reader',              // which waiting person gets up (id from src/data/waitingRoomCast.js)
+    file: 'audio/look_to_the_sky.wav', // in public/; loops until the accountant's door opens
+    volume: 0.05,               // very, very soft
+    refDistance: 6,             // positional, but nearly the same volume anywhere in the room
+    rolloff: 0.25,
+    tinny: true,                // band-limit it like a small radio speaker
+    highpass: 180,
+    lowpass: 3600,
+    stopAtPhase: 'doorOpen',    // stops when the player can leave for the accountant
   },
 
   interaction: {

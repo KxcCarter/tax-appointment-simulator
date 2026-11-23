@@ -280,6 +280,67 @@ export class Sfx {
     this._tone(t + 0.45, 1.2, out, 'triangle', 622, 0.6, 0.005);
   }
 
+  /** A plastic rotary switch, then a moment of warm-up static. */
+  radioClick(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.4, position, { refDistance: 1.2, rolloff: 1 });
+    this._noise(t, 0.015, out, 'highpass', 2500, 1, 0.9, 0.0005);
+    this._tone(t, 0.02, out, 'square', 900, 0.2, 0.001, 600);
+    this._noise(t + 0.05, 0.5, out, 'bandpass', 2200, 0.8, 0.08, 0.05);
+  }
+
+  // ---------------------------------------------------------------- music (the radio)
+
+  /** Fetch and decode an audio file from public/. Resolves to null (with a warning) if it isn't there. */
+  async loadAudio(url) {
+    if (!this.ctx) return null;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await this.ctx.decodeAudioData(await res.arrayBuffer());
+    } catch (err) {
+      console.warn(`Audio file not loaded (${url}): ${err.message}. Put it in public/ to hear it.`);
+      return null;
+    }
+  }
+
+  /**
+   * Loop a decoded buffer from a point in the room, optionally band-limited like a small speaker.
+   * Returns { stop() }.
+   */
+  playLoop(buffer, position, { volume, refDistance, rolloff, tinny, highpass, lowpass }) {
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    const out = this._out(volume, position, { refDistance, rolloff });
+    let chain = src;
+    if (tinny) {
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = highpass;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = lowpass;
+      chain = chain.connect(hp).connect(lp);
+    }
+    chain.connect(out);
+    // Fade in, as a radio warming up
+    const t = this.ctx.currentTime;
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(volume, t + 1.5);
+    src.start();
+    return {
+      stop: () => {
+        const now = this.ctx.currentTime;
+        out.gain.cancelScheduledValues(now);
+        out.gain.setValueAtTime(out.gain.value, now);
+        out.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        src.stop(now + 0.85);
+      },
+    };
+  }
+
   ticketTear(position = null) {
     if (!this.ctx) return;
     const c = this.ctx;
