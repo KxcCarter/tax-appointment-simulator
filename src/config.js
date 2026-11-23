@@ -2,23 +2,12 @@
 // Units: metres, seconds, radians unless noted.
 
 export const config = {
+  // Look-related settings (colours, materials, lighting) live in theme.js, not here.
   render: {
     fov: 70,
     near: 0.05,
     far: 60,
-    materialStyle: 'lambert', // 'lambert' | 'toon' (3-step gradient)
     maxPixelRatio: 2,         // cap for high-DPI screens (performance)
-    background: 0x1a1612,
-  },
-
-  lighting: {
-    hemiSky: 0xf0ffe4,        // faintly green fluorescent
-    hemiGround: 0x5a4632,     // brown carpet bounce
-    hemiIntensity: 1.6,
-    ambientIntensity: 0.35,
-    panelColor: 0xe6ffd8,
-    panelLightIntensity: 4.0,
-    panelLightDistance: 9,
   },
 
   physics: {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mat, basic, PALETTE } from './materials.js';
+import { theme } from '../theme.js';
 
 /**
  * Wall-mounted "NOW SERVING" LED display. Local +z faces out of the wall.
@@ -10,7 +10,7 @@ export function createNowServing(initial) {
   group.name = 'nowServing';
 
   const W = 0.9, H = 0.42;
-  const housing = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.08), mat(PALETTE.black));
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.08), theme.material('black'));
   housing.position.z = 0.04;
   group.add(housing);
 
@@ -18,19 +18,17 @@ export function createNowServing(initial) {
   canvas.width = 192;
   canvas.height = 90;
   const ctx = canvas.getContext('2d');
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.minFilter = THREE.LinearFilter;
+  const tex = theme.prepareTexture(new THREE.CanvasTexture(canvas));
 
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.06, H - 0.06), basic(0xffffff, { map: tex }));
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.06, H - 0.06), theme.textured(tex));
   screen.position.z = 0.081;
   group.add(screen);
 
   function setNumber(n) {
     const w = canvas.width, h = canvas.height;
-    ctx.fillStyle = '#140504';
+    ctx.fillStyle = theme.css('ledBackground');
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#d8c9a3';
+    ctx.fillStyle = theme.css('ledLabel');
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -38,9 +36,9 @@ export function createNowServing(initial) {
     // Unlit LED segments: ghosted 888 behind the number
     ctx.font = 'bold 54px monospace';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#3a0e0a';
+    ctx.fillStyle = theme.css('ledGhost');
     ctx.fillText('888', w / 2, 80);
-    ctx.fillStyle = '#ff3a22';
+    ctx.fillStyle = theme.css('ledRed');
     ctx.fillText(String(n).padStart(3, ' '), w / 2, 80);
     tex.needsUpdate = true;
   }

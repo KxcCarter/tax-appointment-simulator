@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
-import { mat, basic, canvasTexture, seeded, hex, PALETTE as P } from './materials.js';
+import { theme } from '../theme.js';
+import { seeded } from '../util/random.js';
+
+const mat = (name, opts) => theme.material(name, opts);
 import { createClock } from './clock.js';
 import { createNowServing } from './nowServing.js';
 
@@ -43,40 +46,40 @@ export function buildWaitingRoom(scene, physics) {
     physics.addStaticBox({ x: cx, y: cy, z: cz }, { x: hx, y: hy, z: hz }, yaw);
 
   // ---------- floor, ceiling, walls ----------
-  const carpetTex = canvasTexture(64, 64, (g, w, h) => {
+  const carpetTex = theme.canvasTexture(64, 64, (g, w, h) => {
     const rnd = seeded(7);
-    g.fillStyle = hex(P.carpet);
+    g.fillStyle = theme.css('carpet');
     g.fillRect(0, 0, w, h);
     for (let i = 0; i < 900; i++) {
       const v = rnd();
-      g.fillStyle = v < 0.5 ? '#4e3727' : v < 0.85 ? '#6a4c37' : '#7a5a40';
+      g.fillStyle = v < 0.5 ? theme.css('carpetFleckDark') : v < 0.85 ? theme.css('carpetFleckMid') : theme.css('carpetFleckLight');
       g.fillRect(Math.floor(rnd() * w), Math.floor(rnd() * h), 1, 1);
     }
   }, { repeat: [W / 1.2, D / 1.2] });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat(0xffffff, { map: carpetTex }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), theme.textured(carpetTex, { lit: true }));
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
   staticBox(0, -0.25, 0, hw + 1, 0.25, hd + 1);
 
-  const ceilTex = canvasTexture(32, 32, (g, w, h) => {
-    g.fillStyle = hex(P.ceiling);
+  const ceilTex = theme.canvasTexture(32, 32, (g, w, h) => {
+    g.fillStyle = theme.css('ceilingTile');
     g.fillRect(0, 0, w, h);
     const rnd = seeded(3);
-    g.fillStyle = '#d4cdb8';
+    g.fillStyle = theme.css('ceilingSpeck');
     for (let i = 0; i < 40; i++) g.fillRect(Math.floor(rnd() * w), Math.floor(rnd() * h), 1, 1);
-    g.fillStyle = '#b9b4a2';
+    g.fillStyle = theme.css('ceilingGrid');
     g.fillRect(0, 0, w, 1);
     g.fillRect(0, 0, 1, h);
   }, { repeat: [W / 0.6, D / 0.6] });
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat(0xffffff, { map: ceilTex }));
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W, D), theme.textured(ceilTex, { lit: true }));
   ceiling.rotation.x = Math.PI / 2;
   ceiling.position.y = H;
   scene.add(ceiling);
 
-  const wallMat = mat(P.wallBeige);
-  const wainscotMat = mat(P.mint);
-  const railMat = mat(P.woodDark);
-  const baseMat = mat(P.woodDark);
+  const wallMat = mat('wallBeige');
+  const wainscotMat = mat('wainscotMint');
+  const railMat = mat('woodDark');
+  const baseMat = mat('woodDark');
   const T = 0.2; // wall thickness
 
   // Each wall: [centre x, centre z, length, yaw of inward normal]
@@ -100,19 +103,13 @@ export function buildWaitingRoom(scene, physics) {
     p = off(0.02); box(alongX ? inner : 0.03, 0.1, alongX ? 0.03 : inner, baseMat, p.x, 0.05, p.z);
   }
 
-  // ---------- lighting ----------
-  const L = config.lighting;
-  scene.add(new THREE.HemisphereLight(L.hemiSky, L.hemiGround, L.hemiIntensity));
-  scene.add(new THREE.AmbientLight(0xffffff, L.ambientIntensity));
-  const panelMat = basic(L.panelColor);
-  const panelFrameMat = mat(P.metalGrey);
-  for (const [px, pz] of [[-3, -2.5], [3, -2.5], [-3, 2], [3, 2]]) {
-    box(1.3, 0.04, 0.7, panelFrameMat, px, H - 0.02, pz);
-    box(1.2, 0.02, 0.6, panelMat, px, H - 0.045, pz);
-    const light = new THREE.PointLight(L.panelColor, L.panelLightIntensity, L.panelLightDistance, 1.2);
-    light.position.set(px, H - 0.3, pz);
-    scene.add(light);
+  // ---------- light fixtures (the theme decides what light they emit) ----------
+  const fixtures = [{ x: -3, z: -2.5 }, { x: 3, z: -2.5 }, { x: -3, z: 2 }, { x: 3, z: 2 }];
+  for (const f of fixtures) {
+    box(1.3, 0.04, 0.7, mat('metalGrey'), f.x, H - 0.02, f.z);
+    box(1.2, 0.02, 0.6, theme.unlit('lightPanel'), f.x, H - 0.045, f.z);
   }
+  theme.setupLighting(scene, { ceilingFixtures: fixtures, ceilingHeight: H });
 
   // ---------- entrance door (south wall, behind the player) ----------
   {
@@ -120,15 +117,15 @@ export function buildWaitingRoom(scene, physics) {
     g.position.set(0, 0, hd - 0.01);
     g.rotation.y = Math.PI; // faces -z, into the room
     scene.add(g);
-    box(1.2, 2.25, 0.06, mat(P.woodDark), 0, 1.125, 0.0, g);
-    box(1.0, 2.1, 0.05, mat(P.doorWood), 0, 1.05, 0.03, g);
+    box(1.2, 2.25, 0.06, mat('woodDark'), 0, 1.125, 0.0, g);
+    box(1.0, 2.1, 0.05, mat('doorWood'), 0, 1.05, 0.03, g);
     // Frosted glass with the office name, mirrored because we see it from inside
-    const glassTex = canvasTexture(128, 160, (c, w, h) => {
-      c.fillStyle = '#b9c8c0';
+    const glassTex = theme.canvasTexture(128, 160, (c, w, h) => {
+      c.fillStyle = theme.css('frostedGlass');
       c.fillRect(0, 0, w, h);
       c.save();
       c.scale(-1, 1);
-      c.fillStyle = '#2b2a26';
+      c.fillStyle = theme.css('inkDark');
       c.textAlign = 'center';
       c.font = 'bold 13px monospace';
       c.fillText('TAX', -w / 2, 40);
@@ -139,24 +136,24 @@ export function buildWaitingRoom(scene, physics) {
       c.fillText('BY APPOINTMENT', -w / 2, 124);
       c.restore();
     });
-    box(0.7, 0.9, 0.02, basic(0xffffff, { map: glassTex }), 0, 1.45, 0.06, g);
-    const handle = cyl(0.025, 0.025, 0.14, mat(P.metalGrey), 0.38, 1.0, 0.09, g);
+    box(0.7, 0.9, 0.02, theme.textured(glassTex), 0, 1.45, 0.06, g);
+    const handle = cyl(0.025, 0.025, 0.14, mat('metalGrey'), 0.38, 1.0, 0.09, g);
     handle.rotation.x = Math.PI / 2;
     // Floor mat
-    const doormat = box(1.2, 0.01, 0.7, mat(0x3d3a33), 0, 0.005, hd - 0.5);
+    const doormat = box(1.2, 0.01, 0.7, mat('doormat'), 0, 0.005, hd - 0.5);
     doormat.name = 'doormat';
   }
 
   // ---------- reception desk (north-west) ----------
   {
-    const veneer = mat(P.woodVeneer);
-    const veneerDark = mat(P.woodDark);
+    const veneer = mat('woodVeneer');
+    const veneerDark = mat('woodDark');
     const x0 = -4.6, x1 = -1.0, cx = (x0 + x1) / 2, dw = x1 - x0;
     // Front panel + transaction ledge
     box(dw, 1.1, 0.1, veneer, cx, 0.55, -2.78);
     box(dw + 0.06, 0.04, 0.34, veneerDark, cx, 1.12, -2.86);
     // Kick plate
-    box(dw, 0.08, 0.02, mat(P.black), cx, 0.04, -2.72);
+    box(dw, 0.08, 0.02, mat('black'), cx, 0.04, -2.72);
     // Vertical veneer strips on the front for that 1987 look
     for (let x = x0 + 0.3; x < x1 - 0.1; x += 0.6) box(0.03, 1.0, 0.01, veneerDark, x, 0.55, -2.725);
     // Work surface behind
@@ -169,13 +166,13 @@ export function buildWaitingRoom(scene, physics) {
     staticBox(-1.3, 0.4, -4.12, 0.3, 0.4, 0.48);
 
     // Nameplate on the ledge
-    const plateTex = canvasTexture(128, 24, (c, w, h) => {
-      c.fillStyle = '#2b2416'; c.fillRect(0, 0, w, h);
-      c.fillStyle = '#d9c27a'; c.font = 'bold 14px monospace';
+    const plateTex = theme.canvasTexture(128, 24, (c, w, h) => {
+      c.fillStyle = theme.css('nameplate'); c.fillRect(0, 0, w, h);
+      c.fillStyle = theme.css('nameplateText'); c.font = 'bold 14px monospace';
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('RECEPTION', w / 2, h / 2 + 1);
     });
-    const plate = box(0.4, 0.075, 0.02, basic(0xffffff, { map: plateTex }), -3.6, 1.18, -2.72);
+    const plate = box(0.4, 0.075, 0.02, theme.textured(plateTex), -3.6, 1.18, -2.72);
     plate.rotation.x = -0.35;
 
     // CRT computer, facing the receptionist (screen towards -z)
@@ -183,32 +180,32 @@ export function buildWaitingRoom(scene, physics) {
     crt.position.set(-2.7, 0.76, -3.25);
     crt.rotation.y = Math.PI + 0.25;
     scene.add(crt);
-    box(0.26, 0.06, 0.24, mat(P.crtBeige), 0, 0.03, 0, crt);           // base
-    box(0.44, 0.38, 0.38, mat(P.crtBeige), 0, 0.25, 0, crt);           // tube housing
-    box(0.32, 0.26, 0.18, mat(P.crtBeige), 0, 0.24, -0.27, crt);       // back bulge
-    const solitaireTex = canvasTexture(64, 48, (c, w, h) => {
-      c.fillStyle = '#0d7a3a'; c.fillRect(0, 0, w, h);
+    box(0.26, 0.06, 0.24, mat('crtBeige'), 0, 0.03, 0, crt);           // base
+    box(0.44, 0.38, 0.38, mat('crtBeige'), 0, 0.25, 0, crt);           // tube housing
+    box(0.32, 0.26, 0.18, mat('crtBeige'), 0, 0.24, -0.27, crt);       // back bulge
+    const solitaireTex = theme.canvasTexture(64, 48, (c, w, h) => {
+      c.fillStyle = theme.css('feltGreen'); c.fillRect(0, 0, w, h);
       const rnd = seeded(11);
       for (let col = 0; col < 7; col++) {
         for (let r = 0; r <= col; r++) {
           const faceUp = r === col;
-          c.fillStyle = faceUp ? '#f4f1e8' : '#2246a8';
+          c.fillStyle = faceUp ? theme.css('cardFace') : theme.css('cardBack');
           c.fillRect(3 + col * 8.5, 14 + r * 3, 7, 9);
-          if (faceUp) { c.fillStyle = rnd() > 0.5 ? '#c02020' : '#111'; c.fillRect(4 + col * 8.5, 15 + r * 3, 2, 2); }
+          if (faceUp) { c.fillStyle = rnd() > 0.5 ? theme.css('cardRed') : theme.css('cardBlack'); c.fillRect(4 + col * 8.5, 15 + r * 3, 2, 2); }
         }
       }
-      for (let i = 0; i < 4; i++) { c.strokeStyle = '#3fae6a'; c.strokeRect(33 + i * 7.5, 2.5, 6, 9); }
-      c.fillStyle = '#2246a8'; c.fillRect(3, 2, 7, 9);
+      for (let i = 0; i < 4; i++) { c.strokeStyle = theme.css('feltOutline'); c.strokeRect(33 + i * 7.5, 2.5, 6, 9); }
+      c.fillStyle = theme.css('cardBack'); c.fillRect(3, 2, 7, 9);
     });
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), basic(0xffffff, { map: solitaireTex }));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), theme.textured(solitaireTex));
     screen.position.set(0, 0.26, 0.191);
     crt.add(screen);
     anchors.crt = crt;
 
     // Keyboard and mouse (in front of the receptionist)
-    const kbTex = canvasTexture(64, 24, (c, w, h) => {
-      c.fillStyle = hex(P.crtBeige); c.fillRect(0, 0, w, h);
-      c.fillStyle = '#a99f84';
+    const kbTex = theme.canvasTexture(64, 24, (c, w, h) => {
+      c.fillStyle = theme.css('crtBeige'); c.fillRect(0, 0, w, h);
+      c.fillStyle = theme.css('keycap');
       for (let r = 0; r < 5; r++) for (let k = 0; k < 15; k++) c.fillRect(2 + k * 4, 2 + r * 4, 3, 3);
       c.fillRect(14, 22, 30, 1);
     });
@@ -216,61 +213,61 @@ export function buildWaitingRoom(scene, physics) {
     keyboard.position.set(-2.65, 0.775, -3.55);
     keyboard.rotation.y = Math.PI + 0.1;
     scene.add(keyboard);
-    box(0.46, 0.03, 0.17, mat(P.crtBeige), 0, 0, 0, keyboard);
-    const keys = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.15), mat(0xffffff, { map: kbTex }));
+    box(0.46, 0.03, 0.17, mat('crtBeige'), 0, 0, 0, keyboard);
+    const keys = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.15), theme.textured(kbTex, { lit: true }));
     keys.rotation.x = -Math.PI / 2;
     keys.position.y = 0.016;
     keyboard.add(keys);
     anchors.keyboard = keyboard;
 
-    box(0.22, 0.005, 0.18, mat(0x2d4a6a), -2.15, 0.763, -3.6); // mousepad
-    const mouse = box(0.06, 0.03, 0.1, mat(P.crtBeige), -2.15, 0.78, -3.6);
+    box(0.22, 0.005, 0.18, mat('mousepad'), -2.15, 0.763, -3.6); // mousepad
+    const mouse = box(0.06, 0.03, 0.1, mat('crtBeige'), -2.15, 0.78, -3.6);
     anchors.mouse = mouse;
 
     // Desk clutter
-    box(0.22, 0.04, 0.3, mat(P.white), -3.9, 0.78, -3.3).rotation.y = 0.2;     // papers
-    box(0.22, 0.03, 0.3, mat(0xe9e2c8), -3.88, 0.81, -3.28).rotation.y = 0.1;
-    box(0.3, 0.08, 0.36, mat(P.black), -4.3, 0.8, -3.35);                        // in-tray
-    cyl(0.04, 0.04, 0.1, mat(0xa83a2a), -1.7, 0.81, -3.4);                       // mug
-    box(0.2, 0.07, 0.22, mat(0x2b2b2b), -1.35, 0.79, -3.9);                      // desk phone
+    box(0.22, 0.04, 0.3, mat('paperWhite'), -3.9, 0.78, -3.3).rotation.y = 0.2;     // papers
+    box(0.22, 0.03, 0.3, mat('paperCream'), -3.88, 0.81, -3.28).rotation.y = 0.1;
+    box(0.3, 0.08, 0.36, mat('black'), -4.3, 0.8, -3.35);                        // in-tray
+    cyl(0.04, 0.04, 0.1, mat('mug'), -1.7, 0.81, -3.4);                       // mug
+    box(0.2, 0.07, 0.22, mat('deskPhone'), -1.35, 0.79, -3.9);                      // desk phone
 
     // Receptionist's office chair
     const oc = new THREE.Group();
     oc.position.set(-2.6, 0, -4.2);
     scene.add(oc);
-    cyl(0.25, 0.25, 0.03, mat(P.black), 0, 0.05, 0, oc, 5);
-    cyl(0.03, 0.03, 0.38, mat(P.metalGrey), 0, 0.24, 0, oc);
-    box(0.48, 0.08, 0.46, mat(0x4a5a7a), 0, 0.46, 0, oc);
-    box(0.44, 0.5, 0.06, mat(0x4a5a7a), 0, 0.82, -0.24, oc);
+    cyl(0.25, 0.25, 0.03, mat('black'), 0, 0.05, 0, oc, 5);
+    cyl(0.03, 0.03, 0.38, mat('metalGrey'), 0, 0.24, 0, oc);
+    box(0.48, 0.08, 0.46, mat('officeChairFabric'), 0, 0.46, 0, oc);
+    box(0.44, 0.5, 0.06, mat('officeChairFabric'), 0, 0.82, -0.24, oc);
     anchors.receptionistSeat = oc;
 
     // Ticket dispenser on the ledge, east end
     const disp = new THREE.Group();
     disp.position.set(-1.35, 1.14, -2.86);
     scene.add(disp);
-    cyl(0.02, 0.02, 0.12, mat(P.metalGrey), 0, 0.06, 0, disp);
-    const dBody = cyl(0.08, 0.08, 0.16, mat(P.dispenserRed), 0, 0.2, 0, disp, 16);
+    cyl(0.02, 0.02, 0.12, mat('metalGrey'), 0, 0.06, 0, disp);
+    const dBody = cyl(0.08, 0.08, 0.16, mat('dispenserRed'), 0, 0.2, 0, disp, 16);
     dBody.rotation.x = Math.PI / 2;
-    box(0.06, 0.004, 0.06, mat(P.white), 0, 0.2, 0.1, disp).rotation.x = -0.3; // ticket tongue
-    const signTex = canvasTexture(96, 32, (c, w, h) => {
-      c.fillStyle = '#f4f1e8'; c.fillRect(0, 0, w, h);
-      c.fillStyle = '#b5332b'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
+    box(0.06, 0.004, 0.06, mat('paperWhite'), 0, 0.2, 0.1, disp).rotation.x = -0.3; // ticket tongue
+    const signTex = theme.canvasTexture(96, 32, (c, w, h) => {
+      c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+      c.fillStyle = theme.css('inkRed'); c.font = 'bold 11px monospace'; c.textAlign = 'center';
       c.fillText('PLEASE TAKE', w / 2, 13); c.fillText('A NUMBER', w / 2, 26);
     });
-    box(0.18, 0.06, 0.005, basic(0xffffff, { map: signTex }), 0, 0.33, 0.0, disp);
+    box(0.18, 0.06, 0.005, theme.textured(signTex), 0, 0.33, 0.0, disp);
     anchors.ticketDispenser = disp;
 
     // Filing cabinets closing the gap between the desk and the west wall
     for (let i = 0; i < 3; i++) {
       const fx = -5.75 + i * 0.47;
-      box(0.45, 1.3, 0.6, mat(0xb8b19a), fx, 0.65, -3.2);
-      for (let d = 0; d < 3; d++) box(0.18, 0.03, 0.02, mat(P.metalGrey), fx, 1.1 - d * 0.4, -2.89);
+      box(0.45, 1.3, 0.6, mat('filingCabinet'), fx, 0.65, -3.2);
+      for (let d = 0; d < 3; d++) box(0.18, 0.03, 0.02, mat('metalGrey'), fx, 1.1 - d * 0.4, -2.89);
     }
     staticBox(-5.3, 0.65, -3.2, 0.72, 0.65, 0.3);
     // A dying spider plant on top
-    cyl(0.1, 0.08, 0.14, mat(P.terracotta), -5.3, 1.37, -3.2);
+    cyl(0.1, 0.08, 0.14, mat('terracotta'), -5.3, 1.37, -3.2);
     for (let i = 0; i < 6; i++) {
-      const leaf = box(0.02, 0.22, 0.02, mat(0x8a8f3a), -5.3, 1.48, -3.2);
+      const leaf = box(0.02, 0.22, 0.02, mat('plantDying'), -5.3, 1.48, -3.2);
       leaf.rotation.set(Math.cos(i) * 0.9, 0, Math.sin(i * 1.7) * 0.9);
     }
   }
@@ -289,28 +286,28 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- accountant door (north wall, east) ----------
   {
     const doorX = 3.6;
-    box(1.2, 2.25, 0.06, mat(P.woodDark), doorX, 1.125, -hd + 0.03);
+    box(1.2, 2.25, 0.06, mat('woodDark'), doorX, 1.125, -hd + 0.03);
     const pivot = new THREE.Group(); // hinge on the west edge, swings later
     pivot.position.set(doorX - 0.5, 0, -hd + 0.06);
     scene.add(pivot);
-    box(1.0, 2.1, 0.05, mat(P.doorWood), 0.5, 1.05, 0, pivot);
-    for (const py of [0.55, 1.55]) box(0.8, 0.7, 0.01, mat(0x6e4a2a), 0.5, py, 0.03, pivot); // panels
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), mat(0xc8a54a));
+    box(1.0, 2.1, 0.05, mat('doorWood'), 0.5, 1.05, 0, pivot);
+    for (const py of [0.55, 1.55]) box(0.8, 0.7, 0.01, mat('doorPanel'), 0.5, py, 0.03, pivot); // panels
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), mat('brassKnob'));
     knob.position.set(0.88, 1.0, 0.07);
     pivot.add(knob);
-    const plaqueTex = canvasTexture(160, 40, (c, w, h) => {
-      c.fillStyle = '#c8a54a'; c.fillRect(0, 0, w, h);
-      c.strokeStyle = '#6b5420'; c.lineWidth = 2; c.strokeRect(2, 2, w - 4, h - 4);
-      c.fillStyle = '#2b2010'; c.font = 'bold 16px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const plaqueTex = theme.canvasTexture(160, 40, (c, w, h) => {
+      c.fillStyle = theme.css('brassPlaque'); c.fillRect(0, 0, w, h);
+      c.strokeStyle = theme.css('brassPlaqueEdge'); c.lineWidth = 2; c.strokeRect(2, 2, w - 4, h - 4);
+      c.fillStyle = theme.css('brassPlaqueText'); c.font = 'bold 16px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('ACCOUNTANT – PRIVATE', w / 2, h / 2 + 1);
     });
-    box(0.56, 0.14, 0.01, basic(0xffffff, { map: plaqueTex }), 0.5, 1.62, 0.04, pivot);
+    box(0.56, 0.14, 0.01, theme.textured(plaqueTex), 0.5, 1.62, 0.04, pivot);
     anchors.accountantDoor = { pivot, collider: staticBox(doorX, 1.05, -hd + 0.06, 0.5, 1.05, 0.05) };
   }
 
   // ---------- waiting chairs (dynamic props) ----------
-  const chairMat = mat(P.chairSeat);
-  const frameMat = mat(P.chairFrame);
+  const chairMat = mat('chairVinyl');
+  const frameMat = mat('chairFrame');
   const makeChair = (x, z, yaw) => {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
@@ -338,31 +335,31 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- side table with magazines (east wall) ----------
   {
     const tx = hw - 0.4, tz = 0.45;
-    box(0.5, 0.04, 0.55, mat(P.woodVeneer), tx, 0.5, tz);
+    box(0.5, 0.04, 0.55, mat('woodVeneer'), tx, 0.5, tz);
     for (const [lx, lz] of [[-0.21, -0.23], [0.21, -0.23], [-0.21, 0.23], [0.21, 0.23]]) {
-      box(0.04, 0.48, 0.04, mat(P.woodDark), tx + lx, 0.24, tz + lz);
+      box(0.04, 0.48, 0.04, mat('woodDark'), tx + lx, 0.24, tz + lz);
     }
     staticBox(tx, 0.26, tz, 0.25, 0.26, 0.275);
     const covers = [
-      ['TAX', 'QUARTERLY', '#b5332b'],
-      ['FORMS', 'TODAY', '#2d4a6a'],
-      ['AUDIT', 'LIVING', '#6b7a3a'],
-      ['LEDGER', 'MAR 1987', '#a8822a'],
+      ['TAX', 'QUARTERLY', 'magazineRed'],
+      ['FORMS', 'TODAY', 'magazineBlue'],
+      ['AUDIT', 'LIVING', 'magazineAvocado'],
+      ['LEDGER', 'MAR 1987', 'magazineMustard'],
     ];
     covers.forEach(([a, b, col], i) => {
-      const tex = canvasTexture(42, 56, (c, w, h) => {
-        c.fillStyle = col; c.fillRect(0, 0, w, h);
-        c.fillStyle = '#f4f1e8'; c.font = 'bold 10px monospace'; c.textAlign = 'center';
+      const tex = theme.canvasTexture(42, 56, (c, w, h) => {
+        c.fillStyle = theme.css(col); c.fillRect(0, 0, w, h);
+        c.fillStyle = theme.css('paperWhite'); c.font = 'bold 10px monospace'; c.textAlign = 'center';
         c.fillText(a, w / 2, 14);
         c.font = '7px monospace'; c.fillText(b, w / 2, 24);
-        c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillRect(8, 30, w - 16, 18);
+        c.fillStyle = theme.css('magazineHighlight', 0.35); c.fillRect(8, 30, w - 16, 18);
       });
       const mg = new THREE.Group();
       mg.position.set(tx + (i % 2 ? 0.08 : -0.08), 0.53 + i * 0.012, tz + (i < 2 ? -0.1 : 0.12));
       mg.rotation.y = (i - 1.5) * 0.35;
       scene.add(mg);
       const page = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.01, 0.28), [
-        mat(0xf4f1e8), mat(0xf4f1e8), mat(0xffffff, { map: tex }), mat(0xf4f1e8), mat(0xf4f1e8), mat(0xf4f1e8),
+        mat('paperWhite'), mat('paperWhite'), theme.textured(tex, { lit: true }), mat('paperWhite'), mat('paperWhite'), mat('paperWhite'),
       ]);
       // Cover faces up (+y is material index 2)
       mg.add(page);
@@ -375,12 +372,12 @@ export function buildWaitingRoom(scene, physics) {
     const g = new THREE.Group();
     g.position.set(x, 0.22, z);
     scene.add(g);
-    cyl(0.2, 0.15, 0.44, mat(P.terracotta), 0, 0, 0, g);
-    cyl(0.18, 0.18, 0.02, mat(0x3a2a1c), 0, 0.21, 0, g);
-    const leafMat = mat(P.plantGreen);
+    cyl(0.2, 0.15, 0.44, mat('terracotta'), 0, 0, 0, g);
+    cyl(0.18, 0.18, 0.02, mat('pottingSoil'), 0, 0.21, 0, g);
+    const leafMat = mat('plantGreen');
     const rnd = seeded(tall ? 21 : 5);
     if (tall) {
-      cyl(0.02, 0.025, 1.3, mat(0x5a4022), 0, 0.85, 0, g);
+      cyl(0.02, 0.025, 1.3, mat('plantStem'), 0, 0.85, 0, g);
       for (let i = 0; i < 9; i++) {
         const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), leafMat);
         leaf.scale.set(1, 0.35, 1.8);
@@ -406,20 +403,20 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- water cooler (static base, dynamic bottle) ----------
   {
     const cx = hw - 0.4, cz = -hd + 0.45;
-    box(0.34, 0.95, 0.34, mat(P.white), cx, 0.475, cz);
-    box(0.06, 0.05, 0.04, mat(0x2d6ab0), cx - 0.07, 0.75, cz + 0.18);
-    box(0.06, 0.05, 0.04, mat(0xb5332b), cx + 0.07, 0.75, cz + 0.18);
-    box(0.2, 0.02, 0.1, mat(P.metalGrey), cx, 0.6, cz + 0.2);
+    box(0.34, 0.95, 0.34, mat('coolerWhite'), cx, 0.475, cz);
+    box(0.06, 0.05, 0.04, mat('coolerTapCold'), cx - 0.07, 0.75, cz + 0.18);
+    box(0.06, 0.05, 0.04, mat('coolerTapHot'), cx + 0.07, 0.75, cz + 0.18);
+    box(0.2, 0.02, 0.1, mat('metalGrey'), cx, 0.6, cz + 0.2);
     staticBox(cx, 0.475, cz, 0.17, 0.475, 0.17);
     const bottle = new THREE.Group();
     bottle.position.set(cx, 0.95 + 0.22, cz);
     scene.add(bottle);
-    cyl(0.14, 0.14, 0.4, mat(P.waterBlue, { transparent: true, opacity: 0.75 }), 0, 0.02, 0, bottle);
-    cyl(0.05, 0.13, 0.08, mat(P.waterBlue, { transparent: true, opacity: 0.75 }), 0, -0.2, 0, bottle);
+    cyl(0.14, 0.14, 0.4, mat('waterBlue', { transparent: true, opacity: 0.75 }), 0, 0.02, 0, bottle);
+    cyl(0.05, 0.13, 0.08, mat('waterBlue', { transparent: true, opacity: 0.75 }), 0, -0.2, 0, bottle);
     physics.addDynamic(bottle, [{ type: 'cylinder', halfHeight: 0.22, radius: 0.14 }], { density: 500 });
     anchors.coolerBottle = bottle;
     // Paper cup dispenser on the wall
-    cyl(0.04, 0.04, 0.3, mat(P.white), cx - 0.3, 1.1, -hd + 0.06);
+    cyl(0.04, 0.04, 0.3, mat('paperWhite'), cx - 0.3, 1.1, -hd + 0.06);
   }
 
   // ---------- umbrella stand by the entrance (dynamic) ----------
@@ -427,16 +424,16 @@ export function buildWaitingRoom(scene, physics) {
     const g = new THREE.Group();
     g.position.set(1.0, 0.27, hd - 0.35);
     scene.add(g);
-    cyl(0.13, 0.12, 0.54, mat(0x3f5a4a), 0, 0, 0, g);
-    const umbrellaColors = [0x1b1a18, 0x7a2a3a];
+    cyl(0.13, 0.12, 0.54, mat('umbrellaStand'), 0, 0, 0, g);
+    const umbrellaColors = ['umbrellaBlack', 'umbrellaMaroon'];
     umbrellaColors.forEach((c, i) => {
       const u = new THREE.Group();
       u.position.set(i ? 0.04 : -0.04, 0.2, 0);
       u.rotation.z = i ? -0.12 : 0.1;
       g.add(u);
-      cyl(0.012, 0.012, 0.9, mat(P.metalGrey), 0, 0, 0, u);
+      cyl(0.012, 0.012, 0.9, mat('metalGrey'), 0, 0, 0, u);
       cyl(0.05, 0.02, 0.6, mat(c), 0, 0.05, 0, u, 8);
-      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 10, Math.PI), mat(0x5a4022));
+      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 10, Math.PI), mat('umbrellaHandle'));
       hook.position.set(0.05, 0.45, 0);
       u.add(hook);
     });
@@ -447,44 +444,44 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- coat rack ----------
   {
     const rx = -1.2, rz = hd - 0.3;
-    cyl(0.025, 0.025, 1.8, mat(P.woodDark), rx, 0.9, rz);
-    cyl(0.22, 0.25, 0.04, mat(P.woodDark), rx, 0.02, rz);
+    cyl(0.025, 0.025, 1.8, mat('woodDark'), rx, 0.9, rz);
+    cyl(0.22, 0.25, 0.04, mat('woodDark'), rx, 0.02, rz);
     for (let i = 0; i < 4; i++) {
-      const peg = box(0.02, 0.02, 0.18, mat(P.woodDark), rx, 1.72, rz);
+      const peg = box(0.02, 0.02, 0.18, mat('woodDark'), rx, 1.72, rz);
       peg.rotation.set(0.5, (i * Math.PI) / 2, 0);
     }
-    const coat = box(0.36, 0.7, 0.14, mat(0x6a5a44), rx + 0.05, 1.35, rz - 0.06);
+    const coat = box(0.36, 0.7, 0.14, mat('coat'), rx + 0.05, 1.35, rz - 0.06);
     coat.rotation.z = 0.05;
     staticBox(rx, 0.9, rz, 0.12, 0.9, 0.12);
   }
 
   // ---------- wall decor ----------
   {
-    const posterTex = canvasTexture(96, 128, (c, w, h) => {
-      c.fillStyle = '#1b1a18'; c.fillRect(0, 0, w, h);
-      c.fillStyle = '#5a6a8a'; c.fillRect(8, 8, w - 16, 76);
-      c.fillStyle = '#d8d0bc';
+    const posterTex = theme.canvasTexture(96, 128, (c, w, h) => {
+      c.fillStyle = theme.css('posterBlack'); c.fillRect(0, 0, w, h);
+      c.fillStyle = theme.css('posterSky'); c.fillRect(8, 8, w - 16, 76);
+      c.fillStyle = theme.css('posterMountain');
       c.beginPath(); c.moveTo(14, 84); c.lineTo(44, 30); c.lineTo(60, 56); c.lineTo(70, 44); c.lineTo(88, 84); c.fill();
-      c.fillStyle = '#f4f1e8'; c.font = 'bold 14px monospace'; c.textAlign = 'center';
+      c.fillStyle = theme.css('paperWhite'); c.font = 'bold 14px monospace'; c.textAlign = 'center';
       c.fillText('PATIENCE', w / 2, 104);
       c.font = '7px monospace'; c.fillText('It is not a request.', w / 2, 118);
     });
     // West wall faces +x: BoxGeometry face 0 (+x) carries the poster
-    box(0.02, 0.9, 0.68, mat(P.black), -hw + 0.02, 1.75, -0.4).material = [
-      basic(0xffffff, { map: posterTex }), mat(P.black), mat(P.black), mat(P.black), mat(P.black), mat(P.black),
+    box(0.02, 0.9, 0.68, mat('black'), -hw + 0.02, 1.75, -0.4).material = [
+      theme.textured(posterTex), mat('black'), mat('black'), mat('black'), mat('black'), mat('black'),
     ];
 
-    const certTex = canvasTexture(96, 72, (c, w, h) => {
-      c.fillStyle = '#f2ead0'; c.fillRect(0, 0, w, h);
-      c.strokeStyle = '#a8822a'; c.lineWidth = 3; c.strokeRect(4, 4, w - 8, h - 8);
-      c.fillStyle = '#3a2e1a'; c.font = 'bold 8px monospace'; c.textAlign = 'center';
+    const certTex = theme.canvasTexture(96, 72, (c, w, h) => {
+      c.fillStyle = theme.css('certificatePaper'); c.fillRect(0, 0, w, h);
+      c.strokeStyle = theme.css('certificateGold'); c.lineWidth = 3; c.strokeRect(4, 4, w - 8, h - 8);
+      c.fillStyle = theme.css('certificateInk'); c.font = 'bold 8px monospace'; c.textAlign = 'center';
       c.fillText('CERTIFICATE OF', w / 2, 22); c.fillText('CONTINUED OPERATION', w / 2, 32);
       c.font = '6px monospace'; c.fillText('Awarded 1984', w / 2, 48);
-      c.fillStyle = '#b5332b'; c.beginPath(); c.arc(w - 18, h - 16, 6, 0, Math.PI * 2); c.fill();
+      c.fillStyle = theme.css('inkRed'); c.beginPath(); c.arc(w - 18, h - 16, 6, 0, Math.PI * 2); c.fill();
     });
-    box(0.02, 0.4, 0.52, mat(P.woodDark), hw - 0.015, 1.7, -1.1);
-    box(0.01, 0.34, 0.46, mat(P.woodDark), hw - 0.03, 1.7, -1.1).material = [
-      mat(P.woodDark), basic(0xffffff, { map: certTex }), mat(P.woodDark), mat(P.woodDark), mat(P.woodDark), mat(P.woodDark),
+    box(0.02, 0.4, 0.52, mat('woodDark'), hw - 0.015, 1.7, -1.1);
+    box(0.01, 0.34, 0.46, mat('woodDark'), hw - 0.03, 1.7, -1.1).material = [
+      mat('woodDark'), theme.textured(certTex), mat('woodDark'), mat('woodDark'), mat('woodDark'), mat('woodDark'),
     ];
   }
 

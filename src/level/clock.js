@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mat, basic, canvasTexture, PALETTE } from './materials.js';
+import { theme } from '../theme.js';
 
 /**
  * Wall-mounted analog clock. Local +z faces out of the wall.
@@ -11,20 +11,20 @@ export function createClock({ radius = 0.32 } = {}) {
 
   const rim = new THREE.Mesh(
     new THREE.CylinderGeometry(radius * 1.1, radius * 1.1, 0.06, 32),
-    mat(PALETTE.black)
+    theme.material('black')
   );
   rim.rotation.x = Math.PI / 2;
   rim.position.z = 0.03;
   group.add(rim);
 
-  const faceTex = canvasTexture(256, 256, (g, w, h) => {
-    g.fillStyle = '#f2eedf';
+  const faceTex = theme.canvasTexture(256, 256, (g, w, h) => {
+    g.fillStyle = theme.css('clockFace');
     g.fillRect(0, 0, w, h);
     g.translate(w / 2, h / 2);
     for (let i = 0; i < 60; i++) {
       const a = (i / 60) * Math.PI * 2;
       const major = i % 5 === 0;
-      g.strokeStyle = '#1b1a18';
+      g.strokeStyle = theme.css('clockInk');
       g.lineWidth = major ? 7 : 2;
       const r0 = major ? 96 : 108;
       g.beginPath();
@@ -32,7 +32,7 @@ export function createClock({ radius = 0.32 } = {}) {
       g.lineTo(Math.sin(a) * 120, -Math.cos(a) * 120);
       g.stroke();
     }
-    g.fillStyle = '#1b1a18';
+    g.fillStyle = theme.css('clockInk');
     g.font = 'bold 26px monospace';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -44,24 +44,24 @@ export function createClock({ radius = 0.32 } = {}) {
     g.fillText('STANDARD OFFICE', 0, 36);
   });
 
-  const face = new THREE.Mesh(new THREE.CircleGeometry(radius, 32), basic(0xffffff, { map: faceTex }));
+  const face = new THREE.Mesh(new THREE.CircleGeometry(radius, 32), theme.textured(faceTex));
   face.position.z = 0.061;
   group.add(face);
 
   const hand = (len, width, color, z) => {
     const pivot = new THREE.Group();
-    const m = new THREE.Mesh(new THREE.BoxGeometry(width, len, 0.006), basic(color));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(width, len, 0.006), theme.unlit(color));
     m.position.y = len / 2 - len * 0.12;
     pivot.add(m);
     pivot.position.z = z;
     group.add(pivot);
     return pivot;
   };
-  const hourHand = hand(radius * 0.55, 0.028, 0x1b1a18, 0.066);
-  const minuteHand = hand(radius * 0.82, 0.018, 0x1b1a18, 0.072);
-  const secondHand = hand(radius * 0.9, 0.014, 0xb5332b, 0.078);
+  const hourHand = hand(radius * 0.55, 0.028, 'clockInk', 0.066);
+  const minuteHand = hand(radius * 0.82, 0.018, 'clockInk', 0.072);
+  const secondHand = hand(radius * 0.9, 0.014, 'clockSecondHand', 0.078);
 
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 12), basic(0xb5332b));
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 12), theme.unlit('clockSecondHand'));
   cap.rotation.x = Math.PI / 2;
   cap.position.z = 0.082;
   group.add(cap);

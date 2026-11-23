@@ -5,6 +5,9 @@ import { initRapier, Physics } from './physics.js';
 import { PlayerController } from './player/controller.js';
 import { buildWaitingRoom } from './level/waitingRoom.js';
 import { UI } from './ui/ui.js';
+import { theme } from './theme.js';
+
+theme.applyUi();
 
 const params = new URLSearchParams(location.search);
 const ui = new UI(document.getElementById('ui'), {
@@ -13,12 +16,11 @@ const ui = new UI(document.getElementById('ui'), {
 });
 
 // ---------- renderer ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setClearColor(config.render.background);
+const renderer = new THREE.WebGLRenderer({ antialias: theme.look.antialias, powerPreference: 'high-performance' });
 document.getElementById('app').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(config.render.background);
+theme.applyScene(scene, renderer);
 const camera = new THREE.PerspectiveCamera(config.render.fov, 1, config.render.near, config.render.far);
 
 function resize() {
