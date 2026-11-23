@@ -449,7 +449,9 @@ export class Npc {
    */
   startViolence({ kind, target, onHit, radio, anger }) {
     const A = N.anger;
-    const opts = { speedMul: Math.min(A.maxSpeed, 1 + anger * A.speedPerLevel), anger };
+    // `violent` while she's out of her chair for this (the player's fists are up only then)
+    this.violent = true;
+    const opts = { speedMul: Math.min(A.maxSpeed, 1 + anger * A.speedPerLevel), anger, onDone: () => { this.violent = false; } };
     const V = N.violence;
     const approach = { type: 'approach', target, distance: V.approachDistance, timeout: 25 };
     const attack = { type: 'attack', kind, target, onHit };

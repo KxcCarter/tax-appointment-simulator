@@ -9,6 +9,8 @@ import { config } from '../config.js';
   register(object, {
     prompt: () => '[E] Talk' | null,   // null = not interactable right now
     onInteract: () => {},
+    // optional second action on another key, shown beside the first:
+    alt: { prompt: () => '[R] Pick up chair' | null, onInteract: () => {} },
   })
 */
 export class Interaction {
@@ -23,9 +25,11 @@ export class Interaction {
     this.override = null; // e.g. seated: always "[E] Stand"
 
     document.addEventListener('keydown', (e) => {
-      if (e.code !== 'KeyE' || e.repeat || !this.player.canAct) return;
+      if (e.repeat || !this.player.canAct) return;
       const h = this.override ?? this.current;
-      if (h) h.onInteract();
+      if (!h) return;
+      if (e.code === 'KeyE' && h.prompt()) h.onInteract();
+      else if (e.code === 'KeyR' && h.alt?.prompt()) h.alt.onInteract();
     });
   }
 
@@ -59,7 +63,7 @@ export class Interaction {
       if (o) found = o.userData.interactable;
       break; // first solid thing blocks anything behind it
     }
-    const text = found ? found.prompt() : null;
+    const text = found ? [found.prompt(), found.alt?.prompt()].filter(Boolean).join('     ') || null : null;
     this.current = text ? found : null;
     this.ui.setPrompt(text);
   }

@@ -322,15 +322,21 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   };
 
   // --- improvised weapons: anything can be one (owner's decision) ---
-  // Once the player's fists are up, [E] on any of these picks it up (instead of e.g. sitting).
+  // Once the player's fists are up, anything registered here can be picked up. If it also has its
+  // normal use (Sit, Sign the sheet, Turn off the radio), that stays on E and picking up goes on R.
   function registerWeapon(object, kind, canTake = () => true) {
     if (!object) return;
     const fallback = object.userData.interactable; // e.g. "[E] Sit" on a chair
     const label = weaponDef(kind).label ?? kind;
     const can = () => combat.canPickUp && !object.userData.held && canTake();
+    const take = () => combat.pickUp(object, kind);
     interaction.register(object, {
-      prompt: () => (can() ? `[E] Pick up ${label}` : fallback?.prompt() ?? null),
-      onInteract: () => (can() ? combat.pickUp(object, kind) : fallback?.onInteract()),
+      prompt: () => fallback?.prompt() ?? (can() ? `[E] Pick up ${label}` : null),
+      onInteract: () => (fallback?.prompt() ? fallback.onInteract() : can() && take()),
+      alt: {
+        prompt: () => (fallback?.prompt() && can() ? `[R] Pick up ${label}` : null),
+        onInteract: () => can() && take(),
+      },
     });
   }
   const inBrawl = () => state.phase === 'brawl';
@@ -399,7 +405,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         if (smashTimer <= 0) startSmash();
       }
       brawl.update(dt);
-      combat.enabled = state.canFightBack;
+      // Fists up only while there's a fight on: the brawl, or the sitter coming at him (after her kick)
+      const sitterNow = radioWho();
+      combat.enabled = state.canFightBack && (state.phase === 'brawl' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
       const sitter = radioWho();
       if (sitter?.down && !state.sitterDown) state.sitterDown = true;
