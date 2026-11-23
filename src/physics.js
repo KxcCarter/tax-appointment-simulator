@@ -25,7 +25,7 @@ export class Physics {
   /** Copy dynamic body transforms onto their meshes. */
   sync() {
     for (const { body, object3d } of this.synced) {
-      if (body.isSleeping()) continue;
+      if (object3d.userData.held || body.isSleeping()) continue; // held = in the player's hands
       const t = body.translation();
       const r = body.rotation();
       object3d.position.set(t.x, t.y, t.z);

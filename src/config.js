@@ -55,8 +55,95 @@ export const config = {
     punchTime: 0.32,         // whole jab, out and back
     punchHitAt: 0.4,         // fraction of punchTime when the fist connects
     punchCooldown: 0.12,
+    punchDamage: 25,         // people have config.brawl.health
     knockbackDecay: 6,       // how quickly being shoved wears off
     shakeDecay: 5,
+  },
+
+  // ---- The brawl (Milestone 4; src/level/brawl.js) ----
+  brawl: {
+    placeholderDelay: 4,         // TEMPORARY trigger: seconds after "Number 848!" before the newcomer
+                                 // fetches the clipboard (until the argument scene is written)
+    health: 100,                 // everyone's; a punch does config.combat.punchDamage
+    maxAttackers: 2,             // at once, from two different sides; the rest hang back and shout
+    flankAngle: 1.9,             // radians between the two attackers' angles of approach (~110 degrees)
+    speed: 2.7,                  // walking speed multiplier while fighting (x config.npc.walk.speed)
+    approachDistance: 0.75,      // metres from the player when they swing
+    windUp: 0.45,                // seconds with fists up before a swing (the telegraph)
+    hangBack: [1.9, 2.8],        // metres from the player while waiting their turn
+    hangBackHold: [1.0, 2.6],    // seconds standing there, cheering or in guard
+    openingStagger: [0.3, 1.6],  // seconds before each person is up and fighting
+    shoutEvery: [2.2, 4.5],      // seconds between shouts from the sidelines
+    separation: 0.55,            // fighters don't get closer to each other than this
+    bounds: { minX: -5.4, maxX: 5.4, minZ: -2.2, maxZ: 4.4 }, // where they stand (in front of the counter)
+    // Each person's moves (config.npc.attacks)
+    moves: {
+      newcomer: ['punch', 'shove', 'combo'],
+      cougher: ['slap', 'shove'],
+      watchChecker: ['punch', 'shove'],
+      jiggler: ['punch', 'kick', 'combo'],
+      reader: ['slap', 'kick'],
+      sitter: ['slap', 'shove', 'punch', 'kick'],
+      default: ['punch', 'shove'],
+    },
+  },
+
+  // ---- Improvised weapons (owner: anything can be a weapon). [E] picks up, left click swings, Q throws ----
+  // damage: out of config.brawl.health. reach: metres from the eye. swingTime: seconds for the whole swing.
+  // knock: how hard a knockdown throws them (x config.ragdoll.hitImpulse). style: 'swing' (arc) or 'thrust' (jab).
+  // Held pose (camera space: x right, y up, -z forward): `grip` is the point in the object's own space that
+  // goes in the hand at `at`; the object's `axis` (from the grip towards the business end) points along `out`.
+  weapons: {
+    throwSpeed: 7.5,           // m/s along the view (Q)
+    throwLift: 1.5,            // m/s upwards
+    throwDamage: 0.8,          // a thrown thing that hits someone does this share of its damage
+    throwHitRadius: 0.55,      // metres from someone's chest
+    defaults: { damage: 30, reach: 1.4, swingTime: 0.6, knock: 1.2, sound: 'kick', style: 'swing',
+      at: [0.26, -0.3, -0.55], out: [0, 1, 0], axis: [0, 1, 0] },
+    chair:        { label: 'chair', damage: 60, reach: 1.9, swingTime: 0.95, knock: 1.8, sound: 'chair', style: 'thrust',
+      grip: [0, 1.0, -0.22], axis: [0, -1, 0], out: [0, 0.08, -1], at: [0, -0.4, -0.3] }, // legs first, lion-tamer style
+    magazine:     { label: 'magazine', damage: 6, reach: 1.3, swingTime: 0.3, knock: 0.6, sound: 'slap',
+      grip: [0, 0, 0.12], axis: [0, 0, -1], out: [-0.2, 0.7, -0.6], at: [0.25, -0.28, -0.45] },
+    radio:        { label: 'radio', damage: 45, reach: 1.3, swingTime: 0.7, knock: 1.4, sound: 'radioHit',
+      grip: [0, 0.18, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.24, -0.2, -0.5] },
+    briefcase:    { label: 'briefcase', damage: 40, reach: 1.4, swingTime: 0.7, knock: 1.5, sound: 'kick',
+      grip: [0, 0.18, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.28, -0.18, -0.5] },
+    umbrella:     { label: 'umbrella', damage: 20, reach: 2.0, swingTime: 0.45, knock: 0.9, sound: 'umbrella', style: 'thrust',
+      grip: [0.05, 0.45, 0], axis: [0, -1, 0], out: [-0.1, 0.12, -1], at: [0.26, -0.3, -0.4] },
+    keyboard:     { label: 'keyboard', damage: 30, reach: 1.5, swingTime: 0.5, knock: 1.2, sound: 'keyboard',
+      grip: [0.21, 0, 0], axis: [-1, 0, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
+    clipboard:    { label: 'clipboard', damage: 20, reach: 1.4, swingTime: 0.4, knock: 1.0, sound: 'clipboard',
+      grip: [0, 0, -0.14], axis: [0, 0, 1], out: [-0.2, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
+    plant:        { label: 'potted plant', damage: 50, reach: 1.4, swingTime: 0.9, knock: 1.6, sound: 'kick',
+      grip: [0, 0, 0], axis: [0, 1, 0], out: [-0.3, 0.6, -0.75], at: [0.25, -0.45, -0.5] },
+    coolerBottle: { label: 'water bottle', damage: 40, reach: 1.3, swingTime: 0.8, knock: 1.4, sound: 'kick',
+      grip: [0, 0, 0], axis: [0, 1, 0], out: [0, 1, 0], at: [0.22, -0.3, -0.6] },
+    bat:          { label: 'baseball bat', damage: 55, reach: 1.8, swingTime: 0.55, knock: 2.0, sound: 'bat',
+      grip: [0, 0.05, 0], axis: [0, 1, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.32, -0.42] },
+    mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'thrust',
+      grip: [0, -0.1, 0], axis: [0, -1, 0], out: [-0.1, 0.1, -1], at: [0.26, -0.3, -0.35] },
+    extinguisher: { label: 'fire extinguisher', damage: 65, reach: 1.3, swingTime: 0.9, knock: 1.8, sound: 'chair',
+      grip: [0, 0.02, 0], axis: [0, -1, 0], out: [0, -0.3, -1], at: [0.25, -0.25, -0.4] },
+  },
+
+  // ---- Ragdolls (knocked-down characters; src/characters/ragdoll.js) ----
+  // Tuned for maximum comedic flop without limbs exploding.
+  ragdoll: {
+    density: 900,              // kg/m^3 for every part (a person of ~70 kg)
+    friction: 0.8,
+    restitution: 0.05,
+    linearDamping: 0.15,
+    angularDamping: 1.2,       // higher = less spinning, more slumping
+    elbowLimits: [-2.6, 0.05], // radians; negative = bending the natural way
+    kneeLimits: [-2.6, 0.05],
+    neckLimits: [-0.6, 0.9],   // + = chin down
+    hitImpulse: 4.5,           // m/s given to the struck part by a knockdown blow
+    impulseShare: 0.45,        // ...and this share of it to every other part
+    liftRatio: 0.35,           // upward component of the blow (makes them stumble back, not slide)
+    spin: 0.6,                 // random torque impulse on the torso, so nobody falls like a plank
+    thudSpeedDrop: 1.4,        // m/s lost in one frame = an impact sound
+    thudLoudAt: 4,             // ...this much is full volume
+    thudGap: 0.12,             // seconds between thuds from one body
   },
 
   ticket: {
@@ -126,7 +213,9 @@ export const config = {
     jiggle: { rate: 5.5, height: 0.028 },
     exhale: { every: [10, 18], duration: 2.2 },
     shift: { every: [15, 26], duration: 1.2 },
-    calledLookDelay: [0.2, 0.9],  // after the call, each head turns to the player after a moment
+    calledLookDelay: [0.2, 0.9],
+    // The first time the player hits the sitter back, everyone else is appalled (at the player)
+    onlookers: { lookDelay: [0.05, 0.5], surprisedFor: 1.3 },  // after the call, each head turns to the player after a moment
     // Getting up, walking and sitting back down (the radio errand; the brawl reuses it)
     // Her attacks on the player (feel only for now: knockback, camera shake, sound; no health yet).
     //   knock = shove speed in m/s, shake = camera shake, hits land within `reach` metres
@@ -138,6 +227,7 @@ export const config = {
       kick: { duration: 1.1, knock: 3.8, shake: 1.0, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
       radio: { duration: 1.3, knock: 4.6, shake: 1.5, sound: 'radioHit' },
+      clipboard: { duration: 1.4, knock: 3.6, shake: 1.6, sound: 'clipboard', pose: 'radio' }, // the newcomer's opener
     },
     // The radio war: from the `violentFrom`-th time the radio is turned off, she attacks the player
     // first, in this order (the last one repeats). The player can fight back after `fightBackAfter`.
@@ -147,9 +237,8 @@ export const config = {
       fightBackAfter: 'kick',
       approachDistance: 0.75,
     },
-    // Fighting back (placeholder until Milestone 4's ragdolls): she flinches, and goes down after this many hits
-    knockdownHits: 4,
-    fallTime: 0.7,
+    // Fighting back: people flinch when hit, and go down as a ragdoll (config.ragdoll) when their
+    // health (config.brawl.health) runs out: 4 punches, or fewer with something heavy
     // Each time the player turns the radio off, she gets angrier: faster and faster
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
     walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55 },
@@ -237,6 +326,7 @@ export const config = {
       pleased:     { lids: 0.2,  brows: { raise: 0.004, angle: 0.05 },    mouth: { smile: 0.35, width: 1.1 } },
       angry:       { lids: 0.15, brows: { raise: -0.009, angle: -0.5 },   mouth: { smile: -0.5, width: 0.75 } },
       furious:     { lids: 0.0,  brows: { raise: -0.011, angle: -0.65 },  mouth: { smile: -0.6, open: 0.25, width: 0.7 } },
+      appalled:    { lids: 0.05, brows: { raise: 0.006, angle: -0.25 },   mouth: { smile: -0.45, open: 0.15, width: 0.7, asym: 0.1 } },
     },
     blinkInterval: [2.5, 6],
     receptionist: {

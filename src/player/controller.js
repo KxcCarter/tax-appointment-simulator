@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RAPIER } from '../physics.js';
+import { GROUP_NOT_LIMBS } from '../characters/ragdoll.js';
 import { config } from '../config.js';
 
 const cfg = config.player;
@@ -150,7 +151,7 @@ export class PlayerController {
       y: this.verticalVelocity * dt,
       z: (this.velocity.z + this.knockVel.z) * dt,
     };
-    this.cc.computeColliderMovement(this.collider, desired);
+    this.cc.computeColliderMovement(this.collider, desired, undefined, GROUP_NOT_LIMBS); // step over flopped limbs
     const m = this.cc.computedMovement();
     this.grounded = this.cc.computedGrounded();
 

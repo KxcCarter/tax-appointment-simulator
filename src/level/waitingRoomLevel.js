@@ -5,9 +5,10 @@ import { buildWaitingRoom } from './waitingRoom.js';
 import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
-import { npcConversations, people } from '../data/npcConversations.ts';
+import { npcConversations, people, onlookers, brawlShouts } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
-import { Combat } from '../player/combat.js';
+import { Combat, weaponDef } from '../player/combat.js';
+import { Brawl } from './brawl.js';
 import { Npc } from '../characters/npc.js';
 import { waitingRoomCast } from '../data/waitingRoomCast.js';
 
@@ -15,7 +16,7 @@ import { waitingRoomCast } from '../data/waitingRoomCast.js';
  * Wires the Waiting Room together: geometry, the receptionist, the director,
  * interactables (receptionist, ticket dispenser, chairs) and ambient sound.
  */
-export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait = false }) {
+export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait = false, brawlNow = false }) {
   const room = buildWaitingRoom(scene, physics);
   const A = room.anchors;
 
@@ -54,11 +55,18 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (!data) continue;
     const d = new Director({
       data, state, ui, sfx, actors, player, config,
-      isBlocked: () => anyActive(d) || state.called, // after the call nobody's chatty
+      isBlocked: () => anyActive(d) || state.called || state.foughtBack, // nobody chats after the call, or with a maniac
     });
     smallTalk.push(d);
     n.conversation = d;
   }
+
+  // The bystanders' outburst when the player hits the sitter back (one shared scene)
+  const onlookerTalk = new Director({
+    data: onlookers, state, ui, sfx, actors, player, config,
+    isBlocked: () => anyActive(onlookerTalk),
+  });
+  smallTalk.push(onlookerTalk);
 
   const interaction = new Interaction(camera, scene, ui, player);
 
@@ -66,7 +74,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   for (const n of npcs) {
     if (!n.conversation) continue;
     interaction.register(n.rig.root, {
-      prompt: () => (state.called || n.busyElsewhere ? null : '[E] Talk'),
+      prompt: () => (state.called || state.foughtBack || state.phase === 'brawl' || n.busyElsewhere ? null : '[E] Talk'),
       onInteract: () => n.conversation.interact(n.id),
     });
   }
@@ -149,7 +157,17 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   }
 
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
-  const combat = new Combat({ camera, player, sfx, targets: () => npcs.filter((n) => !n.down) });
+  const combat = new Combat({
+    camera, player, sfx, physics, scene,
+    targets: () => npcs.filter((n) => !n.down),
+    onHit: (target) => {
+      // The first punch that lands on the sitter: everyone else is appalled, at the player
+      if (target.id !== config.radio.who || state.foughtBack) return;
+      state.foughtBack = true;
+      for (const n of npcs) n.onPlayerFoughtBack();
+      onlookerTalk.play('playerFoughtBack');
+    },
+  });
 
   // --- phases: arrival -> reception (director) -> waiting (told + holding a ticket) ---
   function updatePhase() {
@@ -183,7 +201,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   function sendToRadio(anger) {
     const who = radioWho();
-    if (!who || who.down) return; // knocked down: the radio war is over
+    if (!who || who.down || who.brawling) return; // knocked down (or brawling): the radio war is over
     const V = config.npc.violence;
     if (anger < V.violentFrom) {
       who.startErrand({ ...radioHandle, anger });
@@ -200,19 +218,25 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     });
   }
 
-  /** One of her blows reaches the moment of impact: does it land? */
-  function attackLands(who, kind) {
+  /** Someone's blow reaches the moment of impact: does it land? */
+  function hitPlayer(who, kind) {
     const def = config.npc.attacks[kind];
-    const herPos = who.walker.pos;
-    const d = Math.hypot(camera.position.x - herPos.x, camera.position.z - herPos.z);
+    const at = who.walker.pos;
+    const d = Math.hypot(camera.position.x - at.x, camera.position.z - at.z);
     if (d <= config.npc.attacks.reach) {
       if (player.seat) standHandler.onInteract(); // knocked out of the chair
-      const dir = new THREE.Vector3(camera.position.x - herPos.x, 0, camera.position.z - herPos.z);
+      const dir = new THREE.Vector3(camera.position.x - at.x, 0, camera.position.z - at.z);
       player.knock(dir, def.knock, def.shake);
       sfx.hit(def.sound, camera.position);
-    } else {
-      sfx.whoosh(herPos.clone().setY(1.3));
+      return true;
     }
+    sfx.whoosh(at.clone().setY(1.3));
+    return false;
+  }
+
+  /** One of the sitter's radio-war blows. */
+  function attackLands(who, kind) {
+    hitPlayer(who, kind);
     state.sitterAttacks++;
     // After this attack the player can finally fight back
     if (kind === config.npc.violence.fightBackAfter) state.canFightBack = true;
@@ -264,6 +288,86 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     onInteract: () => { if (state.radioOn) turnOffRadio(); },
   });
 
+  // --- the brawl ---
+  const brawl = new Brawl({
+    npcs: () => npcs,
+    camera,
+    onHit: (npc, kind) => hitPlayer(npc, kind),
+    say: (id, text) => onlookerTalk.runActions([{ do: 'say', who: id, text }]),
+    shouts: brawlShouts,
+  });
+  // The check-in clipboard as something to carry and swing (the newcomer's opener)
+  const clipHome = A.clipboardPath.end;
+  const clipboardHandle = {
+    group: A.clipboard,
+    standSpot: new THREE.Vector3(clipHome.x, 0, clipHome.z + 0.55),
+    faceYaw: Math.PI, // facing the counter
+    reachTarget: () => A.clipboard.getWorldPosition(new THREE.Vector3()),
+    orient: (g, yaw) => g.rotation.set(-1.2, yaw, 0, 'YXZ'), // held upright, board towards the victim
+    isHeld: () => !!A.clipboard.userData.held,
+    // In someone's hands: physics off (it may have become a physics prop after the player dropped it)
+    take: () => { A.clipboard.userData.held = true; A.clipboard.userData.body?.setEnabled(false); },
+    drop: (at) => {
+      const c = A.clipboard;
+      c.userData.held = false;
+      c.position.set(at.x + 0.35, 0.01, at.z + 0.2);
+      c.rotation.set(0, Math.random() * 6, 0);
+      const body = c.userData.body;
+      if (body) {
+        body.setTranslation({ x: c.position.x, y: 0.05, z: c.position.z }, true);
+        body.setRotation({ x: c.quaternion.x, y: c.quaternion.y, z: c.quaternion.z, w: c.quaternion.w }, true);
+        body.setEnabled(true);
+      }
+    },
+  };
+
+  // --- improvised weapons: anything can be one (owner's decision) ---
+  // Once the player's fists are up, [E] on any of these picks it up (instead of e.g. sitting).
+  function registerWeapon(object, kind, canTake = () => true) {
+    if (!object) return;
+    const fallback = object.userData.interactable; // e.g. "[E] Sit" on a chair
+    const label = weaponDef(kind).label ?? kind;
+    const can = () => combat.canPickUp && !object.userData.held && canTake();
+    interaction.register(object, {
+      prompt: () => (can() ? `[E] Pick up ${label}` : fallback?.prompt() ?? null),
+      onInteract: () => (can() ? combat.pickUp(object, kind) : fallback?.onInteract()),
+    });
+  }
+  const inBrawl = () => state.phase === 'brawl';
+  for (const c of A.chairs) registerWeapon(c.object, 'chair', () => !c.occupant);
+  for (const m of A.magazines ?? []) registerWeapon(m, 'magazine');
+  for (const u of A.umbrellas ?? []) registerWeapon(u, 'umbrella');
+  for (const p of A.plants ?? []) registerWeapon(p, 'plant');
+  registerWeapon(A.coolerBottle, 'coolerBottle');
+  registerWeapon(A.radio.group, 'radio', () => inBrawl() && !radioWho()?.carrying);
+  registerWeapon(A.keyboard, 'keyboard', inBrawl); // she's using it until then
+  registerWeapon(A.clipboard, 'clipboard');
+  for (const w of A.backRoomWeapons ?? []) registerWeapon(w.object, w.kind);
+  for (const n of npcs) if (n.briefcase) registerWeapon(n.briefcase, 'briefcase');
+
+  // The EMPLOYEES ONLY door opens for the player too (the bat is back there)
+  A.employeeDoor.playerNear = () => Math.hypot(camera.position.x - A.employeeDoor.threshold.x, camera.position.z - A.employeeDoor.threshold.z) < 1.3;
+  let smashTimer = null;
+  function startSmash() {
+    state.clipboardOffered = false; // it's in his hands now
+    newcomer.startClipboardSmash({
+      clipboard: clipboardHandle,
+      target: brawl.target,
+      brawl,
+      onSmash: (kind) => {
+        hitPlayer(newcomer, kind);
+        state.phase = 'brawl';
+        state.canFightBack = true;
+        brawl.start(newcomer);
+      },
+    });
+  }
+  if (brawlNow) {
+    // Debug (?brawl): the newcomer walks in right away and starts it
+    state.hadCoffee = true;
+    A.clipboard.position.copy(clipHome);
+  }
+
   const waitDuration = fastWait ? config.timings.waiting.fastDuration : config.timings.waiting.duration;
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
@@ -273,6 +377,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     receptionist,
     npcs,
     interaction,
+    combat,
+    brawl,
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     /** Game-time update (not called while paused). */
     update(dt) {
@@ -285,6 +391,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       const nearEntrance = newcomer?.walker.active && newcomer.walker.pos.distanceTo(A.entrance.threshold) < 1.2;
       entranceAngle += ((nearEntrance ? A.entrance.openAngle : 0) - entranceAngle) * (1 - Math.exp(-(nearEntrance ? 6 : 2.5) * dt));
       A.entrance.pivot.rotation.y = entranceAngle;
+      // TEMPORARY brawl trigger (until the argument scene is written): a few seconds after
+      // "Number 848!", once the newcomer is seated, he goes for the clipboard
+      const nextCalled = state.nowServing === config.ticket.number + 1;
+      if ((nextCalled || brawlNow) && newcomer && !newcomer.brawling && !newcomer.walker.active && !director.active) {
+        smashTimer = (smashTimer ?? (brawlNow ? 1 : config.brawl.placeholderDelay)) - dt;
+        if (smashTimer <= 0) startSmash();
+      }
+      brawl.update(dt);
       combat.enabled = state.canFightBack;
       combat.update(dt);
       const sitter = radioWho();
@@ -295,7 +409,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       receptionist.update(dt, camera.position);
 
       // The wait: counts no matter what the player does (owner's decision)
-      if (state.phase === 'waiting' && !state.called && !this.callStarted) {
+      if (state.phase === 'waiting' && !state.called && !this.callStarted && !brawl.started) {
         state.waitElapsed += dt;
         if (state.waitElapsed >= waitDuration) {
           this.callStarted = true;

@@ -70,6 +70,11 @@ export const palette = {
   radioCase: 0x7a5232,          // wood-grain plastic
   backRoom: 0x5a5444,           // the dim staff room behind EMPLOYEES ONLY
   backRoomFloor: 0x3a3a34,
+  batWood: 0xc8a06a,            // the baseball bat in the back room
+  batGrip: 0x2a2420,
+  mopHandle: 0x9a8f7a,
+  mopHead: 0xcfc7b0,
+  extinguisherRed: 0xb3261e,
   corridor: 0x8a8470,            // the building corridor outside the entrance
   corridorFloor: 0x4a4038,
   coffeeCup: 0xf4f1e8,

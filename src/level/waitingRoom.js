@@ -159,6 +159,53 @@ export function buildWaitingRoom(scene, physics) {
     // A shelf with a coffee machine, glimpsed through the door
     box(0.7, 0.05, 0.35, mat('woodDark'), bx + 0.3, 0.95, bz - bd / 2 + 0.2);
     box(0.22, 0.32, 0.22, mat('black'), bx + 0.3, 1.13, bz - bd / 2 + 0.2);
+    // Colliders for its walls, so you can't walk out of the back of it
+    staticBox(bx - bw / 2, bh / 2, bz, 0.05, bh / 2, bd / 2);
+    staticBox(bx + bw / 2, bh / 2, bz, 0.05, bh / 2, bd / 2);
+    staticBox(bx, bh / 2, bz - bd / 2, bw / 2, bh / 2, 0.05);
+
+    // Things to fight with, kept back here (owner: the bat lives in the back room, with some others).
+    // Each group's origin is where you'd hold it.
+    anchors.backRoomWeapons = [];
+    {
+      // Baseball bat, leaning in the corner: origin at the grip end
+      const bat = new THREE.Group();
+      bat.position.set(bx - bw / 2 + 0.12, 0.02, bz - bd / 2 + 0.15);
+      bat.rotation.set(0.2, 0, -0.2);
+      scene.add(bat);
+      cyl(0.017, 0.017, 0.2, mat('batGrip'), 0, 0.1, 0, bat);
+      cyl(0.036, 0.02, 0.66, mat('batWood'), 0, 0.53, 0, bat);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 8), mat('batWood'));
+      cap.position.y = 0.86;
+      bat.add(cap);
+      physics.addDynamic(bat, [{ type: 'cylinder', halfHeight: 0.43, radius: 0.03, offset: { x: 0, y: 0.45, z: 0 } }], { density: 700 });
+      anchors.backRoomWeapons.push({ object: bat, kind: 'bat' });
+    }
+    {
+      // Mop, leaning against the side wall: origin at the top of the handle
+      const mop = new THREE.Group();
+      mop.position.set(bx + bw / 2 - 0.15, 1.3, bz + 0.2);
+      mop.rotation.set(0, 0, -0.12);
+      scene.add(mop);
+      cyl(0.013, 0.013, 1.2, mat('mopHandle'), 0, -0.6, 0, mop);
+      cyl(0.09, 0.13, 0.12, mat('mopHead'), 0, -1.24, 0, mop, 10);
+      physics.addDynamic(mop, [
+        { type: 'cylinder', halfHeight: 0.6, radius: 0.02, offset: { x: 0, y: -0.6, z: 0 } },
+        { type: 'cylinder', halfHeight: 0.06, radius: 0.11, offset: { x: 0, y: -1.24, z: 0 } },
+      ], { density: 300 });
+      anchors.backRoomWeapons.push({ object: mop, kind: 'mop' });
+    }
+    {
+      // Fire extinguisher on the floor: origin at the handle on top
+      const ext = new THREE.Group();
+      ext.position.set(bx - 0.35, 0.5, bz + 0.45);
+      scene.add(ext);
+      cyl(0.075, 0.075, 0.42, mat('extinguisherRed'), 0, -0.25, 0, ext);
+      cyl(0.03, 0.04, 0.06, mat('black'), 0, -0.02, 0, ext);
+      box(0.12, 0.015, 0.025, mat('black'), 0.03, 0.02, 0, ext);
+      physics.addDynamic(ext, [{ type: 'cylinder', halfHeight: 0.24, radius: 0.075, offset: { x: 0, y: -0.25, z: 0 } }], { density: 900 });
+      anchors.backRoomWeapons.push({ object: ext, kind: 'extinguisher' });
+    }
 
     anchors.employeeDoor = {
       pivot,
@@ -506,6 +553,7 @@ export function buildWaitingRoom(scene, physics) {
       // Cover faces up (+y is material index 2)
       mg.add(page);
       physics.addDynamic(mg, [{ type: 'box', half: { x: 0.105, y: 0.005, z: 0.14 } }], { density: 700 });
+      (anchors.magazines ??= []).push(mg);
     });
 
     // A small 1980s radio at the front edge of the table, dial facing the room (-x).
@@ -611,6 +659,7 @@ export function buildWaitingRoom(scene, physics) {
       const hook = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 10, Math.PI), mat('umbrellaHandle'));
       hook.position.set(0.05, 0.45, 0);
       u.add(hook);
+      (anchors.umbrellas ??= []).push(u);
     });
     physics.addDynamic(g, [{ type: 'cylinder', halfHeight: 0.27, radius: 0.13 }], { density: 250 });
     anchors.umbrellaStand = g;

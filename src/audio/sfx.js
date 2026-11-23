@@ -382,6 +382,29 @@ export class Sfx {
     } else if (kind === 'kick') {
       this._noise(t, 0.12, out, 'lowpass', 500, 1, 1, 0.002);
       this._tone(t, 0.16, out, 'sine', 80, 1, 0.002, 40);
+    } else if (kind === 'bat') {
+      // wooden CRACK
+      this._noise(t, 0.05, out, 'highpass', 2200, 0.7, 1, 0.0005);
+      this._tone(t, 0.09, out, 'triangle', 420, 0.6, 0.0005, 260);
+      this._tone(t, 0.14, out, 'sine', 110, 0.8, 0.002, 60);
+    } else if (kind === 'chair') {
+      // metal-and-vinyl clang
+      this._tone(t, 0.35, out, 'square', 610, 0.25, 0.001, 590);
+      this._tone(t, 0.3, out, 'square', 870, 0.15, 0.001, 850);
+      this._noise(t, 0.12, out, 'lowpass', 700, 1, 0.9, 0.002);
+    } else if (kind === 'umbrella') {
+      // fabric fwump
+      this._noise(t, 0.18, out, 'lowpass', 380, 0.8, 1, 0.02);
+      this._tone(t, 0.12, out, 'sine', 95, 0.4, 0.01, 70);
+    } else if (kind === 'keyboard') {
+      // plastic smack and a clatter of loose keys
+      this._noise(t, 0.06, out, 'bandpass', 1600, 1.5, 1, 0.001);
+      for (let i = 0; i < 6; i++) this._noise(t + 0.04 + i * rand(0.02, 0.05), 0.02, out, 'bandpass', rand(2500, 5000), 6, 0.35, 0.001);
+    } else if (kind === 'clipboard') {
+      // flat hardboard WHACK on a skull, the clip rattles
+      this._noise(t, 0.09, out, 'bandpass', 900, 0.8, 1, 0.001);
+      this._tone(t, 0.08, out, 'triangle', 210, 0.7, 0.001, 140);
+      this._noise(t + 0.05, 0.12, out, 'bandpass', 4200, 4, 0.3, 0.005);
     } else if (kind === 'radioHit') {
       // plastic clonk, then the speaker crackles
       this._tone(t, 0.12, out, 'square', 320, 0.5, 0.001, 180);
@@ -400,10 +423,10 @@ export class Sfx {
   }
 
   /** A body hitting the carpet. */
-  bodyThud(position = null) {
+  bodyThud(position = null, strength = 1) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const out = this._out(0.8, position, A.hits);
+    const out = this._out(0.8 * strength, position, A.hits);
     this._noise(t, 0.25, out, 'lowpass', 300, 1, 1, 0.003);
     this._tone(t, 0.3, out, 'sine', 65, 1, 0.003, 35);
   }

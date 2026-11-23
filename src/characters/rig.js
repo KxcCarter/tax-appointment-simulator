@@ -177,6 +177,7 @@ export function buildRig(look = {}) {
     watch,     // wristwatch group (left wrist) or null
     style,
     scale: s,
+    proportions: P,   // the merged build (ragdoll.js sizes its colliders from it)
     hipHeight: hipHeight * s,
     seatOffset: (P.pelvis.h / 2) * s,     // pelvis centre above a seat surface
     lengths: {

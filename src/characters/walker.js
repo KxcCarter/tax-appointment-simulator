@@ -40,6 +40,9 @@ const phase3 = (u, rest, wind, strike) =>
       : lerp3(strike, rest, smooth((u - 0.6) / 0.4));
 const leanOf = (u, wind, strike) => (u < 0.45 ? wind * smooth(u / 0.45) : u < 0.6 ? wind + (strike - wind) * smooth((u - 0.45) / 0.15) : strike * (1 - smooth((u - 0.6) / 0.4)));
 const ATTACK_POSES = {
+  // Held poses (the 'hold' step): fists up, or one fist pumping in the air (u loops 0..1)
+  guard: () => ({ l: GUARD.l, r: GUARD.r, lean: 0 }),
+  cheer: (u) => ({ l: GUARD.l, r: V(-0.2, 1.62 + 0.14 * Math.sin(u * Math.PI * 2), 0.12), lean: -0.04 }),
   slap: (u) => ({ l: GUARD.l, r: phase3(u, GUARD.r, V(-0.45, 1.35, -0.05), V(0.25, 1.4, 0.5)), lean: leanOf(u, -0.05, 0.15) }),
   shove: (u) => ({
     l: phase3(u, GUARD.l, V(0.14, 1.1, 0.05), V(0.16, 1.25, 0.62)),
@@ -76,7 +79,7 @@ export class Walker {
   }
 
   /** Start (or, if already up, replace) the step list. Resolves when they're seated again. */
-  start(steps, { speedMul = 1, anger = 0, onDone, startPos, startYaw } = {}) {
+  start(steps, { speedMul = 1, anger = 0, onDone, startPos, startYaw, refill = null } = {}) {
     const h = this.host;
     if (!this.steps) {
       const front = h.w(0, 0, h.frontOffset ?? 0.34);
@@ -94,6 +97,7 @@ export class Walker {
     this.speedMul = speedMul;
     this.anger = anger;
     this.onDone = onDone;
+    this.refill = refill;
     this.blocked = false;
     for (const s of steps) s.started = false;
   }
@@ -101,7 +105,18 @@ export class Walker {
   _next() {
     this.i++;
     this.t = this.steps[this.i]?.startT ?? 0;
-    if (this.i >= this.steps.length) this._finish();
+    if (this.i >= this.steps.length) {
+      // An endless routine (the brawl) hands over its next steps instead of sitting down
+      const more = this.refill?.();
+      if (more?.length) {
+        this.steps = more;
+        this.i = 0;
+        this.t = 0;
+        for (const st of more) st.started = false;
+        return;
+      }
+      this._finish();
+    }
   }
 
   _finish() {
@@ -190,14 +205,15 @@ export class Walker {
         if (this.t / this.speedMul >= S.seconds) { root.visible = true; S.onBack?.(); this._next(); }
         break;
       case 'approach': {
+        // Walk up to the target (or to the spot S.at(), e.g. a flank), then turn to face the target
         const tgt = S.target();
         look = tgt.clone();
         S.elapsed = (S.elapsed ?? 0) + dt;
-        const flat = tgt.clone().setY(0);
+        const flat = (S.at ? S.at() : tgt).clone().setY(0);
         const dist = Math.hypot(flat.x - this.pos.x, flat.z - this.pos.z);
-        if (dist <= S.distance || S.elapsed > (S.timeout ?? 20)) {
+        if (dist <= (S.at ? 0.12 : S.distance) || S.elapsed > (S.timeout ?? 20)) {
           this.moving = Math.max(0, this.moving - dt * 4);
-          if (turnTowards(Math.atan2(flat.x - this.pos.x, flat.z - this.pos.z))) this._next();
+          if (turnTowards(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z))) this._next();
         } else if (this.stun <= 0 || !this.stun) {
           walkTowards(flat, true);
         }
@@ -216,10 +232,23 @@ export class Walker {
         const seq = def.sequence ?? [S.kind];
         const k = Math.min(seq.length - 1, Math.floor(u * seq.length));
         const sub = u * seq.length - k;
-        pose = ATTACK_POSES[seq[k]](Math.min(1, sub));
+        pose = ATTACK_POSES[A[seq[k]]?.pose ?? seq[k]](Math.min(1, sub));
         S.done ??= 0;
         if (S.done <= k && sub >= 0.55) { S.done = k + 1; S.onHit?.(seq[k]); }
         if (u >= 1) this._next();
+        break;
+      }
+      case 'hold': {
+        // Stand still facing the target for a while (hanging back, shouting, winding up)
+        this.moving = Math.max(0, this.moving - dt * 4);
+        if (S.target) {
+          const tgt = S.target();
+          look = tgt.clone();
+          turnTowards(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+        }
+        if (S.pose) pose = ATTACK_POSES[S.pose](S.poseAt ?? ((this.t / this.speedMul) * 1.6) % 1);
+        if (S.expression) expressionOverride ??= S.expression;
+        if (this.t / this.speedMul >= S.seconds || S.until?.()) this._next();
         break;
       }
       case 'sit':

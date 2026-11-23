@@ -4,6 +4,7 @@ import { theme, characterPalettes } from '../theme.js';
 import { RAPIER } from '../physics.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
+import { Ragdoll } from './ragdoll.js';
 
 /*
   A waiting-room NPC. For now (Milestone 3) only the seated states:
@@ -28,6 +29,7 @@ export class Npc {
     this.id = def.id;
     this.def = def;
     this.sfx = sfx;
+    this.physics = physics;
     this.chair = chair;
     this.clockPos = clockPos;
     this.receptionistHead = receptionistHead;
@@ -153,6 +155,17 @@ export class Npc {
     this.reaction = { name: 'called', t: 0, dur: Infinity, delay: rand(...N.calledLookDelay) };
   }
 
+  /**
+   * The player hit the sitter back. As far as everyone else is concerned she did nothing wrong:
+   * heads snap round, a gasp, then they keep staring at him, appalled, for good.
+   */
+  onPlayerFoughtBack() {
+    if (this.called || this.down || this.id === config.radio.who) return;
+    this.appalled = true;
+    this.action = null;
+    this.reaction = { name: 'appalled', t: 0, dur: Infinity, delay: rand(...N.onlookers.lookDelay) };
+  }
+
   /** side: +1 if the player sits on this NPC's left, -1 on the right, 0 = not crowded. */
   setCrowded(side) {
     this.crowdSide = side;
@@ -193,7 +206,8 @@ export class Npc {
         // The radio rides between her hands
         const mid = this.walker.hands[1].clone().add(this.walker.hands[-1]).multiplyScalar(0.5);
         this.carrying.group.position.copy(mid).add(new THREE.Vector3(0, -0.09, 0));
-        this.carrying.group.rotation.set(0, this.walker.yaw + Math.PI, 0);
+        if (this.carrying.orient) this.carrying.orient(this.carrying.group, this.walker.yaw);
+        else this.carrying.group.rotation.set(0, this.walker.yaw + Math.PI, 0);
       }
       // Her magazine waits on the seat
       if (this.magazine) {
@@ -239,7 +253,7 @@ export class Npc {
     }
 
     // --- personality actions on timers ---
-    if (!this.called && !this.attending) {
+    if (!this.called && !this.attending && !this.appalled) {
       this.nextAction -= dt;
       if (!this.action && this.nextAction <= 0) this._startAction();
       if (this.action) expression = this._runAction(dt, desired) ?? expression;
@@ -262,6 +276,10 @@ export class Npc {
           desired.look.copy(this.local(cam));
           eyesOn = cam;
           expression = r.name === 'called' ? 'annoyed' : 'unimpressed';
+        } else if (r.name === 'appalled') {
+          desired.look.copy(this.local(cam));
+          eyesOn = cam;
+          expression = r.t - r.delay < N.onlookers.surprisedFor ? 'surprised' : 'appalled';
         } else if (r.name === 'clock') {
           desired.look.copy(this.local(this.clockPos));
           eyesOn = this.clockPos;
@@ -273,7 +291,7 @@ export class Npc {
     // --- crowded: lean away and give the player a look ---
     if (this.crowdSide && !this.called) {
       desired.lean = this.crowdSide * N.crowdLean;
-      expression = 'unimpressed';
+      if (!this.appalled) expression = 'unimpressed';
       eyesOn ??= camera.position;
     }
 
@@ -469,6 +487,51 @@ export class Npc {
     }
   }
 
+  // ------------------------------------------------------------------ the brawl
+
+  /**
+   * Join the brawl (src/level/brawl.js): run `first` steps, then whatever brawl.plan() hands
+   * over, round after round, until knocked down.
+   */
+  startBrawl(first, brawl) {
+    this.brawling = true;
+    this.called = true; // no more fidgeting, small talk or reactions
+    if (this.chair?.occupant === this.id) this.chair.occupant = null; // up for good: the chair's free (to throw)
+    this.attending = false; this.action = null; this.reaction = null;
+    const opts = { speedMul: config.brawl.speed, anger: 2, refill: () => brawl.plan(this) };
+    const wk = this.walker;
+    if (!wk.active) wk.start([{ type: 'rise' }, ...first], opts);
+    else if (wk.current?.type === 'sit') {
+      const startT = (1 - Math.min(1, wk.t / N.walk.sitTime)) * N.walk.riseTime;
+      wk.start([{ type: 'rise', startT }, ...first], opts);
+    } else wk.start(first, opts);
+  }
+
+  /**
+   * The newcomer's move (placeholder until the argument scene is written): fetch the check-in
+   * clipboard from the counter, walk up to the player and smash it over his head. onSmash fires
+   * at the moment of impact; then he keeps fighting (brawl.plan()).
+   */
+  startClipboardSmash({ clipboard, target, onSmash, brawl }) {
+    // If the player is holding the clipboard himself, the newcomer just punches him instead
+    const fetch = clipboard.isHeld() ? [] : [
+      { type: 'walk', to: clipboard.standSpot },
+      { type: 'face', yaw: clipboard.faceYaw },
+      { type: 'reach', target: clipboard.reachTarget, onReach: () => { if (!clipboard.isHeld()) { clipboard.take(); this.carrying = clipboard; } } },
+    ];
+    this.startBrawl([
+      ...fetch,
+      { type: 'approach', target, distance: N.violence.approachDistance, timeout: 15 },
+      {
+        type: 'attack', kind: fetch.length ? 'clipboard' : 'punch', target,
+        onHit: (kind) => {
+          if (this.carrying === clipboard) { this.carrying = null; clipboard.drop(target()); }
+          onSmash(kind);
+        },
+      },
+    ], brawl);
+  }
+
   /**
    * Arrive from outside: walk in through `door` (outside -> inside), take a ticket from the
    * dispenser (onTicket at the moment of taking it), then walk to their chair and sit.
@@ -485,56 +548,29 @@ export class Npc {
     ], { startPos: door.outside, startYaw: Math.PI });
   }
 
-  /** Punched by the player. Flinch; after enough hits, go down and stay down. */
-  takeHit(dir) {
+  /** Hit by the player (fist, weapon or something thrown). Flinch; at 0 health, go down and stay down. */
+  takeHit(dir, { damage = config.combat.punchDamage, knock = 1 } = {}) {
     if (this.down) return;
-    this.hits = (this.hits ?? 0) + 1;
+    this.health = (this.health ?? config.brawl.health) - damage;
     this.walker.stun = 0.35;
     this.flinch = 0.35;
-    if (this.hits >= N.knockdownHits) this._knockDown(dir);
+    if (this.health <= 0) this._knockDown(dir, knock);
   }
 
-  _knockDown(dir) {
+  _knockDown(dir, knock = 1) {
     this.down = true;
-    const root = this.rig.root;
-    root.visible = true;
-    const wasSeated = !this.walker.active;
-    this.walker.steps = null; // abandon whatever she was doing
-    if (this.carrying) { this.carrying.drop(root.position.clone()); this.carrying = null; }
-    let headDir, at;
-    if (wasSeated) {
-      // Slides off the front of the chair onto the floor, lying across in front of it
-      headDir = this.w(1, 0, 0).sub(this.w(0, 0, 0)).setY(0).normalize();
-      at = this.w(-0.45, 0, 0.75);
-    } else {
-      // Falls onto her back, head away from the punch
-      headDir = dir.clone().setY(0).normalize();
-      const pelvis = this.rig.joints.pelvis.getWorldPosition(new THREE.Vector3());
-      at = pelvis.clone().addScaledVector(headDir, -0.35);
-    }
-    at.y = 0.13 * this.rig.scale;
-    // Root is at the feet: lying on the back with the head along headDir
-    const yaw = Math.atan2(-headDir.x, -headDir.z);
-    const lie = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
-      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
-    this.fall = { t: 0, fromPos: root.position.clone(), fromQuat: root.quaternion.clone(), toPos: at, toQuat: lie, thudded: false };
+    this.rig.root.visible = true;
+    this.walker.steps = null; // abandon whatever they were doing
+    if (this.carrying) { this.carrying.drop(this.rig.root.position.clone()); this.carrying = null; }
+    if (this.chair?.occupant === this.id) this.chair.occupant = null;
+    // Full physics ragdoll from the current pose, thrown along the blow
+    this.ragdoll = new Ragdoll(this.physics, this.rig);
+    this.ragdoll.push(dir, config.ragdoll.hitImpulse * knock);
     this.face?.setExpression({ lids: 1, brows: { angle: 0.2 }, mouth: { open: 0.35, width: 0.8 } }, 6);
   }
 
   _updateDown(dt) {
-    const f = this.fall, root = this.rig.root, j = this.rig.joints;
-    f.t += dt;
-    const u = Math.min(1, f.t / N.fallTime);
-    const k = u * u; // accelerating, like falling
-    root.position.lerpVectors(f.fromPos, f.toPos, k);
-    root.quaternion.copy(f.fromQuat).slerp(f.toQuat, k);
-    // Limbs go slack: arms out, legs apart
-    const ease = Math.min(1, u * 1.5);
-    const slack = (joint, x, z) => joint.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(x, 0, z)), ease * 0.25);
-    slack(j.spine, 0, 0); slack(j.neck, -0.2, 0.3);
-    slack(j.lShoulder, 0, 1.3); slack(j.rShoulder, 0, -1.3); slack(j.lElbow, -0.3, 0); slack(j.rElbow, -0.5, 0);
-    slack(j.lHip, 0, 0.25); slack(j.rHip, 0, -0.18); slack(j.lKnee, 0.4, 0); slack(j.rKnee, 0.1, 0);
-    if (u >= 1 && !f.thudded) { f.thudded = true; this.sfx.bodyThud(root.position); }
+    this.ragdoll.update(dt, (pos, strength) => this.sfx.bodyThud(pos, strength));
     this.face?.update(dt);
   }
 
@@ -554,6 +590,7 @@ export class Npc {
           .addScaledVector(new THREE.Vector3(Math.sin(wk.yaw), 0, Math.cos(wk.yaw)), 0.32).setY(1.0 * self.rig.scale)
         : null),
       expression: (wk) => {
+        if (self.brawling) return 'furious';
         if (self.called) return 'annoyed';
         const ladder = N.anger.expressions;
         return wk.anger > 0 ? ladder[Math.min(ladder.length - 1, wk.anger - 1)] : 'bored';

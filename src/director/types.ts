@@ -23,7 +23,7 @@ export type ReceptionistAnim =
 export type NpcAnim = 'attend' | 'resume';
 
 /** Expression presets (config.characters.expressions). */
-export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious';
+export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious' | 'appalled';
 
 /** Sounds a scene can trigger directly (audio/sfx.js). */
 export type SoundName =

@@ -22,6 +22,7 @@ export const state = {
   radioOffCount: 0,        // times the player has turned the radio off (the sitter's anger)
   sitterAttacks: 0,        // times she has attacked the player
   canFightBack: false,     // after her kick, the player can punch
+  foughtBack: false,       // the player has hit the sitter; the others think he's a maniac
   sitterDown: false,       // knocked down by the player; the radio war is over
   clockTime:               // seconds since midnight (12h face)
     config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond,

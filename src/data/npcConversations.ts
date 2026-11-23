@@ -137,3 +137,68 @@ function conversation(id: string, p: Person): Scene {
 export const npcConversations: Record<string, Scene> = Object.fromEntries(
   Object.entries(people).map(([id, p]) => [id, conversation(id, p)]),
 );
+
+/*
+  The first time the player hits the sitter back (after she has slapped, shoved, punched and
+  kicked him), everyone else reacts as if she did absolutely nothing wrong and he is a violent
+  maniac. Lines play in order, one speaker at a time. Edit freely; the newcomer only speaks if
+  he has already walked in.
+*/
+const gap: Action = { do: 'wait', seconds: [0.3, 0.7] };
+
+export const onlookers: Scene = {
+  start: '',
+  speakers: {
+    ...Object.fromEntries(Object.entries(people).map(([id, p]) => [id, { name: p.name, pitch: p.pitch, actor: id }])),
+    newcomer: { name: 'MAN IN TRENCH COAT', pitch: 140, actor: 'newcomer' },
+    receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
+  },
+  beats: [],
+  sequences: {
+    playerFoughtBack: [
+      { do: 'wait', seconds: 0.5 },
+      { do: 'say', who: 'reader', text: 'Oh my God.' },
+      gap,
+      { do: 'say', who: 'cougher', text: 'He hit her.' },
+      gap,
+      { do: 'say', who: 'watchChecker', text: 'She was listening to the radio.' },
+      gap,
+      { do: 'say', who: 'jiggler', text: "What is wrong with you, man?" },
+      {
+        do: 'if', test: (state) => state.newcomerArrived,
+        then: [gap, { do: 'say', who: 'newcomer', text: 'Unbelievable.' }],
+      },
+      gap,
+      { do: 'say', who: 'reader', text: 'Somebody do something.' },
+      { do: 'wait', seconds: 1.2 },
+      // Without looking up from her solitaire
+      { do: 'say', who: 'receptionist', text: "Sir, I'm going to have to ask you to calm down, please." },
+    ],
+  },
+};
+
+/*
+  The brawl (src/level/brawl.js): the newcomer starts it, and everyone else cheers him on and
+  joins in. `opening` plays first, in order, one person each; after that, people on the
+  sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
+*/
+export const brawlShouts: { opening: string[]; anytime: string[]; byPerson: Record<string, string[]> } = {
+  opening: [
+    'Yeah! Get that jerk!',
+    'Smash his face in!',
+    'Teach that creep a lesson!',
+  ],
+  anytime: [
+    'Learn to tell time, idiot.',
+    "You think you're too good to wait in line?",
+    "Oh, looks like this guy thinks he's something special!",
+    'Yeah! Get that jerk!',
+    'Smash his face in!',
+    'Teach that creep a lesson!',
+    'Wait your turn!',         // PROPOSAL
+    'I was here first!',       // (from the brief)
+  ],
+  byPerson: {
+    sitter: ["I've been here since nine!"], // (from the brief)
+  },
+};

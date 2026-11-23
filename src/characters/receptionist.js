@@ -107,7 +107,9 @@ export class Receptionist {
   }
 
   _keyboardHand() {
-    const kb = this.keyboard.getWorldPosition(new THREE.Vector3());
+    // Where the keyboard was: if someone runs off with it, she types on the desk anyway
+    this.kbRest ??= this.keyboard.getWorldPosition(new THREE.Vector3());
+    const kb = this.kbRest.clone();
     return kb.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.seatQuat), 0.12).add(new THREE.Vector3(0, 0.05, 0));
   }
 
@@ -181,7 +183,7 @@ export class Receptionist {
 
     // The EMPLOYEES ONLY door opens as she comes near it, and swings shut behind her
     if (this.door) {
-      const near = this.walker.active && this.walker.pos.distanceTo(this.door.threshold) < 1.1;
+      const near = (this.walker.active && this.walker.pos.distanceTo(this.door.threshold) < 1.1) || !!this.door.playerNear?.();
       const goal = near ? this.door.openAngle : 0;
       this.doorAngle += (goal - this.doorAngle) * (1 - Math.exp(-(near ? 6 : 2.5) * dt));
       this.door.pivot.rotation.y = this.doorAngle;
