@@ -69,7 +69,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 ### 3.1 Stack
 - **Three.js** for rendering.
 - **Rapier** (`@dimforge/rapier3d-compat`, which embeds the WASM so no separate file is needed) for physics, player movement and ragdolls.
-- **Vite** dev server and bundler, plain JavaScript (ES modules).
+- **Vite** dev server and bundler, plain JavaScript (ES modules). **Exception (owner's decision): scene data is TypeScript** (`src/data/waitingRoomBeats.ts`, types in `src/director/types.ts`); `npm run typecheck` checks it. Vite runs .ts directly.
 - **No external art or sound assets in the first draft.** All geometry is built from primitives in code, and all sounds are synthesized with the Web Audio API (clock tick, mouse clicks, punches, thuds, voice blips).
 - **Fallback if npm installs are unavailable in the session:** build a single HTML file that loads Three.js and Rapier from a CDN via an import map. Same architecture, fewer files.
 
@@ -111,7 +111,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 Receptionist: `PlayingSolitaire ⇄ GlanceAtPlayer → (calls player's number)`. She does not take part in the brawl. *(proposal: she keeps playing solitaire throughout the fight.)*
 
 ### 3.7 Scene director (beat system)
-The narrative is **data-driven**. The level is a list of beats in `src/data/waitingRoomBeats.js`, and a director steps through them. Each beat can define its trigger, available dialogue options, responses (lines, animations, sounds), delays, and `nextUnlockAfter` timers. Changing the pacing should never require touching engine code.
+The narrative is **data-driven**. The level is a list of beats in `src/data/waitingRoomBeats.ts`, and a director steps through them. Each beat can define its trigger, available dialogue options, responses (lines, animations, sounds), delays, and `nextUnlockAfter` timers. Changing the pacing should never require touching engine code.
 
 Example shape:
 ```js
@@ -176,9 +176,10 @@ income-tax-sim/
 │  │  ├─ clock.js
 │  │  └─ nowServing.js
 │  ├─ director/
-│  │  └─ director.js        # beat runner
+│  │  ├─ director.js        # beat runner
+│  │  └─ types.ts           # types for scene data (beats, options, actions)
 │  ├─ data/
-│  │  └─ waitingRoomBeats.js
+│  │  └─ waitingRoomBeats.ts
 │  ├─ audio/
 │  │  └─ sfx.js             # Web Audio synthesis
 │  ├─ util/

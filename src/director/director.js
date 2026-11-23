@@ -1,5 +1,6 @@
 /*
-  Scene director: steps through the beat list in src/data/waitingRoomBeats.js.
+  Scene director: steps through the beat list in src/data/waitingRoomBeats.ts
+  (field and action types: src/director/types.ts).
   It owns no story content; it only knows how to run beats and actions.
 
   Beat fields:

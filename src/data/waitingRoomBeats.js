@@ -191,13 +191,18 @@ export const waitingRoomBeats = {
               do: 'if',
               test: late, // the clock runs in real time; 2:03 or later is late
               then: [
-                { do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
-              ],
+                { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+                { 
+                  do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
+                ],
               else: [
                 {
                   do: 'if',
                   test: beforeAppointment,
                   then: [
+                    { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                    { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
                     { do: 'say', who: 'receptionist', text: "Well it's not 2:00 yet, is it?" },
                     { do: 'wait', seconds: T.sideOptionPause },
                     { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },

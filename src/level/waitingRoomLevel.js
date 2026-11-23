@@ -4,7 +4,7 @@ import { state } from '../state.js';
 import { buildWaitingRoom } from './waitingRoom.js';
 import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
-import { waitingRoomBeats } from '../data/waitingRoomBeats.js';
+import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
 import { Interaction } from '../player/interaction.js';
 import { Npc } from '../characters/npc.js';
 import { waitingRoomCast } from '../data/waitingRoomCast.js';

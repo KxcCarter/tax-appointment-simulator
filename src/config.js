@@ -60,7 +60,7 @@ export const config = {
     onTimeMinutes: 2,         // readings 2:00 .. 2:02 count as on time; 2:03 and later is late
   },
 
-  // ---- Pacing. The beat data (src/data/waitingRoomBeats.js) reads these. ----
+  // ---- Pacing. The beat data (src/data/waitingRoomBeats.ts) reads these. ----
   timings: {
     reception: {
       glanceDuration: 2.0,          // beat 1: silent look at the player
