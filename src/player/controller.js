@@ -26,6 +26,8 @@ export class PlayerController {
     this.seatPitch = 0;
     this.strideAccum = 0;
     this.onStep = null;        // callback per footstep
+    this.knockVel = new THREE.Vector3(); // being shoved (decays)
+    this.shake = 0;            // camera shake amount (decays)
 
     const world = physics.world;
     // Capsule centre height so that the feet touch the floor (y = 0)
@@ -111,8 +113,15 @@ export class PlayerController {
     this.teleport(p.x, p.z, PlayerController.chairYaw(chair) + this.seatYaw);
   }
 
+  /** Get hit: shoved along `dir` at `speed` m/s, camera shaken by `shake`. */
+  knock(dir, speed, shake) {
+    this.knockVel.copy(dir).setY(0).normalize().multiplyScalar(speed);
+    this.shake = Math.max(this.shake, shake);
+  }
+
   /** Called once per fixed physics step, before world.step(). */
   fixedUpdate(dt) {
+    this.shake = Math.max(0, this.shake - dt * config.combat.shakeDecay * Math.max(0.3, this.shake));
     if (this.seat) return;
     const k = this.keys;
     let fx = 0, fz = 0;
@@ -135,10 +144,11 @@ export class PlayerController {
     if (this.grounded) this.verticalVelocity = -0.5;
     else this.verticalVelocity += config.physics.gravity * dt;
 
+    this.knockVel.multiplyScalar(Math.exp(-config.combat.knockbackDecay * dt));
     const desired = {
-      x: this.velocity.x * dt,
+      x: (this.velocity.x + this.knockVel.x) * dt,
       y: this.verticalVelocity * dt,
-      z: this.velocity.z * dt,
+      z: (this.velocity.z + this.knockVel.z) * dt,
     };
     this.cc.computeColliderMovement(this.collider, desired);
     const m = this.cc.computedMovement();
@@ -190,6 +200,9 @@ export class PlayerController {
     const moving = Math.min(1, this.velocity.length() / cfg.walkSpeed);
     const bob = Math.sin(this.bobPhase) * cfg.headBobAmount * moving;
     this.camera.position.set(pos.x, feetY + cfg.eyeHeight + bob, pos.z);
-    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    // Camera shake from being hit
+    const sh = this.shake * 0.05;
+    const jitter = () => (Math.random() * 2 - 1) * sh;
+    this.camera.rotation.set(this.pitch + jitter(), this.yaw + jitter(), jitter() * 1.5, 'YXZ');
   }
 }

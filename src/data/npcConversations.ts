@@ -27,6 +27,8 @@ interface Person {
   greeting: string;
   appointment: string;
   waiting: string;
+  /** Things they mutter (e.g. the sitter, each time the radio gets turned off again). */
+  radioComplaints?: string[];
 }
 
 export const people: Record<string, Person> = {
@@ -47,6 +49,9 @@ export const people: Record<string, Person> = {
     greeting: 'Hello.',
     appointment: "I don't have an appointment.",
     waiting: 'Since nine this morning.', // (8:58 on the check-in sheet)
+    // Said as she gets up to turn the radio back on, from the 2nd time it's turned off.
+    // In order; after the last one, a random pick (never the same twice in a row).
+    radioComplaints: ['Rude...', 'Seriously??', 'No way...', 'Really dude?', 'Oooh no, nuh-uh!', 'Son of a...'],
   },
   jiggler: {
     name: 'YOUNG MAN', pitch: 205,

@@ -71,6 +71,8 @@ export const palette = {
   backRoom: 0x5a5444,           // the dim staff room behind EMPLOYEES ONLY
   backRoomFloor: 0x3a3a34,
   coffeeCup: 0xf4f1e8,
+  playerSkin: 0xd9a582,          // the player's fists
+  playerSleeve: 0x4a4a48,
   coffee: 0x3b2414,
   radioGrille: 0x2b2a26,
   radioDialOff: 0x5a5440,

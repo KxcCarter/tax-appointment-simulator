@@ -13,6 +13,8 @@ import { solveTwoBone, aimJoint } from './rig.js';
     { type: 'reach', target(), onReach() }    bend and reach with the right hand; onReach at contact
     { type: 'away', seconds, onAway(), onBack() }  out of sight (e.g. through a door) for a while
     { type: 'sit' }                           sit back down
+    { type: 'approach', target(), distance, timeout? }   walk up to a moving target (the player)
+    { type: 'attack', kind, target(), onHit(kind) }      an attack (config.npc.attacks); onHit at impact
   Any step may carry `leg: 'there' | 'back'` so callers can redirect a walk in progress.
 
   The host provides:
@@ -23,6 +25,39 @@ import { solveTwoBone, aimJoint } from './rig.js';
 */
 
 const W = () => config.npc.walk;
+const lerp3 = (a, b, k) => a.clone().lerp(b, k);
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+/*
+  Attack poses, in body space: x = their left, y = height above the floor (metres), z = forward.
+  Each returns hand/foot targets and a lean for local progress u (0..1) through the attack.
+  Wind up until 0.45, strike until 0.6, recover after.
+*/
+const GUARD = { l: V(0.2, 1.05, 0.15), r: V(-0.2, 1.05, 0.15) };
+const phase3 = (u, rest, wind, strike) =>
+  u < 0.45 ? lerp3(rest, wind, smooth(u / 0.45))
+    : u < 0.6 ? lerp3(wind, strike, smooth((u - 0.45) / 0.15))
+      : lerp3(strike, rest, smooth((u - 0.6) / 0.4));
+const leanOf = (u, wind, strike) => (u < 0.45 ? wind * smooth(u / 0.45) : u < 0.6 ? wind + (strike - wind) * smooth((u - 0.45) / 0.15) : strike * (1 - smooth((u - 0.6) / 0.4)));
+const ATTACK_POSES = {
+  slap: (u) => ({ l: GUARD.l, r: phase3(u, GUARD.r, V(-0.45, 1.35, -0.05), V(0.25, 1.4, 0.5)), lean: leanOf(u, -0.05, 0.15) }),
+  shove: (u) => ({
+    l: phase3(u, GUARD.l, V(0.14, 1.1, 0.05), V(0.16, 1.25, 0.62)),
+    r: phase3(u, GUARD.r, V(-0.14, 1.1, 0.05), V(-0.16, 1.25, 0.62)),
+    lean: leanOf(u, -0.1, 0.3),
+  }),
+  punch: (u) => ({ l: GUARD.l, r: phase3(u, GUARD.r, V(-0.22, 1.25, -0.15), V(-0.05, 1.45, 0.72)), lean: leanOf(u, -0.05, 0.2) }),
+  kick: (u) => ({
+    l: V(0.32, 1.1, 0.0), r: V(-0.32, 1.1, 0.0),
+    rFoot: phase3(u, V(-0.1, 0, 0), V(-0.1, 0.25, -0.25), V(-0.1, 0.75, 0.72)),
+    lean: leanOf(u, -0.05, -0.3),
+  }),
+  radio: (u) => ({
+    l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
+    r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),
+    lean: leanOf(u, -0.15, 0.35),
+  }),
+};
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -89,7 +124,13 @@ export class Walker {
     S.started = true;
     this.t += dt * this.speedMul;
     const cfg = W();
-    let sit = 0, bend = 0.06, reach = 0, look = null, expressionOverride = null;
+    let sit = 0, bend = 0.06, reach = 0, look = null, expressionOverride = null, pose = null;
+    // Flinching from a hit: freeze in place for a moment, leaning back
+    if (this.stun > 0) {
+      this.stun -= dt;
+      bend = -0.25 * Math.min(1, this.stun / 0.2);
+      expressionOverride = 'surprised';
+    }
 
     const turnTowards = (goal) => {
       let d = goal - this.yaw;
@@ -97,7 +138,7 @@ export class Walker {
       this.yaw += Math.sign(d) * Math.min(Math.abs(d), cfg.turnSpeed * this.speedMul * dt);
       return Math.abs(d) < 0.04;
     };
-    const walkTowards = (target) => {
+    const walkTowards = (target, ignorePlayer = false) => {
       const to = target.clone().sub(this.pos); to.y = 0;
       const dist = to.length();
       if (dist < 0.03) { this.moving = Math.max(0, this.moving - dt * 4); return true; }
@@ -105,7 +146,7 @@ export class Walker {
       // Someone in the way? Stop and wait for them to move (and look at them).
       const ahead = this.pos.clone().addScaledVector(to.clone().normalize(), 0.35);
       const cam = camera.position;
-      this.blocked = Math.hypot(cam.x - ahead.x, cam.z - ahead.z) < cfg.personalSpace;
+      this.blocked = !ignorePlayer && Math.hypot(cam.x - ahead.x, cam.z - ahead.z) < cfg.personalSpace;
       if (this.blocked) {
         this.moving = Math.max(0, this.moving - dt * 4);
         expressionOverride = 'unimpressed';
@@ -148,6 +189,39 @@ export class Walker {
         // `seconds` is real waiting time, not sped up by anger
         if (this.t / this.speedMul >= S.seconds) { root.visible = true; S.onBack?.(); this._next(); }
         break;
+      case 'approach': {
+        const tgt = S.target();
+        look = tgt.clone();
+        S.elapsed = (S.elapsed ?? 0) + dt;
+        const flat = tgt.clone().setY(0);
+        const dist = Math.hypot(flat.x - this.pos.x, flat.z - this.pos.z);
+        if (dist <= S.distance || S.elapsed > (S.timeout ?? 20)) {
+          this.moving = Math.max(0, this.moving - dt * 4);
+          if (turnTowards(Math.atan2(flat.x - this.pos.x, flat.z - this.pos.z))) this._next();
+        } else if (this.stun <= 0 || !this.stun) {
+          walkTowards(flat, true);
+        }
+        break;
+      }
+      case 'attack': {
+        const A = config.npc.attacks;
+        const def = A[S.kind];
+        const realT = this.t / this.speedMul; // attacks play at their own pace
+        const u = Math.min(1, realT / def.duration);
+        const tgt = S.target();
+        look = tgt.clone();
+        turnTowards(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+        this.moving = Math.max(0, this.moving - dt * 4);
+        // A combo is several attacks back to back
+        const seq = def.sequence ?? [S.kind];
+        const k = Math.min(seq.length - 1, Math.floor(u * seq.length));
+        const sub = u * seq.length - k;
+        pose = ATTACK_POSES[seq[k]](Math.min(1, sub));
+        S.done ??= 0;
+        if (S.done <= k && sub >= 0.55) { S.done = k + 1; S.onHit?.(seq[k]); }
+        if (u >= 1) this._next();
+        break;
+      }
       case 'sit':
         sit = smooth(this.t / cfg.sitTime);
         bend = 0.06 + Math.sin(Math.min(1, this.t / cfg.sitTime) * Math.PI) * 0.4;
@@ -170,8 +244,9 @@ export class Walker {
     root.position.lerpVectors(standRoot, h.seatRoot, sit);
     const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw);
     root.quaternion.copy(standQuat).slerp(h.seatQuat, sit);
-    j.spine.rotation.set(bend, 0, 0);
+    j.spine.rotation.set(bend + (pose?.lean ?? 0), 0, 0);
     root.updateMatrixWorld(true);
+    const bodyPoint = (p) => this.pos.clone().addScaledVector(left, p.x).addScaledVector(fwd, p.z).setY(p.y * rig.scale);
 
     // --- feet ---
     const stride = 0.13 * this.moving;
@@ -182,6 +257,7 @@ export class Walker {
         .addScaledVector(fwd, Math.sin(ph) * stride);
       foot.y = Math.max(0, Math.cos(ph)) * 0.06 * this.moving;
       foot.lerp(h.seatedFoot(side), sit);
+      if (side === -1 && pose?.rFoot) foot.copy(bodyPoint(pose.rFoot));
       const [hip, knee] = side === 1 ? [j.lHip, j.lKnee] : [j.rHip, j.rKnee];
       solveTwoBone(hip, knee, foot, L.upperLeg, L.lowerLeg, fwd.clone().add(new THREE.Vector3(0, 0.3, 0)).normalize());
     }
@@ -195,6 +271,10 @@ export class Walker {
       hand.y = shoulderY - 0.05;
       hand.lerp(h.seatedHand(side), sit);
       if (side === -1 && reach > 0) hand.lerp(S.target(), reach);
+      const carried = h.carryHand?.(side, this);
+      if (carried) hand.copy(carried);
+      if (pose) hand.copy(bodyPoint(side === 1 ? pose.l : pose.r));
+      (this.hands ??= {})[side] = hand.clone();
       const [sh, el] = side === 1 ? [j.lShoulder, j.lElbow] : [j.rShoulder, j.rElbow];
       const pole = left.clone().multiplyScalar(side * 0.6).addScaledVector(fwd, -1).add(new THREE.Vector3(0, -0.4, 0)).normalize();
       solveTwoBone(sh, el, hand, L.upperArm, L.lowerArm, pole);

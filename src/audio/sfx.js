@@ -149,6 +149,7 @@ export class Sfx {
 
   // ---------------------------------------------------------------- one-shots
 
+  /** Synthesised tick: only used if the recorded tick-tock (config.audio.clockTick.file) isn't available. */
   clockTick(position, tock = false) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
@@ -290,6 +291,15 @@ export class Sfx {
     this._noise(t + 0.05, 0.5, out, 'bandpass', 2200, 0.8, 0.08, 0.05);
   }
 
+  /** Play a decoded buffer once from a point in the room. */
+  playOnce(buffer, position, { volume, refDistance, rolloff }) {
+    if (!this.ctx || !buffer) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(this._out(volume, position, { refDistance, rolloff }));
+    src.start();
+  }
+
   // ---------------------------------------------------------------- music (the radio)
 
   /** Fetch and decode an audio file. Resolves to null (with a warning) if it's missing or unreadable. */
@@ -351,6 +361,51 @@ export class Sfx {
     const out = this._out(v, position, A.stomp);
     this._noise(t, 0.1, out, 'lowpass', rand(300, 420), 1, 1, 0.003);
     this._tone(t, 0.12, out, 'sine', rand(55, 70), 0.9, 0.002, 38);
+  }
+
+  // ---------------------------------------------------------------- fighting
+
+  /** Hit sounds by name: slap | shove | punch | kick | radioHit. */
+  hit(kind, position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.hits.volume * rand(0.9, 1.1), position, A.hits);
+    if (kind === 'slap') {
+      this._noise(t, 0.07, out, 'highpass', 1800, 0.8, 1, 0.001);
+      this._noise(t, 0.05, out, 'bandpass', 3500, 2, 0.6, 0.001);
+    } else if (kind === 'shove') {
+      this._noise(t, 0.14, out, 'lowpass', 600, 1, 0.8, 0.01);
+      this._tone(t, 0.15, out, 'sine', 90, 0.5, 0.005, 60);
+    } else if (kind === 'punch') {
+      this._noise(t, 0.08, out, 'bandpass', 1100, 1.2, 1, 0.001);
+      this._tone(t, 0.1, out, 'sine', 120, 0.8, 0.002, 55);
+    } else if (kind === 'kick') {
+      this._noise(t, 0.12, out, 'lowpass', 500, 1, 1, 0.002);
+      this._tone(t, 0.16, out, 'sine', 80, 1, 0.002, 40);
+    } else if (kind === 'radioHit') {
+      // plastic clonk, then the speaker crackles
+      this._tone(t, 0.12, out, 'square', 320, 0.5, 0.001, 180);
+      this._noise(t, 0.1, out, 'bandpass', 1500, 3, 0.9, 0.001);
+      this._noise(t + 0.08, 0.4, out, 'bandpass', 2600, 1, 0.25, 0.02);
+    }
+  }
+
+  /** A swing that misses. */
+  whoosh(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.25, position, A.hits);
+    const n = this._noise(t, 0.22, out, 'bandpass', 500, 2, 0.8, 0.05);
+    n.filter.frequency.exponentialRampToValueAtTime(1800, t + 0.22);
+  }
+
+  /** A body hitting the carpet. */
+  bodyThud(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.8, position, A.hits);
+    this._noise(t, 0.25, out, 'lowpass', 300, 1, 1, 0.003);
+    this._tone(t, 0.3, out, 'sine', 65, 1, 0.003, 35);
   }
 
   ticketTear(position = null) {

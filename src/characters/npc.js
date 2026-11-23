@@ -186,8 +186,15 @@ export class Npc {
 
   update(dt, camera) {
     this.time += dt;
+    if (this.down) return this._updateDown(dt);
     if (this.walker.active) {
       this.walker.update(dt, camera);
+      if (this.carrying && this.walker.hands) {
+        // The radio rides between her hands
+        const mid = this.walker.hands[1].clone().add(this.walker.hands[-1]).multiplyScalar(0.5);
+        this.carrying.group.position.copy(mid).add(new THREE.Vector3(0, -0.09, 0));
+        this.carrying.group.rotation.set(0, this.walker.yaw + Math.PI, 0);
+      }
       // Her magazine waits on the seat
       if (this.magazine) {
         this.magazine.position.copy(this.w(0, SEAT_TOP + 0.01, 0.02));
@@ -367,7 +374,7 @@ export class Npc {
 
   /** True while they're up and about. */
   get busyElsewhere() {
-    return this.walker.active;
+    return this.walker.active || !!this.down;
   }
 
   /**
@@ -416,6 +423,105 @@ export class Npc {
     }
   }
 
+  // ------------------------------------------------------------------ the radio war
+
+  /**
+   * Come for the player with an attack (config.npc.attacks), then deal with the radio.
+   * kind 'radio': fetch the radio first, hit the player with it, put it back (playing), sit.
+   */
+  startViolence({ kind, target, onHit, radio, anger }) {
+    const A = N.anger;
+    const opts = { speedMul: Math.min(A.maxSpeed, 1 + anger * A.speedPerLevel), anger };
+    const V = N.violence;
+    const approach = { type: 'approach', target, distance: V.approachDistance, timeout: 25 };
+    const attack = { type: 'attack', kind, target, onHit };
+    const toRadio = [
+      { type: 'walk', to: radio.standSpot },
+      { type: 'face', yaw: radio.faceYaw },
+    ];
+    const back = [
+      { type: 'walk', to: 'front', glare: true, leg: 'back' },
+      { type: 'turn', yaw: 'chair', leg: 'back' },
+      { type: 'sit', leg: 'back' },
+    ];
+    let steps;
+    if (kind === 'radio') {
+      steps = [
+        ...toRadio,
+        { type: 'reach', target: radio.reachTarget, onReach: () => { radio.onReach(); this.carrying = radio; } },
+        approach, attack,
+        ...toRadio,
+        { type: 'reach', target: radio.reachTarget, onReach: () => { this.carrying = null; radio.putBack(); } },
+        ...back,
+      ];
+    } else {
+      steps = [approach, attack, ...toRadio, { type: 'reach', target: radio.reachTarget, onReach: radio.onReach }, ...back];
+    }
+    const wk = this.walker;
+    if (!wk.active) {
+      this.attending = false; this.action = null; this.reaction = null;
+      wk.start([{ type: 'rise' }, ...steps], opts);
+    } else if (wk.current.type === 'sit') {
+      const startT = (1 - Math.min(1, wk.t / N.walk.sitTime)) * N.walk.riseTime;
+      wk.start([{ type: 'rise', startT }, ...steps], opts);
+    } else {
+      wk.start(steps, opts);
+    }
+  }
+
+  /** Punched by the player. Flinch; after enough hits, go down and stay down. */
+  takeHit(dir) {
+    if (this.down) return;
+    this.hits = (this.hits ?? 0) + 1;
+    this.walker.stun = 0.35;
+    this.flinch = 0.35;
+    if (this.hits >= N.knockdownHits) this._knockDown(dir);
+  }
+
+  _knockDown(dir) {
+    this.down = true;
+    const root = this.rig.root;
+    root.visible = true;
+    const wasSeated = !this.walker.active;
+    this.walker.steps = null; // abandon whatever she was doing
+    if (this.carrying) { this.carrying.drop(root.position.clone()); this.carrying = null; }
+    let headDir, at;
+    if (wasSeated) {
+      // Slides off the front of the chair onto the floor, lying across in front of it
+      headDir = this.w(1, 0, 0).sub(this.w(0, 0, 0)).setY(0).normalize();
+      at = this.w(-0.45, 0, 0.75);
+    } else {
+      // Falls onto her back, head away from the punch
+      headDir = dir.clone().setY(0).normalize();
+      const pelvis = this.rig.joints.pelvis.getWorldPosition(new THREE.Vector3());
+      at = pelvis.clone().addScaledVector(headDir, -0.35);
+    }
+    at.y = 0.13 * this.rig.scale;
+    // Root is at the feet: lying on the back with the head along headDir
+    const yaw = Math.atan2(-headDir.x, -headDir.z);
+    const lie = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
+    this.fall = { t: 0, fromPos: root.position.clone(), fromQuat: root.quaternion.clone(), toPos: at, toQuat: lie, thudded: false };
+    this.face?.setExpression({ lids: 1, brows: { angle: 0.2 }, mouth: { open: 0.35, width: 0.8 } }, 6);
+  }
+
+  _updateDown(dt) {
+    const f = this.fall, root = this.rig.root, j = this.rig.joints;
+    f.t += dt;
+    const u = Math.min(1, f.t / N.fallTime);
+    const k = u * u; // accelerating, like falling
+    root.position.lerpVectors(f.fromPos, f.toPos, k);
+    root.quaternion.copy(f.fromQuat).slerp(f.toQuat, k);
+    // Limbs go slack: arms out, legs apart
+    const ease = Math.min(1, u * 1.5);
+    const slack = (joint, x, z) => joint.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(x, 0, z)), ease * 0.25);
+    slack(j.spine, 0, 0); slack(j.neck, -0.2, 0.3);
+    slack(j.lShoulder, 0, 1.3); slack(j.rShoulder, 0, -1.3); slack(j.lElbow, -0.3, 0); slack(j.rElbow, -0.5, 0);
+    slack(j.lHip, 0, 0.25); slack(j.rHip, 0, -0.18); slack(j.lKnee, 0.4, 0); slack(j.rKnee, 0.1, 0);
+    if (u >= 1 && !f.thudded) { f.thudded = true; this.sfx.bodyThud(root.position); }
+    this.face?.update(dt);
+  }
+
   /** The host interface the Walker needs (see walker.js). */
   _walkerHost() {
     const self = this;
@@ -426,6 +532,11 @@ export class Npc {
       w: (x, y, z) => self.w(x, y, z),
       seatedFoot: (side) => self.w(side * 0.11, 0, 0.44),
       seatedHand: (side) => self.w(side * 0.13, 0.6, 0.24),
+      // Carrying the radio in front of her
+      carryHand: (side, wk) => (self.carrying
+        ? wk.pos.clone().addScaledVector(new THREE.Vector3(Math.cos(wk.yaw), 0, -Math.sin(wk.yaw)), side * 0.13)
+          .addScaledVector(new THREE.Vector3(Math.sin(wk.yaw), 0, Math.cos(wk.yaw)), 0.32).setY(1.0 * self.rig.scale)
+        : null),
       expression: (wk) => {
         if (self.called) return 'annoyed';
         const ladder = N.anger.expressions;
@@ -446,7 +557,8 @@ export class Npc {
 
     const j = this.rig.joints, L = this.rig.lengths;
     const breathe = Math.sin(this.time * 1.5) * 0.008;
-    j.spine.rotation.set(t.bend + breathe, t.twist, t.lean);
+    this.flinch = Math.max(0, (this.flinch ?? 0) - dt);
+    j.spine.rotation.set(t.bend + breathe - this.flinch * 0.8, t.twist, t.lean);
     this.rig.root.updateMatrixWorld(true);
 
     const q = this.chair.object.quaternion;

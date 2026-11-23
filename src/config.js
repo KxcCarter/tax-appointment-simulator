@@ -49,6 +49,16 @@ export const config = {
     initial: 12,
   },
 
+  // ---- Player fighting (first draft: punching only) ----
+  combat: {
+    punchReach: 1.2,         // metres from the eye
+    punchTime: 0.32,         // whole jab, out and back
+    punchHitAt: 0.4,         // fraction of punchTime when the fist connects
+    punchCooldown: 0.12,
+    knockbackDecay: 6,       // how quickly being shoved wears off
+    shakeDecay: 5,
+  },
+
   ticket: {
     number: 847,
   },
@@ -112,6 +122,28 @@ export const config = {
     shift: { every: [15, 26], duration: 1.2 },
     calledLookDelay: [0.2, 0.9],  // after the call, each head turns to the player after a moment
     // Getting up, walking and sitting back down (the radio errand; the brawl reuses it)
+    // Her attacks on the player (feel only for now: knockback, camera shake, sound; no health yet).
+    //   knock = shove speed in m/s, shake = camera shake, hits land within `reach` metres
+    attacks: {
+      reach: 1.15,
+      slap: { duration: 0.9, knock: 1.4, shake: 0.5, sound: 'slap' },
+      shove: { duration: 1.0, knock: 3.4, shake: 0.4, sound: 'shove' },
+      punch: { duration: 0.9, knock: 2.6, shake: 0.9, sound: 'punch' },
+      kick: { duration: 1.1, knock: 3.8, shake: 1.0, sound: 'kick' },
+      combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
+      radio: { duration: 1.3, knock: 4.6, shake: 1.5, sound: 'radioHit' },
+    },
+    // The radio war: from the `violentFrom`-th time the radio is turned off, she attacks the player
+    // first, in this order (the last one repeats). The player can fight back after `fightBackAfter`.
+    violence: {
+      violentFrom: 4,
+      escalation: ['slap', 'shove', 'punch', 'kick', 'combo', 'radio'],
+      fightBackAfter: 'kick',
+      approachDistance: 0.75,
+    },
+    // Fighting back (placeholder until Milestone 4's ragdolls): she flinches, and goes down after this many hits
+    knockdownHits: 4,
+    fallTime: 0.7,
     // Each time the player turns the radio off, she gets angrier: faster and faster
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
     walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55 },
@@ -229,7 +261,12 @@ export const config = {
   // ---- Audio levels (all sounds are synthesised in src/audio/sfx.js) ----
   audio: {
     master: 0.8,
-    clockTick: { volume: 0.5, refDistance: 1.2, rolloff: 1.4 },
+    // The wall clock: a 2-second tick-tock recording (src/audio/), restarted on every even second
+    // of the game clock so it stays in step with the second hand. Positional, louder near the clock.
+    clockTick: {
+      file: new URL('./audio/clock_tick.mp3', import.meta.url).href,
+      volume: 0.35, refDistance: 1.2, rolloff: 1.4, // about as loud as the old synthesised tick
+    },
     mouseClick: { volume: 0.55, refDistance: 1.0, rolloff: 1.3 },
     hum: { volume: 0.05 },
     footsteps: { volume: 0.22, strideLength: 0.7 },
@@ -243,6 +280,7 @@ export const config = {
     watchTick: { volume: 0.12, refDistance: 0.4, rolloff: 2.0 },
     chime: { volume: 0.45 },
     stomp: { volume: 0.35, refDistance: 1.5, rolloff: 1.0 },
+    hits: { volume: 0.7, refDistance: 1.5, rolloff: 1.0 },
     chairCreak: { volume: 0.35 },
   },
 
