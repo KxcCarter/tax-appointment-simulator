@@ -84,6 +84,8 @@ document.addEventListener('keydown', (e) => {
 let physics, player, level;
 
 async function boot() {
+  // Debug: ?charstyle=soft previews a character style without editing theme.js
+  if (params.get('charstyle')) theme.look.characterStyle = params.get('charstyle');
   await initRapier();
   physics = new Physics();
   player = new PlayerController(physics, camera);

@@ -115,6 +115,27 @@ export const config = {
       shoulderInset: 0.03,
       hipSpacing: 0.1,
     },
+    // Per-style changes to the proportions above (theme.look.characterStyle picks the style)
+    styleProportions: {
+      figure: {
+        head: { w: 0.255, h: 0.3, d: 0.27 },  // a little smaller and less square: less cartoonish
+        neck: 0.075,
+        mitten: { w: 0.07, h: 0.1, d: 0.045 }, // mitten hands instead of balls
+      },
+    },
+    // Facial expressions (only the 'figure' style has a face that can show them).
+    //   lids   0 = wide open .. 1 = shut
+    //   brows  raise (m, + up), angle (rad, + = inner ends up/worried, - = frown), asym (m, lifts her left brow)
+    //   mouth  smile (+ up / - down), open (0..1), width (x1), asym (lifts her left corner: a smirk)
+    expressions: {
+      neutral:     { lids: 0.12, brows: { raise: 0, angle: 0 },           mouth: { smile: 0, open: 0, width: 1 } },
+      bored:       { lids: 0.5,  brows: { raise: -0.003, angle: 0.05 },   mouth: { smile: -0.15, width: 0.9 } },
+      unimpressed: { lids: 0.38, brows: { raise: -0.002, asym: 0.012 },   mouth: { smile: -0.1, width: 0.85, asym: 0.12 } },
+      annoyed:     { lids: 0.3,  brows: { raise: -0.006, angle: -0.35 },  mouth: { smile: -0.35, width: 0.8 } },
+      surprised:   { lids: 0,    brows: { raise: 0.012, angle: 0.15 },    mouth: { smile: 0, open: 0.55, width: 0.75 } },
+      pleased:     { lids: 0.2,  brows: { raise: 0.004, angle: 0.05 },    mouth: { smile: 0.35, width: 1.1 } },
+    },
+    blinkInterval: [2.5, 6],
     receptionist: {
       scale: 0.94,
       voicePitch: 320,              // Hz, dialogue blips

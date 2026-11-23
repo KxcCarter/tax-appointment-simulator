@@ -28,6 +28,7 @@
     sound    { name, who? }           sfx[name](actor position)
     emit     { event }                tell the game something happened (hooks.onEvent)
     if       { test: (state) => bool, then: [actions], else: [actions] }   checked when reached
+    face     { who, expression }      a preset from config.characters.expressions
 
   All waiting runs on game time, so pausing freezes the scene.
 */
@@ -195,6 +196,9 @@ export class Director {
       case 'emit':
         this.onEvent(a.event);
         return;
+      case 'face':
+        this.actors[a.who]?.setExpression?.(a.expression);
+        return;
       case 'if':
         return this.runActions(a.test(this.state) ? a.then ?? [] : a.else ?? []);
       default:
@@ -219,7 +223,9 @@ export class Director {
         position: actor ? () => actor.voicePosition() : null,
       };
       this.ui.showLine(sp.name, '');
+      actor?.setTalking?.(true);
     });
+    actor?.setTalking?.(false);
     this.wait(T.holdBase + T.holdPerChar * text.length).then(() => {
       if (this.lineToken !== token) return; // a newer line took over
       this.typing = null;

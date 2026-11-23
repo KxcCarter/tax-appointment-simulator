@@ -62,7 +62,9 @@ export const palette = {
   coat: 0x6a5a44,
   brassKnob: 0xc8a54a,
   black: 0x1b1a18,
-  white: 0xffffff,           // neutral base under textures
+  white: 0xffffff,
+  eyeWhite: 0xf2eee4,
+  mouthDark: 0x4a2222,           // neutral base under textures
 
   // Clock
   clockFace: 0xf2eedf,
@@ -115,6 +117,7 @@ export const palette = {
 export const characterPalettes = {
   skin: [0xf1c9a5, 0xe0ac85, 0xc68863, 0x9c6644, 0x6f4a32, 0x4a3022],
   hair: [0x1b1a18, 0x3b2a1a, 0x6a4a2a, 0xa07a4a, 0xc9c2b4, 0x8a3a1a],
+  eyes: [0x3b2a1a, 0x4a6a8a, 0x5a6a3a, 0x2b2a26],
   shirts: [0xe8e2cf, 0x9fb4c8, 0xc8b48a, 0xd8a8a0, 0xa8c8a0, 0xf4f1e8],
   jackets: [0x5a4a3a, 0x3f4a5a, 0x6b7a3a, 0x7a3a2a, 0x8a7a5a, 0x4a4a48],
   trousers: [0x3b3b38, 0x4a3a2a, 0x2d3a4a, 0x6a5a44, 0x5a5a52],
@@ -130,6 +133,8 @@ export const characterPalettes = {
     cardigan: 0x6b7a3a,
     skirt: 0x4a3a2a,
     glasses: 0x1b1a18,
+    eyes: 0x4a3a2a,
+    lips: 0x9a4a4e,
     shoes: 0x3b2a1a,
   },
 };
@@ -139,6 +144,7 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 export const look = {
   materialStyle: 'lambert',     // 'lambert' | 'toon'
+  characterStyle: 'figure',     // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' (see characters/partShapes.js)
   toonSteps: [90, 170, 255],    // gradient for 'toon'
   background: 0x1a1612,
   fog: null,                    // e.g. { color: 0x1a1612, near: 8, far: 30 }

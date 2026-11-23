@@ -23,8 +23,11 @@ export class Receptionist {
     this.rig = buildRig({
       scale: config.characters.receptionist.scale,
       skin: c.skin, hair: c.hair, hairStyle: 'bun', shirt: c.blouse, jacket: c.cardigan,
-      trousers: c.skirt, shoes: c.shoes, glasses: c.glasses,
+      trousers: c.skirt, shoes: c.shoes, glasses: c.glasses, eyes: c.eyes, lips: c.lips,
     });
+    this.face = this.rig.face; // null unless the character style has an expressive face
+    this.baseExpression = 'bored';
+    this.face?.setExpression(this.baseExpression, 100);
     const seat = anchors.receptionistSeat; // office chair group, faces +z
     const root = this.rig.root;
     root.position.copy(seat.position);
@@ -58,14 +61,23 @@ export class Receptionist {
 
   /** Called by the director's 'anim' action. */
   play(name) {
-    if (name === 'lookAtPlayer') this.state = 'look';
-    else if (name === 'resumeSolitaire') this.state = 'solitaire';
+    if (name === 'lookAtPlayer') { this.state = 'look'; this.face?.setExpression('unimpressed'); }
+    else if (name === 'resumeSolitaire') { this.state = 'solitaire'; this.face?.setExpression(this.baseExpression); }
     else if (name === 'slideClipboard') {
       this.state = 'clipboard';
       this.clipT = 0;
       this.clipSounded = false;
       this.clipHandHold = null;
     }
+  }
+
+  /** Director hooks: expression presets (config.characters.expressions) and mouth movement. */
+  setExpression(name) {
+    this.face?.setExpression(name);
+  }
+
+  setTalking(on) {
+    this.face?.setTalking(on);
   }
 
   /** Where her voice comes from. */
@@ -164,10 +176,13 @@ export class Receptionist {
     const turn = 1 - Math.exp(-config.characters.receptionist.headTurnSpeed * dt);
     if (this.state === 'look' && cameraPos) {
       aimJoint(j.neck, cameraPos, { maxYaw: 1.1, maxPitch: 0.5, alpha: turn });
+      this.face?.lookAt(cameraPos);
     } else {
       const s = this.screen.getWorldPosition(new THREE.Vector3());
       s.x += Math.sin(this.time * 0.37) * 0.04; // eyes wander over the tableau
       aimJoint(j.neck, s, { maxYaw: 1.1, maxPitch: 0.5, alpha: turn });
+      this.face?.lookAt(s);
     }
+    this.face?.update(dt);
   }
 }
