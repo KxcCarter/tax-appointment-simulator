@@ -58,11 +58,11 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - **Fallback if npm installs are unavailable in the session:** build a single HTML file that loads Three.js and Rapier from a CDN via an import map. Same architecture, fewer files.
 
 ### 3.2 Visual style
-- Simple, comical and slightly retro. Characters and props are built from boxes, capsules, cylinders and spheres, like low-poly toy figures.
+- Simple and comical, with a 1980s/90s look in the set dressing (not in the rendering). Characters and props are built from boxes, capsules, cylinders and spheres, like low-poly toy figures.
 - Flat colors with `MeshLambertMaterial`, or `MeshToonMaterial` with a 3-step gradient.
-- **Retro render:** render to a low-resolution target (about 1/3 of screen size) and upscale with nearest-neighbor filtering. Make this toggleable in the config.
+- **No pixelated / low-resolution render.** Render at full resolution with antialiasing and smooth texture filtering. (A retro render was tried and dropped by the owner.)
 - **Palette:** a 1980s/90s tax office: beige walls, brown carpet, mint and avocado accents, wood-veneer desk, slightly greenish fluorescent light, a beige CRT computer.
-- **All look-related settings live in one file, `src/theme.js`:** palette colors, a material factory (e.g. `theme.material("wallBeige")`), lighting setup (types, colors, intensities, shadows), fog and background, retro render settings, and any post-processing. Character colors and accessories come from palettes defined there too. No other file may hard-code a color, create a material directly, or set up lights. That way the whole art style can change by editing `theme.js` alone (e.g. swap `MeshLambertMaterial` for `MeshToonMaterial` in one place).
+- **All look-related settings live in one file, `src/theme.js`:** palette colors, a material factory (e.g. `theme.material("wallBeige")`), lighting setup (types, colors, intensities, shadows), fog and background, and any post-processing. Character colors and accessories come from palettes defined there too. No other file may hard-code a color, create a material directly, or set up lights. That way the whole art style can change by editing `theme.js` alone (e.g. swap `MeshLambertMaterial` for `MeshToonMaterial` in one place).
 - **Fixed early (expensive to change later):** characters are built from **separate primitive body parts** (the toy-like look), because animation, hit detection and ragdolls depend on that construction. Body proportions (chunky, slightly big-headed figures) and room scale are defined as constants in `config.js` so they can still be re-tuned.
 - Room contents: rows of chairs along the walls, a small side table with magazines, a potted plant, a water cooler, an umbrella stand, the Now Serving display, the clock, the ticket dispenser, the front desk with CRT computer, keyboard and mouse, and a door marked **"ACCOUNTANT – PRIVATE"**.
 
@@ -137,9 +137,9 @@ income-tax-sim/
 ├─ index.html
 ├─ package.json
 ├─ src/
-│  ├─ main.js               # bootstrap, loop, renderer, retro render target
+│  ├─ main.js               # bootstrap, loop, renderer
 │  ├─ config.js             # ALL tunables: timings, weapon stats, physics, proportions
-│  ├─ theme.js              # ALL visuals: palette, materials, lighting, retro render, post-fx
+│  ├─ theme.js              # ALL visuals: palette, materials, lighting, post-fx
 │  ├─ state.js              # global game state
 │  ├─ physics.js            # Rapier world setup + helpers
 │  ├─ player/
@@ -168,7 +168,7 @@ income-tax-sim/
 
 ## 5. Milestones for the first draft
 
-1. **Greybox + movement:** the waiting room built from primitives with lighting and colliders; a first-person controller with pointer lock; the retro render toggle; the title screen.
+1. **Greybox + movement:** the waiting room built from primitives with lighting and colliders; a first-person controller with pointer lock; the title screen.
 2. **Opening sequence:** clock, receptionist, director and beat system, dialogue UI, the three-attempt exchange with timed gates, ticket dispenser, Now Serving display, sitting, ambient audio.
 3. **Waiting phase:** 5 seated NPCs with randomized looks and idle fidgets; the configurable wait; the receptionist calling the player's number.
 4. **Brawl:** NPC aggression and combat AI, player punch and kick, weapon pickups (bat, umbrella, keyboard), health, hit feel, **Rapier ragdoll knockdowns**, knockdown counter, the door unlocking at 4, player-failure loop.
@@ -178,7 +178,7 @@ income-tax-sim/
 - The full sequence plays from the title screen to the door without errors in a desktop Chrome or Firefox browser at 60 fps.
 - The reception pacing matches section 2.2, and all timings live in `config.js`.
 - At least 4 NPCs can be knocked down into convincing, funny ragdolls, and the door then opens.
-- Changing the art style (colors, materials, lighting, retro filter) needs edits to `theme.js` only.
+- Changing the art style (colors, materials, lighting) needs edits to `theme.js` only.
 - No external assets are required at runtime beyond the Three.js and Rapier libraries.
 
 ## 6. Assumptions and open items
