@@ -177,8 +177,10 @@ export function buildWaitingRoom(scene, physics) {
 
     // CRT computer, facing the receptionist (screen towards -z)
     const crt = new THREE.Group();
-    crt.position.set(-2.7, 0.76, -3.25);
-    crt.rotation.y = Math.PI + 0.25;
+    // Her workstation is angled off to her right, so a glance at the player reads as a real head turn
+    const deskYaw = -0.6; // her facing: +z rotated towards -x
+    crt.position.set(-3.13, 0.76, -3.28);
+    crt.rotation.y = Math.PI + deskYaw; // screen faces her
     scene.add(crt);
     box(0.26, 0.06, 0.24, mat('crtBeige'), 0, 0.03, 0, crt);           // base
     box(0.44, 0.38, 0.38, mat('crtBeige'), 0, 0.25, 0, crt);           // tube housing
@@ -201,6 +203,7 @@ export function buildWaitingRoom(scene, physics) {
     screen.position.set(0, 0.26, 0.191);
     crt.add(screen);
     anchors.crt = crt;
+    anchors.crtScreen = screen;
 
     // Keyboard and mouse (in front of the receptionist)
     const kbTex = theme.canvasTexture(64, 24, (c, w, h) => {
@@ -210,8 +213,8 @@ export function buildWaitingRoom(scene, physics) {
       c.fillRect(14, 22, 30, 1);
     });
     const keyboard = new THREE.Group();
-    keyboard.position.set(-2.65, 0.775, -3.55);
-    keyboard.rotation.y = Math.PI + 0.1;
+    keyboard.position.set(-2.93, 0.775, -3.55);
+    keyboard.rotation.y = Math.PI + deskYaw;
     scene.add(keyboard);
     box(0.46, 0.03, 0.17, mat('crtBeige'), 0, 0, 0, keyboard);
     const keys = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.15), theme.textured(kbTex, { lit: true }));
@@ -220,8 +223,10 @@ export function buildWaitingRoom(scene, physics) {
     keyboard.add(keys);
     anchors.keyboard = keyboard;
 
-    box(0.22, 0.005, 0.18, mat('mousepad'), -2.15, 0.763, -3.6); // mousepad
-    const mouse = box(0.06, 0.03, 0.1, mat('crtBeige'), -2.15, 0.78, -3.6);
+    // Mouse on her right (she faces +z, so her right is -x)
+    box(0.22, 0.005, 0.18, mat('mousepad'), -3.21, 0.763, -3.58).rotation.y = deskYaw; // mousepad
+    const mouse = box(0.06, 0.03, 0.1, mat('crtBeige'), -3.21, 0.78, -3.58);
+    mouse.rotation.y = deskYaw;
     anchors.mouse = mouse;
 
     // Desk clutter
@@ -233,13 +238,15 @@ export function buildWaitingRoom(scene, physics) {
 
     // Receptionist's office chair
     const oc = new THREE.Group();
-    oc.position.set(-2.6, 0, -4.2);
+    oc.position.set(-2.65, 0, -3.98);
+    oc.rotation.y = deskYaw;
     scene.add(oc);
     cyl(0.25, 0.25, 0.03, mat('black'), 0, 0.05, 0, oc, 5);
     cyl(0.03, 0.03, 0.38, mat('metalGrey'), 0, 0.24, 0, oc);
     box(0.48, 0.08, 0.46, mat('officeChairFabric'), 0, 0.46, 0, oc);
     box(0.44, 0.5, 0.06, mat('officeChairFabric'), 0, 0.82, -0.24, oc);
     anchors.receptionistSeat = oc;
+    anchors.receptionistSeatTop = 0.5;
 
     // Ticket dispenser on the ledge, east end
     const disp = new THREE.Group();

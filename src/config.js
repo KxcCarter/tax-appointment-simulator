@@ -42,11 +42,89 @@ export const config = {
     startHour: 1,
     startMinute: 55,
     startSecond: 0,
-    timeScale: 1,             // 1 = real time. (proposal: make this ~0.2 later so it barely moves)
+    timeScale: 1,             // always real time (owner's decision)
   },
 
   nowServing: {
     initial: 12,
+  },
+
+  ticket: {
+    number: 847,
+  },
+
+  // ---- Pacing. The beat data (src/data/waitingRoomBeats.js) reads these. ----
+  timings: {
+    reception: {
+      glanceDuration: 2.0,          // beat 1: silent look at the player
+      gate: [10, 15],               // seconds before the next attempt unlocks (random in range)
+      beat2IgnoreBeforeLine: 3.5,   // beat 2: clicks continue this long before "Sshhh..."
+      beat3PauseBeforeLine: 1.2,    // beat 3: pause before "Take a number..."
+      sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
+    },
+    dialogue: {
+      charsPerSecond: 30,           // typewriter speed
+      holdBase: 1.2,                // seconds a finished line stays on screen...
+      holdPerChar: 0.035,           // ...plus this per character
+      reactionDelay: 0.5,           // after a line finishes typing, before the next action starts
+    },
+    receptionistClicks: {
+      gap: [0.35, 2.4],             // seconds between solitaire clicks
+      doubleClickChance: 0.18,
+      doubleClickGap: 0.11,
+      longPauseChance: 0.12,        // occasionally she considers her move
+      longPause: [3, 6],
+    },
+  },
+
+  interaction: {
+    maxDistance: 2.6,               // metres from the eye
+  },
+
+  seated: {
+    eyeHeight: 1.12,                // above the floor
+    eyeForward: 0.02,               // from the chair centre, along its facing
+    yawLimit: 1.2,                  // look-around while seated (radians each way)
+    pitchLimit: 0.7,
+    standUpDistance: 0.6,           // stand this far in front of the chair
+    uprightThreshold: 0.9,          // chair up-vector dot; below this you can't sit
+  },
+
+  // ---- Character construction (shared by NPCs and the receptionist) ----
+  characters: {
+    // Chunky, slightly big-headed toy figures. Metres at scale 1.
+    proportions: {
+      pelvis: { w: 0.36, h: 0.16, d: 0.24 },
+      torso: { w: 0.42, h: 0.5, d: 0.26 },
+      neck: 0.06,
+      head: { w: 0.3, h: 0.32, d: 0.3 },
+      upperArm: { len: 0.3, thick: 0.12 },
+      lowerArm: { len: 0.27, thick: 0.11 },
+      hand: 0.065,                  // radius
+      upperLeg: { len: 0.42, thick: 0.16 },
+      lowerLeg: { len: 0.4, thick: 0.14 },
+      foot: { w: 0.12, h: 0.07, l: 0.24 },
+      shoulderInset: 0.03,
+      hipSpacing: 0.1,
+    },
+    receptionist: {
+      scale: 0.94,
+      voicePitch: 320,              // Hz, dialogue blips
+      headTurnSpeed: 5,             // how quickly she turns to look
+    },
+    playerVoicePitch: 190,
+  },
+
+  // ---- Audio levels (all sounds are synthesised in src/audio/sfx.js) ----
+  audio: {
+    master: 0.8,
+    clockTick: { volume: 0.5, refDistance: 1.2, rolloff: 1.4 },
+    mouseClick: { volume: 0.55, refDistance: 1.0, rolloff: 1.3 },
+    hum: { volume: 0.05 },
+    footsteps: { volume: 0.22, strideLength: 0.7 },
+    voice: { volume: 0.18 },
+    ticketTear: { volume: 0.5 },
+    chairCreak: { volume: 0.35 },
   },
 
   debug: {

@@ -18,8 +18,14 @@ export class PlayerController {
     this.velocity = new THREE.Vector3();
     this.verticalVelocity = 0;
     this.grounded = false;
-    this.enabled = false;
+    this.enabled = false;      // pointer locked and playing
+    this.blocked = new Set();  // reasons input is suspended (e.g. 'dialogue')
     this.bobPhase = 0;
+    this.seat = null;          // chair Object3D while seated
+    this.seatYaw = 0;
+    this.seatPitch = 0;
+    this.strideAccum = 0;
+    this.onStep = null;        // callback per footstep
 
     const world = physics.world;
     // Capsule centre height so that the feet touch the floor (y = 0)
@@ -50,10 +56,16 @@ export class PlayerController {
 
   _bindInput() {
     document.addEventListener('mousemove', (e) => {
-      if (!this.enabled) return;
+      if (!this.canAct) return;
       // Clamp spikes some browsers report on pointer-lock edge cases
       const dx = THREE.MathUtils.clamp(e.movementX, -200, 200);
       const dy = THREE.MathUtils.clamp(e.movementY, -200, 200);
+      if (this.seat) {
+        const S = config.seated;
+        this.seatYaw = THREE.MathUtils.clamp(this.seatYaw - dx * cfg.mouseSensitivity, -S.yawLimit, S.yawLimit);
+        this.seatPitch = THREE.MathUtils.clamp(this.seatPitch - dy * cfg.mouseSensitivity, -S.pitchLimit, S.pitchLimit);
+        return;
+      }
       this.yaw -= dx * cfg.mouseSensitivity;
       this.pitch -= dy * cfg.mouseSensitivity;
       this.pitch = THREE.MathUtils.clamp(this.pitch, -cfg.pitchLimit, cfg.pitchLimit);
@@ -63,11 +75,48 @@ export class PlayerController {
     window.addEventListener('blur', () => this.keys.clear());
   }
 
+  /** True when the player may look/move/interact. */
+  get canAct() {
+    return this.enabled && this.blocked.size === 0;
+  }
+
+  block(reason, on) {
+    if (on) this.blocked.add(reason);
+    else this.blocked.delete(reason);
+  }
+
+  // ---------------------------------------------------------------- sitting
+
+  /** Yaw a camera needs to look along a chair's facing (+z local). */
+  static chairYaw(chair) {
+    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(chair.quaternion);
+    return Math.atan2(-f.x, -f.z);
+  }
+
+  sit(chair) {
+    this.seat = chair;
+    this.seatYaw = 0;
+    this.seatPitch = 0;
+    this.velocity.set(0, 0, 0);
+    this.collider.setEnabled(false); // don't shove the chair we're sitting in
+  }
+
+  stand() {
+    const chair = this.seat;
+    if (!chair) return;
+    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(chair.quaternion).setY(0).normalize();
+    const p = chair.position.clone().addScaledVector(f, config.seated.standUpDistance);
+    this.seat = null;
+    this.collider.setEnabled(true);
+    this.teleport(p.x, p.z, PlayerController.chairYaw(chair) + this.seatYaw);
+  }
+
   /** Called once per fixed physics step, before world.step(). */
   fixedUpdate(dt) {
+    if (this.seat) return;
     const k = this.keys;
     let fx = 0, fz = 0;
-    if (this.enabled) {
+    if (this.canAct) {
       if (k.has('KeyW') || k.has('ArrowUp')) fz -= 1;
       if (k.has('KeyS') || k.has('ArrowDown')) fz += 1;
       if (k.has('KeyA') || k.has('ArrowLeft')) fx -= 1;
@@ -103,7 +152,14 @@ export class PlayerController {
 
     // Velocity actually achieved (so walking into a wall doesn't bob the head)
     const horiz = Math.hypot(m.x, m.z);
-    if (this.grounded) this.bobPhase += horiz * cfg.headBobFrequency * Math.PI * 2;
+    if (this.grounded) {
+      this.bobPhase += horiz * cfg.headBobFrequency * Math.PI * 2;
+      this.strideAccum += horiz;
+      if (this.strideAccum >= config.audio.footsteps.strideLength) {
+        this.strideAccum = 0;
+        this.onStep?.();
+      }
+    }
 
     // Safety net: fell out of the world
     if (next.y < -5) this.teleport(cfg.spawn.x, cfg.spawn.z, cfg.spawn.yaw);
@@ -121,6 +177,14 @@ export class PlayerController {
 
   /** Called every rendered frame. alpha = interpolation between physics steps. */
   updateCamera(alpha) {
+    if (this.seat) {
+      const S = config.seated;
+      const eye = new THREE.Vector3(0, 0, S.eyeForward).applyQuaternion(this.seat.quaternion).add(this.seat.position);
+      eye.y = this.seat.position.y + S.eyeHeight;
+      this.camera.position.copy(eye);
+      this.camera.rotation.set(this.seatPitch, PlayerController.chairYaw(this.seat) + this.seatYaw, 0, 'YXZ');
+      return;
+    }
     const pos = new THREE.Vector3().lerpVectors(this.prevPos, this.currPos, alpha);
     const feetY = pos.y - this.centreHeight;
     const moving = Math.min(1, this.velocity.length() / cfg.walkSpeed);

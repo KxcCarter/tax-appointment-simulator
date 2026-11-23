@@ -126,3 +126,40 @@ html, body {
   padding: 4px 10px;
   transition: opacity 0.4s;
 }
+
+/* Dialogue */
+#dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: 4vh;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 32px));
+  background: var(--dialogue-bg);
+  border: 1px solid var(--dialogue-border);
+  padding: 12px 18px 14px;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+#dlg-speaker {
+  color: var(--amber);
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  margin-bottom: 4px;
+}
+#dlg-text { color: var(--dialogue-text); min-height: 1.45em; }
+#dlg-choices { margin: 4px 0 0; padding-left: 1.6em; }
+#dlg-choices li { color: var(--phosphor-dim); padding: 1px 4px; pointer-events: auto; cursor: pointer; }
+#dlg-choices li.selected { color: var(--phosphor); background: var(--phosphor-hover); }
+#dlg-hint { color: var(--phosphor-dim); font-size: 0.72rem; margin-top: 8px; opacity: 0.8; }
+
+#ticket {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  background: var(--ticket-bg);
+  color: var(--ticket-text);
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  padding: 6px 12px;
+  border: 1px dashed var(--ticket-edge);
+}

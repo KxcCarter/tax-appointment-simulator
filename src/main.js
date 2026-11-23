@@ -3,13 +3,15 @@ import { config } from './config.js';
 import { state } from './state.js';
 import { initRapier, Physics } from './physics.js';
 import { PlayerController } from './player/controller.js';
-import { buildWaitingRoom } from './level/waitingRoom.js';
+import { setupWaitingRoom } from './level/waitingRoomLevel.js';
+import { Sfx } from './audio/sfx.js';
 import { UI } from './ui/ui.js';
 import { theme } from './theme.js';
 
 theme.applyUi();
 
 const params = new URLSearchParams(location.search);
+const sfx = new Sfx();
 const ui = new UI(document.getElementById('ui'), {
   onBegin: begin,
   onResume: requestLock,
@@ -51,6 +53,7 @@ function requestLock() {
 function begin() {
   if (state.started) return;
   state.started = true;
+  sfx.start(); // needs this click: browsers block audio until a user gesture
   ui.hideTitle();
   ui.showHud(true);
   requestLock();
@@ -61,12 +64,14 @@ document.addEventListener('pointerlockchange', () => {
   if (locked) {
     state.paused = false;
     player.enabled = true;
+    sfx.resume();
     ui.showPause(false);
     ui.showHud(true);
   } else if (state.started) {
     state.paused = true;
     player.enabled = false;
     player.keys.clear();
+    sfx.suspend();
     ui.showPause(true);
   }
 });
@@ -76,13 +81,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- boot ----------
-let physics, player, room;
+let physics, player, level;
 
 async function boot() {
   await initRapier();
   physics = new Physics();
-  room = buildWaitingRoom(scene, physics);
   player = new PlayerController(physics, camera);
+  level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx });
   scene.add(camera);
 
   resize();
@@ -93,6 +98,9 @@ async function boot() {
     state.started = true;
     ui.hideTitle();
     ui.showHud(true);
+    player.enabled = true;
+    // No click yet, so audio starts on the first one
+    document.addEventListener('mousedown', () => sfx.start(), { once: true });
   }
   const view = params.get('view');
   if (view) {
@@ -100,7 +108,7 @@ async function boot() {
     debugView = { x, y, z, yaw: THREE.MathUtils.degToRad(yaw), pitch: THREE.MathUtils.degToRad(pitch) };
   }
 
-  window.__game = { state, config, scene, camera, physics, player, room, renderer };
+  window.__game = { state, config, scene, camera, physics, player, level, renderer, sfx };
   requestAnimationFrame(loop);
 }
 
@@ -127,10 +135,11 @@ function loop(now) {
     if (n === config.physics.maxSubSteps) accumulator = 0; // don't spiral after a hitch
     physics.sync();
     state.clockTime += dt * config.clock.timeScale;
-    room.update(dt);
+    level.update(dt);
   }
-  room.clock.update(state.clockTime);
   player.updateCamera(Math.min(1, accumulator / step));
+  level.frame();
+  sfx.updateListener(camera);
 
   if (debugView) {
     camera.position.set(debugView.x, debugView.y, debugView.z);

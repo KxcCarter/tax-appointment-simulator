@@ -29,13 +29,15 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 | — | *(Another wait, about 10–15 s.)* | |
 | 3 | "I'm here for my appointment at 2:00 PM." | Without looking: **"Take a number and have a seat."** |
 
+- **During a wait (decided by the owner):** the player can still walk up and press E, but **no dialogue options appear**. Beat data has a `lockedOptions` list (empty for now) so recorded lines can be added there later without engine changes.
+
 - Each beat also offers 1–2 other options (e.g. "Hello?", "Excuse me.", "(Say nothing)"). These get flat or no responses and don't advance the story. *(proposal: options that are nearly identical to each other are part of the joke.)*
 - Timings must be in a config file so they're easy to tune.
 
 ### 2.3 Taking a number and waiting
-- A ticket dispenser sits on or near the desk. The player takes a ticket. *(proposal: the ticket number is absurdly high, e.g. **847**, while a "Now Serving" display shows a low number such as **12**.)*
+- A ticket dispenser sits on or near the desk. The player takes a ticket. **The ticket can be taken at any time, even before the receptionist says so, but it doesn't help:** she still ignores the first two attempts (decided by the owner). *(proposal: the ticket number is absurdly high, e.g. **847**, while a "Now Serving" display shows a low number such as **12**.)*
 - The player can sit in an empty chair (interact to sit and stand) or wander around.
-- **Placeholder for content not yet designed:** the time between taking a number and being called. For the first draft, use a configurable wait (default about 60 s) with small ambient beats: NPC idle animations, a sigh, someone checking their watch, someone coughing too often, the clock ticking. *(proposal: the clock visibly advances very slowly, or seems not to.)*
+- **Placeholder for content not yet designed:** the time between taking a number and being called. For the first draft, use a configurable wait (default about 60 s) with small ambient beats: NPC idle animations, a sigh, someone checking their watch, someone coughing too often, the clock ticking. **The clock always runs in real time** (decided by the owner).
 - When the wait is over, the receptionist calls the player: *(proposal)* "Eight hundred forty-seven. He'll see you now." The Now Serving display jumps to 847.
 
 ### 2.4 The brawl
@@ -152,7 +154,8 @@ income-tax-sim/
 │  │  ├─ npc.js             # NPC state machine + combat AI
 │  │  └─ receptionist.js
 │  ├─ level/
-│  │  ├─ waitingRoom.js     # room geometry, furniture, props, lighting
+│  │  ├─ waitingRoom.js     # room geometry, furniture, props, light fixtures
+│  │  ├─ waitingRoomLevel.js # wires room, receptionist, director, interactables, ambience
 │  │  ├─ clock.js
 │  │  └─ nowServing.js
 │  ├─ director/
@@ -161,6 +164,8 @@ income-tax-sim/
 │  │  └─ waitingRoomBeats.js
 │  ├─ audio/
 │  │  └─ sfx.js             # Web Audio synthesis
+│  ├─ util/
+│  │  └─ random.js         # seeded random (room looks the same every load)
 │  └─ ui/
 │     ├─ ui.js
 │     └─ ui.css

@@ -71,7 +71,7 @@ export const palette = {
 
   // NOW SERVING LED
   ledBackground: 0x140504,
-  ledGhost: 0x3a0e0a,
+  ledGhost: 0x220806,
   ledRed: 0xff3a22,
   ledLabel: 0xd8c9a3,
 
@@ -127,6 +127,7 @@ export const characterPalettes = {
     cardigan: 0x6b7a3a,
     skirt: 0x4a3a2a,
     glasses: 0x1b1a18,
+    shoes: 0x3b2a1a,
   },
 };
 
@@ -164,6 +165,12 @@ export const ui = {
   '--crosshair': 'rgba(255, 255, 255, 0.85)',
   '--crosshair-outline': 'rgba(0, 0, 0, 0.5)',
   '--hud-bg': 'rgba(0, 0, 0, 0.55)',
+  '--dialogue-bg': 'rgba(12, 14, 9, 0.88)',
+  '--dialogue-border': 'rgba(184, 240, 160, 0.35)',
+  '--dialogue-text': '#e6f2dc',
+  '--ticket-bg': '#f4f1e8',
+  '--ticket-text': '#b5332b',
+  '--ticket-edge': '#b5332b',
   '--font': '"Courier New", Courier, ui-monospace, Menlo, Consolas, monospace',
 };
 
