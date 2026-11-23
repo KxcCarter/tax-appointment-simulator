@@ -49,11 +49,11 @@ export const waitingRoomBeats = {
     // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
     // Proposal from the brief; the wording is easy to change.
     call: [
-      { do: 'goto', beat: null },  // whatever stage the reception exchange reached, it's over
+      { do: 'goto', beat: null }, // whatever stage the reception exchange reached, it's over
       { do: 'wait', seconds: config.timings.call.pauseBeforeLine },
       { do: 'say', who: 'receptionist', text: "Eight hundred forty-seven. He'll see you now." },
       { do: 'set', key: 'nowServing', value: config.ticket.number }, // display jumps, chimes
-      { do: 'set', key: 'called', value: true },                     // every head turns to the player
+      { do: 'set', key: 'called', value: true }, // every head turns to the player
     ],
   },
 
@@ -82,7 +82,7 @@ export const waitingRoomBeats = {
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
         { text: "I'm here for my appointment.", advance: true },
-        { text: "Excuse me. I'm here for my appointment?", response: flat('Mm.') },
+        { text: "Excuse me. I'm here for my appointment?", response: flat('Mmhmm.') },
         { text: 'Hello?', response: silence },
         { text: '(Say nothing)', silent: true, response: silence },
       ],
@@ -99,8 +99,8 @@ export const waitingRoomBeats = {
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
         { text: "I'm here for my appointment.", response: silence },
-        { text: "I'm here for my appointment at 2:00 PM.", advance: true },
-        { text: "I'm here for my 2:00 PM appointment.", response: silence },
+        { text: 'I have an appointment at 2:00 PM.', advance: true },
+        { text: "I'm here for my 2:00 PM appointment.", response: flat('Mamma's playin' her game.') },
         { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
@@ -201,6 +201,24 @@ export const waitingRoomBeats = {
         },
       ],
       lockedOptions: [],
+      next: 'checkin_sheet',
+    },
+    {
+      id: 'checkin_sheet',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'No.',
+          actions: [],
+          response: [
+            { do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet. Did you sign it?' },
+          ],
+        },
+        { text: "I'm trying to check in now", response: [] },
+      ],
+      lockedOptions: [],
+      onAdvance: [],
+      nextUnlockAfter: 0,
     },
   ],
 };

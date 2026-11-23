@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a deadpan clerk's desk: precise, quiet, faintly bureaucratic
+   IDEA: the tax office's own dialogue ledger: beats filed as index cards, each opened as a form
+   PICTURE: the working editor itself, plus a flow map of beats as filed cards with routing lines
+   COLOUR and TYPE: manila ground, typewriter-ink text, one rubber-stamp red; Plex Sans UI, Courier Prime for spoken lines, Plex Mono for code
+   LAYOUT: card index left, the open form centre, a drawer right for flow map, play test, code and checks */
+:root{color-scheme:light dark;
+--bg:light-dark(#e3d8bd,#171612);--panel:light-dark(#fbf8f0,#211f1a);--sunk:light-dark(#f2ebda,#1a1814);--ink:light-dark(#25231e,#ece4d1);--muted:light-dark(#6c6553,#a29a86);--line:light-dark(#d5caae,#39352c);--accent:light-dark(#b2352a,#ec725f);--accent-soft:light-dark(#f4dcd5,#3b2420);--code:light-dark(#f5f0e3,#1c1a16);
+--sans:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--type:"Courier Prime","Courier New",monospace}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{height:56px;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font:600 19px/1 var(--sans);margin:0;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:13px}
+.status{color:var(--muted);font-size:12px;margin-right:6px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 11px;cursor:pointer;white-space:nowrap;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent}
+.btn.danger:hover{color:var(--accent);border-color:var(--accent)}
+.btn.tiny{padding:3px 7px;font-size:12px;border-radius:5px}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr) 450px;height:calc(100vh - 56px)}
+.col{overflow:auto;height:100%}
+.index{border-right:1px solid var(--line);padding:12px 10px 40px}
+.index .li{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:7px;padding:8px 10px;margin-bottom:3px;cursor:pointer}
+.index .li:hover{background:var(--sunk)}
+.index .li.on{background:var(--panel);border-color:var(--line);box-shadow:inset 3px 0 0 var(--accent)}
+.index .li small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lid{font:500 13px var(--mono)}
+.st,.tag{font-size:11px;border-radius:3px;padding:0 5px;margin-left:6px;vertical-align:1px}
+.st{color:var(--accent);border:1px solid var(--accent);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.tag{background:var(--sunk);color:var(--muted)}
+.index .add{margin-top:10px;width:100%}
+.idxhead{font-size:12px;color:var(--muted);margin:14px 10px 6px}
+#editor{padding:22px clamp(16px,3vw,36px) 80px;background:var(--panel)}
+.formhead{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-bottom:14px}
+.formhead .sp{flex:1}
+.idfield span{display:block;font-size:12px;color:var(--muted)}
+.in{border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:5px 8px;width:100%}
+.in:hover{border-color:var(--muted)}
+.in.id{font:600 22px/1.2 var(--mono);border-color:transparent;background:transparent;padding:2px 6px;margin-left:-7px;width:min(380px,60vw)}
+.in.id:hover,.in.id:focus{border-color:var(--line);background:var(--panel)}
+.in.line{font:15px/1.35 var(--type)}
+.in.code,.mono,.in.raw{font:12.5px/1.45 var(--mono)}
+.in.code{background:var(--code);resize:vertical}
+.in.note{color:var(--muted);font-style:italic;font-size:13px}
+textarea.in{display:block;resize:vertical;min-height:32px}
+select.in,select{border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:5px 6px}
+.stamp{color:var(--accent);border:2px solid var(--accent);border-radius:4px;padding:2px 8px;font:600 12px var(--sans);text-transform:uppercase;letter-spacing:.06em;transform:rotate(-3deg);margin:0 6px 4px}
+.field{display:block}
+.field>span{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px;align-items:end;margin:10px 0}
+.check{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px}
+.check small{color:var(--muted)}
+.check.sm{font-size:12px;color:var(--muted);white-space:nowrap}
+.sec{margin-top:24px}
+.sec>h3{font:600 15px var(--sans);margin:0 0 2px;display:flex;align-items:baseline;gap:8px}
+.sec>h3 small{font-weight:400;color:var(--muted);font-size:12.5px}
+.sec>.body{margin-top:8px}
+.card{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 0 var(--line)}
+.opt{border-left:3px solid var(--ink)}
+.cardhead{display:flex;align-items:center;gap:8px}
+.num{font:600 12px var(--mono);color:var(--muted);width:18px;text-align:right;flex:none}
+.tf{display:flex;gap:4px;align-items:flex-start;flex:1}
+.tf .in{flex:1}
+.tools{display:flex;gap:2px;flex:none}
+.tools .btn{border-color:transparent;background:transparent;color:var(--muted);padding:3px 6px}
+.tools .btn:hover{color:var(--ink);border-color:var(--line)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 12px;margin:8px 0 0 26px}
+.sub{margin:8px 0 0 26px}
+.sub>.lbl{font-size:12px;color:var(--muted);margin-bottom:4px}
+.acts{display:flex;flex-direction:column;gap:5px}
+.act{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:5px 6px 5px 8px}
+.act .atype{font:500 12px var(--mono);background:var(--panel);width:auto}
+.act .f{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.act .f .in{width:auto}
+.act .grow{flex:1 1 220px}
+.act .tools{margin-left:auto}
+.act.t-say{border-left:3px solid var(--accent)}
+.branch{flex-basis:100%;margin-left:14px;padding-left:10px;border-left:2px dotted var(--line)}
+.blabel{font:500 11.5px var(--mono);color:var(--muted);margin:3px 0}
+.qa{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:5px;font-size:12px;color:var(--muted)}
+.chip{border:1px dashed var(--line);background:transparent;border-radius:12px;padding:2px 9px;font:12px var(--mono);cursor:pointer;color:var(--muted)}
+.chip:hover{border-style:solid;color:var(--ink)}
+.add-opt{margin-top:2px}
+.others{margin:8px 0 0 26px;display:flex;flex-direction:column;gap:4px}
+.kv{display:flex;gap:6px;align-items:flex-start}
+.kv .k{font-size:12px;color:var(--muted);padding-top:6px;min-width:90px}
+.kv .in{flex:1}
+.jsval{display:flex;gap:6px;align-items:flex-start}
+.field input[data-k=numx]{width:100%!important}
+.empty{color:var(--muted);padding:60px 10px;text-align:center}
+.drawer{border-left:1px solid var(--line);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.tabs{display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line);flex:none}
+.tabs button{border:1px solid transparent;border-bottom:0;background:transparent;padding:7px 12px;border-radius:6px 6px 0 0;cursor:pointer;color:var(--muted)}
+.tabs button.on{background:var(--panel);border-color:var(--line);color:var(--ink);margin-bottom:-1px}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:11px;margin-left:4px}
+.badge.zero{background:var(--line);color:var(--muted)}
+.tab{display:none;overflow:auto;flex:1;padding:14px;background:var(--panel)}
+.tab.on{display:block}
+.flow svg{display:block}
+.flow .node{cursor:pointer}
+.flow .node rect{fill:var(--panel);stroke:var(--line);stroke-width:1.2}
+.flow .node:hover rect{stroke:var(--muted)}
+.flow .node.on rect{stroke:var(--accent);stroke-width:2.2}
+.flow .node.bad rect{stroke:var(--accent);stroke-dasharray:4 3}
+.flow .nid{font:600 12.5px var(--mono);fill:var(--ink)}
+.flow .nsum{font:12px var(--type);fill:var(--muted)}
+.flow .nst{font:600 10px var(--sans);fill:var(--accent);letter-spacing:.06em}
+.flow .e{fill:none;stroke-width:1.4}
+.flow .e.next{stroke:var(--ink)}
+.flow .e.goto{stroke:var(--muted);stroke-dasharray:5 4}
+.flow .e.cond{stroke:var(--accent);stroke-dasharray:2 3}
+.flow .e.end{stroke:var(--muted);stroke-dasharray:1 3}
+.flow .el{font:11px var(--sans);fill:var(--muted);paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-bottom:10px}
+.legend i{display:inline-block;width:22px;border-top:2px solid var(--ink);vertical-align:3px;margin-right:4px}
+.legend i.g{border-top:2px dashed var(--muted)}.legend i.c{border-top:2px dotted var(--accent)}
+.ptbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.ptbar label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.clockface{display:flex;align-items:center;gap:4px;margin-left:auto}
+#pt-clock{font:600 20px var(--mono);letter-spacing:.02em;min-width:68px;text-align:right}
+#pt-clock small{font-size:12px;color:var(--muted)}
+.pttargets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.ptlog{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;height:280px;overflow:auto;font:14.5px/1.5 var(--type)}
+.ln{margin:0 0 5px}
+.ln b{font:600 11px var(--sans);letter-spacing:.05em;color:var(--muted);margin-right:6px}
+.ln.player{color:var(--muted)}
+.ln.sys{font:italic 12px var(--sans);color:var(--muted)}
+.ln.err{font:12px var(--mono);color:var(--accent)}
+.ptmenu{margin:10px 0;display:flex;flex-direction:column;gap:5px;min-height:20px}
+.ptmenu button{text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 10px;cursor:pointer;font:15px var(--type)}
+.ptmenu button:hover{border-color:var(--accent)}
+.ptmenu button b{font:600 12px var(--mono);color:var(--accent);margin-right:8px}
+.ptmenu .wait{color:var(--muted);font-size:12px}
+.ptstate{font:12px var(--mono);color:var(--muted);border-top:1px solid var(--line);padding-top:8px;display:grid;grid-template-columns:auto 1fr;gap:2px 12px}
+.ptstate span:nth-child(odd){color:var(--ink)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0}
+details{margin-top:12px}
+summary{cursor:pointer;font-size:13px}
+.codeview{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:12px/1.5 var(--mono);white-space:pre;overflow:auto;max-height:520px;margin:8px 0 0}
+.codehead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.codehead h3{margin:0 auto 0 0;font:600 14px var(--sans)}
+.checks{list-style:none;margin:0;padding:0}
+.checks li{padding:8px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px;cursor:pointer;display:flex;gap:8px}
+.checks li b{font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;flex:none;padding-top:1px}
+.checks li.error b{color:var(--accent)}
+.checks li.warn b{color:var(--muted)}
+.checks .ok{color:var(--muted);padding:20px 0}
+.modal{position:fixed;inset:0;background:rgb(0 0 0 / .35);display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.on{display:flex}
+.modal .box{background:var(--panel);border-radius:10px;padding:16px;width:min(720px,100%);border:1px solid var(--line)}
+.modal h2{margin:0 0 8px;font:600 17px var(--sans)}
+.modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.toast{position:fixed;left:16px;bottom:16px;background:var(--ink);color:var(--panel);padding:9px 12px;border-radius:7px;display:none;gap:10px;align-items:center;z-index:10;max-width:calc(100vw - 32px)}
+.toast.on{display:flex}
+.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:5px;padding:2px 8px;cursor:pointer}
+.drop{outline:3px dashed var(--accent);outline-offset:-8px}
+@media (max-width:1150px){body{overflow:auto}.app{grid-template-columns:220px minmax(0,1fr);height:auto}.col,.drawer{height:auto;overflow:visible}.drawer{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.tab{overflow:visible}.index{max-height:none}}
+@media (max-width:700px){.app{grid-template-columns:minmax(0,1fr)}.index{border-right:0;border-bottom:1px solid var(--line)}.brand span,.status{display:none}.top{height:auto;flex-wrap:wrap;padding:8px 12px}.in,select{font-size:16px}.grid2,.sub,.others{margin-left:0}.btn{padding:8px 12px}}
+@media (prefers-reduced-motion:no-preference){.ptmenu button{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>Scene Desk</h1><span>Dialogue scripting · Income Tax Appointment Simulator</span></div>
+  <span class="status" id="status"></span>
+  <button class="btn" id="b-open">Open…</button>
+  <button class="btn" id="b-paste">Paste</button>
+  <button class="btn" id="b-new">New scene</button>
+  <button class="btn ghost" id="b-undo" title="Undo (Ctrl+Z)">Undo</button>
+  <button class="btn ghost" id="b-redo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+  <button class="btn" id="b-save" hidden>Save to file</button>
+  <button class="btn primary" id="b-copy">Copy .js</button>
+  <input type="file" id="f-open" accept=".js,.mjs,.txt" hidden>
+</header>
+<main class="app">
+  <nav class="col index" id="index" aria-label="Beats"></nav>
+  <section class="col" id="editor" aria-label="Editor"></section>
+  <aside class="drawer">
+    <div class="tabs" role="tablist">
+      <button data-tab="flow" class="on">Flow map</button>
+      <button data-tab="play">Play test</button>
+      <button data-tab="code">Code</button>
+      <button data-tab="checks">Checks <span class="badge zero" id="chk-n">0</span></button>
+    </div>
+    <div class="tab flow on" id="tab-flow"></div>
+    <div class="tab" id="tab-play">
+      <div class="ptbar">
+        <button class="btn primary" id="pt-restart">Restart</button>
+        <label>Speed <select id="pt-speed"><option value="1">1×</option><option value="3">3×</option><option value="10">10×</option></select></label>
+        <label>Clock starts <input class="in mono" id="pt-start" value="1:55" style="width:62px"></label>
+        <div class="clockface"><button class="btn tiny" id="pt-m" aria-label="Clock back one minute">−1m</button><span id="pt-clock">1:55</span><button class="btn tiny" id="pt-p" aria-label="Clock forward one minute">+1m</button></div>
+      </div>
+      <div class="pttargets" id="pt-targets"></div>
+      <div class="ptlog" id="pt-log" aria-live="polite"></div>
+      <div class="ptmenu" id="pt-menu"></div>
+      <div class="ptstate" id="pt-state"></div>
+      <p class="hint" id="pt-dirty" hidden>The script has changed since this run started. Restart to use the new version.</p>
+      <details>
+        <summary>Stand-in values for your imports (config)</summary>
+        <p class="hint">The play test needs real numbers for things like <code>T.gate</code>. These are guesses built from what the script uses. Edit them, or load your real <code>config.js</code>.</p>
+        <textarea class="in code" id="pt-config" rows="12" spellcheck="false"></textarea>
+        <div class="ptbar" style="margin-top:6px">
+          <button class="btn tiny" id="pt-config-apply">Apply &amp; restart</button>
+          <label class="btn tiny" style="color:inherit">Load config.js<input type="file" id="pt-config-file" accept=".js,.mjs,.json" hidden></label>
+          <button class="btn tiny" id="pt-config-reset">Reset to guesses</button>
+        </div>
+      </details>
+      <p class="hint">The play test follows the beat rules as written in your file's comments. It approximates <code>director.js</code>: unknown action types are listed in the transcript rather than run.</p>
+    </div>
+    <div class="tab" id="tab-code">
+      <div class="codehead"><h3>Setup code</h3><span class="hint">Imports and helpers above the beats. Helper functions appear in the condition menus.</span></div>
+      <textarea class="in code" id="c-pre" rows="12" spellcheck="false"></textarea>
+      <p class="hint" id="c-pre-err"></p>
+      <label class="field" style="margin:10px 0"><span>Exported name</span><input class="in mono" id="c-name"></label>
+      <details id="c-tail-wrap"><summary>Code after the scene</summary><textarea class="in code" id="c-tail" rows="4" spellcheck="false"></textarea></details>
+      <div class="codehead" style="margin-top:16px"><h3>Generated file</h3><button class="btn tiny" id="c-copy">Copy</button><button class="btn tiny" id="c-dl" hidden>Download</button></div>
+      <pre class="codeview" id="c-out"></pre>
+    </div>
+    <div class="tab" id="tab-checks"><ul class="checks" id="checks"></ul></div>
+  </aside>
+</main>
+<div class="modal" id="m-paste" role="dialog" aria-modal="true" aria-labelledby="m-paste-h">
+  <div class="box">
+    <h2 id="m-paste-h">Paste a beats file</h2>
+    <p class="hint">Paste the whole file, e.g. <code>waitingRoomBeats.js</code>. It replaces the scene you're editing (Undo brings it back).</p>
+    <textarea class="in code" id="m-paste-t" rows="16" spellcheck="false"></textarea>
+    <p class="hint" id="m-paste-err"></p>
+    <div class="row"><button class="btn" id="m-paste-x">Cancel</button><button class="btn primary" id="m-paste-ok">Import</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"><span id="toast-t"></span><button id="toast-b" hidden>Undo</button></div>
+<datalist id="dl-refs"></datalist><datalist id="dl-anims"></datalist><datalist id="dl-phases"></datalist><datalist id="dl-targets"></datalist><datalist id="dl-trig"><option value="interact"></option></datalist>
+<script type="text/plain" id="sample">import { config } from '../config.js';
+
+/*
+  The Waiting Room, as data. Edit lines and order here; edit timings in config.js.
+  See src/director/director.js for every field and action this supports.
+
+  lockedOptions: what the player can say while the receptionist is still ignoring
+  them (the 10–15 s gate). Empty = no options appear at all (owner's decision).
+  Recorded lines can be added here later.
+*/
+
+const T = config.timings.reception;
+
+// Non-advancing options get silence or a flat reply. Near-duplicates are the joke.
+const silence = [];
+
+// The time on the wall clock, as the player would read it: "1:57"
+const clockReading = (state) => {
+  const t = Math.floor(state.clockTime / 60) % 720;
+  const h = Math.floor(t / 60) || 12;
+  return `${h}:${String(t % 60).padStart(2, '0')}`;
+};
+// The appointment, in clock minutes (config.appointment). The player reads whole minutes,
+// so "on time" means the clock READS between 2:00 and 2:02.
+const AP = config.appointment;
+const clockMinute = (state) => Math.floor(state.clockTime / 60) % 720;
+const apptMinute = (AP.hour % 12) * 60 + AP.minute;
+const beforeAppointment = (state) => clockMinute(state) < apptMinute;
+const late = (state) => clockMinute(state) > apptMinute + AP.onTimeMinutes;
+const clockReadsTwo = (state) => clockMinute(state) === apptMinute;
+const flat = (text) => [
+  { do: 'wait', seconds: T.sideOptionPause },
+  { do: 'say', who: 'receptionist', text },
+];
+
+export const waitingRoomBeats = {
+  start: 'reception_1',
+
+  // Anything the director answers for, even once the beats are used up
+  targets: ['receptionist'],
+
+  speakers: {
+    player: { name: 'YOU', pitch: config.characters.playerVoicePitch },
+    receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
+  },
+
+  beats: [
+    {
+      id: 'reception_1',
+      trigger: { type: 'interact', target: 'receptionist' },
+      onOpen: [{ do: 'setPhase', phase: 'reception' }],
+      options: [
+        { text: "I'm here for my appointment.", advance: true },
+        { text: 'Hello?', response: silence },
+        { text: 'Excuse me.', response: silence },
+        { text: '(Say nothing)', silent: true, response: silence },
+      ],
+      lockedOptions: [],
+      onAdvance: [
+        // She looks at you. Two seconds. Nothing. Back to the cards.
+        { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+        { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+      ],
+      next: 'reception_2',
+      nextUnlockAfter: T.gate,
+    },
+    {
+      id: 'reception_2',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        { text: "I'm here for my appointment.", advance: true },
+        { text: "Excuse me. I'm here for my appointment?", response: flat('Mm.') },
+        { text: 'Hello?', response: silence },
+        { text: '(Say nothing)', silent: true, response: silence },
+      ],
+      lockedOptions: [],
+      onAdvance: [
+        { do: 'wait', seconds: T.beat2IgnoreBeforeLine }, // clicks continue
+        { do: 'say', who: 'receptionist', text: "Sshhh, momma's got to play her game." },
+      ],
+      next: 'reception_3',
+      nextUnlockAfter: T.gate,
+    },
+    {
+      id: 'reception_3',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        { text: "I'm here for my appointment.", response: silence },
+        { text: "I'm here for my appointment at 2:00 PM.", advance: true },
+        { text: "I'm here for my 2:00 PM appointment.", response: silence },
+        { text: '(Say nothing)', silent: true, response: silence },
+      ],
+      lockedOptions: [],
+      onAdvance: [
+        { do: 'wait', seconds: T.beat3PauseBeforeLine },
+        { do: 'say', who: 'receptionist', text: 'Take a number and have a seat.' },
+        { do: 'set', key: 'toldToTakeNumber', value: true },
+      ],
+      next: 'protest',
+      nextUnlockAfter: 0,
+    },
+
+    // ---- Optional: the player objects. Choices open right after "Take a number...". ----
+    {
+      id: 'protest',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'But I have an appointment at 2.',
+          goto: 'what_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'What time is it now?' },
+          ],
+        },
+        { text: '(Say nothing)', silent: true, goto: null },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'what_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          // Read off the wall clock at the moment the choices appear
+          text: (state) => `It's ${clockReading(state)}.`,
+          showIf: (state) => !clockReadsTwo(state), // at exactly 2:00, "It's 2:00." below is the true answer
+          goto: 'appointment_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'And what time is your appointment?' },
+          ],
+        },
+        {
+          text: "It's 2:00.",
+          // Untrue: she isn't having it and the question stands. True (clock reads 2:00): accepted.
+          goto: (state) => (clockReadsTwo(state) ? 'appointment_time' : 'what_time'),
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: clockReadsTwo,
+              then: [{ do: 'say', who: 'receptionist', text: 'And what time is your appointment?' }],
+              else: [{ do: 'say', who: 'receptionist', text: "No it's not." }],
+            },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'appointment_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'My appointment is at 2:00.',
+          goto: null, // end of the exchange
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: late, // the clock runs in real time; 2:03 or later is late
+              then: [
+                { do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
+              ],
+              else: [
+                {
+                  do: 'if',
+                  test: beforeAppointment,
+                  then: [
+                    { do: 'say', who: 'receptionist', text: "Well it's not 2:00 yet, is it?" },
+                    { do: 'wait', seconds: T.sideOptionPause },
+                    { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },
+                  ],
+                  // On time (2:00-2:02): the check-in sheet. She doesn't look up.
+                  else: [
+                    { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
+                    { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
+                    { do: 'set', key: 'clipboardOffered', value: true },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+  ],
+};
+</script>
+<script>
+{
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isJs = v => !!v && typeof v === 'object' && !Array.isArray(v) && typeof v.$js === 'string' && Object.keys(v).length === 1;
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v) && !isJs(v);
+const arr = v => (Array.isArray(v) ? v : []);
+const IDENT = /^[A-Za-z_$][\w$]*$/;
+const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+
+/* ================= Source scanning (keeps your // comments) ================= */
+const isCmt = (s, i) => s[i] === '/' && (s[i + 1] === '/' || s[i + 1] === '*');
+function skipComment(s, i) {
+  if (s[i + 1] === '/') { const n = s.indexOf('\n', i); return n < 0 ? s.length : n; }
+  const n = s.indexOf('*/', i + 2); return n < 0 ? s.length : n + 2;
+}
+function skipString(s, i) {
+  const q = s[i]; i++;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '\\') { i += 2; continue; }
+    if (c === q) return i + 1;
+    if (q === '`' && c === '$' && s[i + 1] === '{') { i = skipBalanced(s, i + 1); continue; }
+    i++;
+  }
+  return i;
+}
+function skipBalanced(s, i) {
+  let d = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipString(s, i); continue; }
+    if (isCmt(s, i)) { i = skipComment(s, i); continue; }
+    if (c === '(' || c === '[' || c === '{') d++;
+    else if (c === ')' || c === ']' || c === '}') { d--; if (d === 0) return i + 1; }
+    i++;
+  }
+  return i;
+}
+function skipValue(s, i) {
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') { i = skipString(s, i); continue; }
+    if (isCmt(s, i)) return i;
+    if (c === '(' || c === '[' || c === '{') { i = skipBalanced(s, i); continue; }
+    if (c === ',' || c === ')' || c === ']' || c === '}') return i;
+    i++;
+  }
+  return i;
+}
+function cleanComment(t) {
+  if (t.startsWith('//')) return t.slice(2).replace(/^ /, '').replace(/\s+$/, '');
+  return t.slice(2, -2).split('\n').map(l => l.replace(/^\s*\* ?/, '').trimEnd()).join('\n').trim();
+}
+const unq = t => { try { return t[0] === '"' ? JSON.parse(t) : t.slice(1, -1).replace(/\\(.)/g, '$1'); } catch { return t.slice(1, -1); } };
+// Parses an object/array literal only to learn where comments sit
+function parseContainer(s, i) {
+  const close = s[i] === '{' ? '}' : ']';
+  const node = { t: s[i] === '{' ? 'o' : 'a', notes: {}, tnotes: {}, kids: {}, src: {} };
+  let idx = 0, pending = [], last = null, lastEnd = i;
+  const add = (k, list) => { if (list.length) (node.notes[k] ||= []).push(...list); };
+  i++;
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (isCmt(s, i)) {
+      const e = skipComment(s, i), text = cleanComment(s.slice(i, e));
+      if (last !== null && !s.slice(lastEnd, i).includes('\n')) (node.tnotes[last] ||= []).push(text); else pending.push(text);
+      i = e; continue;
+    }
+    if (c === close) { if (pending.length) add(last ?? '$end', pending); return { end: i + 1, node }; }
+    if (c === ',') { i++; lastEnd = i; continue; }
+    let key;
+    if (node.t === 'o') {
+      if (c === '"' || c === "'") { const e = skipString(s, i); key = unq(s.slice(i, e)); i = e; }
+      else if (c === '[') { const e = skipBalanced(s, i); key = s.slice(i, e); i = e; }
+      else {
+        const m = /^(?:\.\.\.)?[A-Za-z_$][\w$]*/.exec(s.slice(i, i + 120));
+        if (!m) { i = skipValue(s, i + 1); continue; }
+        key = m[0]; i += key.length;
+      }
+      while (/\s/.test(s[i])) i++;
+      if (s[i] === ':') i++;
+      else { if (s[i] === '(' || key.startsWith('...')) i = skipValue(s, i); add(key, pending); pending = []; last = key; lastEnd = i; continue; }
+    } else key = idx++;
+    while (i < s.length && (/\s/.test(s[i]) || isCmt(s, i))) {
+      if (isCmt(s, i)) { const e = skipComment(s, i); pending.push(cleanComment(s.slice(i, e))); i = e; } else i++;
+    }
+    if (s[i] === '{' || s[i] === '[') {
+      const r = parseContainer(s, i);
+      let j = r.end; while (/\s/.test(s[j])) j++;
+      if (s[j] === ',' || s[j] === close || isCmt(s, j)) { node.kids[key] = r.node; i = r.end; } else { const v0 = i; i = skipValue(s, i); node.src[key] = s.slice(v0, i).trim(); }
+    } else { const v0 = i; i = skipValue(s, i); node.src[key] = s.slice(v0, i).trim(); }
+    add(key, pending); pending = []; last = key; lastEnd = i;
+  }
+  return { end: i, node };
+}
+const HELPER_CALL = /^([A-Za-z_$][\w$]*)\s*\([\s\S]*\)$/;
+function keepCalls(v, cn) {
+  for (const k in cn.src) {
+    const m = HELPER_CALL.exec(cn.src[k]);
+    if (m && helperFns.includes(m[1]) && v[k] !== undefined && typeof v[k] === 'object' && !isJs(v[k])) v[k] = { $js: cn.src[k] };
+  }
+}
+function attachNotes(v, cn) {
+  if (!cn) return;
+  if ((Array.isArray(v) || isObj(v))) keepCalls(v, cn);
+  const j = l => l.join(cn.t === 'a' ? '\n' : '\n');
+  if (cn.t === 'a' && Array.isArray(v)) {
+    v.forEach((el, k) => {
+      if (isObj(el)) {
+        if (cn.notes[k]) el.$note = j(cn.notes[k]);
+        if (cn.tnotes[k]) el.$tnote = cn.tnotes[k].join(' ');
+      }
+      attachNotes(el, cn.kids[k]);
+    });
+  } else if (cn.t === 'o' && isObj(v)) {
+    for (const k in cn.notes) if (k in v) (v.$keyNotes ||= {})[k] = j(cn.notes[k]);
+    for (const k in cn.tnotes) if (k in v) (v.$keyTNotes ||= {})[k] = cn.tnotes[k].join(' ');
+    for (const k in cn.kids) attachNotes(v[k], cn.kids[k]);
+  }
+}
+
+/* ================= Evaluating the module ================= */
+const tokCache = new Map(), tokPath = new WeakMap(), accessed = new Set();
+function tok(path) {
+  if (tokCache.has(path)) return tokCache.get(path);
+  const p = new Proxy(() => {}, {
+    get(t, k) {
+      if (k === Symbol.toPrimitive) return h => (h === 'number' ? NaN : path);
+      if (typeof k === 'symbol' || k === 'then' || k === 'toJSON') return undefined;
+      accessed.add(path + '.' + k);
+      return tok(path + '.' + k);
+    },
+    apply() { return tok(path + '()'); },
+  });
+  tokCache.set(path, p); tokPath.set(p, path);
+  return p;
+}
+function analyzePre(pre) {
+  const imports = [];
+  let body = pre.replace(/^[ \t]*import\s+([\s\S]*?)\s+from\s+(['"])[^'"\n]*\2[ \t]*;?/gm, (all, spec) => {
+    const rest = spec.replace(/\{([^}]*)\}/, (m, inner) => {
+      inner.split(',').forEach(x => { const p = x.trim().split(/\s+as\s+/); const n = (p[1] || p[0]).trim(); if (n) imports.push(n); });
+      return '';
+    }).replace(/,/g, ' ').trim();
+    const ns = /\*\s+as\s+([\w$]+)/.exec(rest);
+    if (ns) imports.push(ns[1]); else if (rest) imports.push(rest.split(/\s+/)[0]);
+    return '';
+  });
+  body = body.replace(/^[ \t]*import\s+(['"])[^'"\n]*\1[ \t]*;?/gm, '')
+    .replace(/^export\s+default\s+/gm, 'const __default = ')
+    .replace(/^export\s+(?=(?:const|let|var|function|class|async)\b)/gm, '');
+  const names = [...body.matchAll(/^(?:const|let|var|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]);
+  return { imports: [...new Set(imports)], body, names: [...new Set(names)] };
+}
+function runModule(pre, expr, provide) {
+  const a = analyzePre(pre);
+  const names = a.names.filter(n => !a.imports.includes(n));
+  const f = new Function(...a.imports, `${a.body}\n;return { value: (${expr}\n), helpers: { ${names.join(', ')} } };`);
+  return { ...f(...a.imports.map(provide)), imports: a.imports, names };
+}
+let helperFns = [], helperVals = [], aliases = [];
+function learnHelpers(helpers) {
+  helperFns = []; helperVals = []; aliases = [];
+  for (const [n, v] of Object.entries(helpers)) {
+    if (tokPath.has(v)) aliases.push({ n, path: tokPath.get(v) });
+    else if (typeof v === 'function') helperFns.push(n);
+    else helperVals.push(n);
+  }
+  aliases.sort((a, b) => b.path.length - a.path.length);
+}
+function shortPath(path) {
+  for (const a of aliases) {
+    if (path === a.path) return a.n;
+    if (path.startsWith(a.path + '.')) return a.n + path.slice(a.path.length);
+  }
+  return path;
+}
+function fnSource(f) {
+  const s = f.toString();
+  if (/^(async\s+)?(function\b|\(|[A-Za-z_$][\w$]*\s*=>|class\b)/.test(s)) return s;
+  return 'function ' + s.replace(/^async\s+/, '');
+}
+function toModel(v, helpers) {
+  if (tokPath.has(v)) return { $js: shortPath(tokPath.get(v)) };
+  if (v && (typeof v === 'object' || typeof v === 'function')) {
+    for (const n in helpers) if (helpers[n] === v) return { $js: n };
+  }
+  if (typeof v === 'function') return { $js: fnSource(v) };
+  if (Array.isArray(v)) return v.map(x => toModel(x, helpers));
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = toModel(v[k], helpers); return o; }
+  if (v === undefined) return { $js: 'undefined' };
+  return v;
+}
+function importText(text) {
+  const m = /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*(?=\{)/.exec(text);
+  if (!m) throw new Error('Couldn\'t find "export const name = {" in this file.');
+  const start = m.index + m[0].length;
+  const r = parseContainer(text, start);
+  let end = r.end; while (/[ \t]/.test(text[end] || '')) end++; if (text[end] === ';') end++;
+  const pre = text.slice(0, m.index);
+  const res = runModule(pre, text.slice(start, r.end), tok);
+  learnHelpers(res.helpers);
+  const scene = toModel(res.value, res.helpers);
+  attachNotes(scene, r.node);
+  if (!isObj(scene)) throw new Error('The exported value is not an object.');
+  scene.beats = arr(scene.beats);
+  return { preamble: pre, tail: text.slice(end), exportName: m[1], scene };
+}
+function refreshHelpers() {
+  try { const r = runModule(P.preamble, 'null', tok); learnHelpers(r.helpers); $('#c-pre-err').textContent = ''; }
+  catch (e) { $('#c-pre-err').textContent = 'Setup code error: ' + e.message; }
+}
+
+/* ================= Writing the file back ================= */
+const ORDER = {
+  beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'onAdvance', 'next', 'nextUnlockAfter'],
+  option: ['text', 'silent', 'showIf', 'advance', 'goto', 'actions', 'response'],
+  action: ['do'],
+};
+const CHILD = { beats: 'beat', options: 'option', lockedOptions: 'option', onOpen: 'action', onAdvance: 'action', actions: 'action', response: 'action', then: 'action', else: 'action' };
+function q(s) {
+  if (s.includes("'") && !s.includes('"')) return JSON.stringify(s);
+  return "'" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + "'";
+}
+const keyStr = k => (IDENT.test(k) ? k : q(k));
+const tcomment = t => (t ? ' // ' + t.replace(/\s*\n\s*/g, ' ') : '');
+const comment = (text, ind) => (text ? text.split('\n').map(l => ind + (l ? '// ' + l : '//')).join('\n') + '\n' : '');
+function orderKeys(o, ctx) {
+  const ks = Object.keys(o).filter(k => !k.startsWith('$') && o[k] !== undefined);
+  const ord = ORDER[ctx]; if (!ord) return ks;
+  const rank = k => { const r = ord.indexOf(k); return r < 0 ? 999 : r; };
+  return ks.map((k, n) => [k, n]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
+}
+function lit(v, ind = '', ctx = '', arrCtx = '', pre = 0) {
+  if (isJs(v)) return v.$js;
+  if (v === null) return 'null';
+  if (v === undefined) return 'undefined';
+  if (typeof v === 'string') return q(v);
+  if (typeof v !== 'object') return String(v);
+  const inner = ind + '  ';
+  if (Array.isArray(v)) {
+    if (!v.length) return '[]';
+    const parts = v.map(x => lit(x, inner, arrCtx));
+    const noted = v.some(x => isObj(x) && (x.$note || x.$tnote));
+    const one = '[' + parts.join(', ') + ']';
+    const objs = v.filter(x => isObj(x)).length;
+    if (!noted && objs <= 1 && !one.includes('\n') && ind.length + pre + one.length + 1 <= 120) return one;
+    return '[\n' + v.map((x, k) => (k && arrCtx === 'beat' && isObj(x) && x.$note ? '\n' : '') + (isObj(x) ? comment(x.$note, inner) : '') + inner + parts[k] + ',' + (isObj(x) ? tcomment(x.$tnote) : '') + '\n').join('') + ind + ']';
+  }
+  const keys = orderKeys(v, ctx);
+  if (!keys.length) return '{}';
+  const kn = v.$keyNotes || {}, kt = v.$keyTNotes || {};
+  const ents = keys.map(k => [k, lit(v[k], inner, '', CHILD[k] || '', keyStr(k).length + 2)]);
+  const one = '{ ' + ents.map(([k, s]) => keyStr(k) + ': ' + s).join(', ') + ' }';
+  if (ctx !== 'beat' && ctx !== 'root' && !keys.some(k => kn[k] || kt[k]) && !one.includes('\n') && ind.length + pre + one.length + 1 <= 120) return one;
+  return '{\n' + ents.map(([k, s], n) => (ctx === 'root' && n ? '\n' : '') + comment(kn[k], inner) + inner + keyStr(k) + ': ' + s + ',' + tcomment(kt[k]) + '\n').join('') + ind + '}';
+}
+const exportText = () => P.preamble + 'export const ' + P.exportName + ' = ' + lit(P.scene, '', 'root') + ';' + P.tail;
+
+/* ================= Project state, undo, saving ================= */
+const STORE = 'sceneDesk.v1';
+const BLANK = {
+  preamble: "import { config } from '../config.js';\n\nconst T = config.timings.reception;\n\n",
+  tail: '\n', exportName: 'newSceneBeats',
+  scene: {
+    start: 'beat_1', targets: ['receptionist'],
+    speakers: { player: { name: 'YOU' }, receptionist: { name: 'RECEPTIONIST', actor: 'receptionist' } },
+    beats: [{ id: 'beat_1', trigger: { type: 'interact', target: 'receptionist' }, options: [{ text: 'Hello.', advance: true }], lockedOptions: [], onAdvance: [{ do: 'say', who: 'receptionist', text: 'Mm.' }], nextUnlockAfter: 0 }],
+  },
+};
+let P = null, sel = { kind: 'beat', i: 0 }, fileHandle = null;
+let hist = [], hi = -1, histTimer = null, saveTimer = null;
+function snapshot() { return JSON.stringify(P); }
+function commit(now) {
+  clearTimeout(histTimer);
+  const go = () => {
+    const s = snapshot(); if (s === hist[hi]) return;
+    hist = hist.slice(0, hi + 1); hist.push(s); if (hist.length > 150) hist.shift(); hi = hist.length - 1; updUndo();
+  };
+  if (now) go(); else histTimer = setTimeout(go, 450);
+  clearTimeout(saveTimer); saveTimer = setTimeout(persist, 600);
+  if (PT) { PT.dirty = true; $('#pt-dirty').hidden = false; }
+}
+function updUndo() { $('#b-undo').disabled = hi <= 0; $('#b-redo').disabled = hi >= hist.length - 1; }
+function travel(d) {
+  commit(true);
+  const n = hi + d; if (n < 0 || n >= hist.length) return;
+  hi = n; P = JSON.parse(hist[hi]); updUndo(); clampSel(); refreshHelpers(); renderAll(); persist();
+}
+function persist() {
+  try { localStorage.setItem(STORE, JSON.stringify({ P, sel, pt: ptConfigCustom ? ptConfigText : null })); $('#status').textContent = 'Draft kept in this browser'; }
+  catch { $('#status').textContent = ''; }
+}
+function loadProject(p, msg) {
+  P = p; sel = P.scene.beats.length ? { kind: 'beat', i: 0 } : { kind: 'scene' };
+  refreshHelpers(); commit(true); renderAll(); persist();
+  if (msg) toast(msg, hist.length > 1);
+}
+function clampSel() { if (sel.kind === 'beat' && !P.scene.beats[sel.i]) sel = P.scene.beats.length ? { kind: 'beat', i: Math.max(0, P.scene.beats.length - 1) } : { kind: 'scene' }; }
+
+/* ================= Paths ================= */
+const getPath = (o, p) => (p === '' ? o : p.split('.').reduce((a, k) => (a == null ? a : a[k]), o));
+function setPath(o, p, v) {
+  const ks = p.split('.'); let cur = o;
+  for (let n = 0; n < ks.length - 1; n++) {
+    const k = ks[n];
+    if (cur[k] == null || typeof cur[k] !== 'object' || isJs(cur[k])) cur[k] = /^\d+$/.test(ks[n + 1]) ? [] : {};
+    cur = cur[k];
+  }
+  const last = ks[ks.length - 1];
+  if (v === undefined) { if (Array.isArray(cur)) cur.splice(+last, 1); else delete cur[last]; } else cur[last] = v;
+}
+const parentOf = p => { const k = p.lastIndexOf('.'); return [p.slice(0, k), +p.slice(k + 1)]; };
+function parseLiteral(t) {
+  const s = t.trim();
+  if (s === '') return undefined;
+  if (/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return Number(s);
+  if (s === 'true') return true; if (s === 'false') return false; if (s === 'null') return null;
+  if (/^"(?:[^"\\\n]|\\.)*"$/.test(s)) { try { return JSON.parse(s); } catch {} }
+  if (/^'(?:[^'\\\n]|\\.)*'$/.test(s)) return unq(s);
+  return { $js: s };
+}
+function parseNumx(t) { const s = t.trim(); if (s === '') return undefined; return /^-?(\d+\.?\d*|\.\d+)$/.test(s) ? Number(s) : { $js: s }; }
+const shown = v => (isJs(v) ? v.$js : v === undefined ? '' : typeof v === 'object' ? lit(v) : String(v));
+const rawShown = v => (isJs(v) ? v.$js : v === undefined ? '' : lit(v));
+const rows = s => Math.min(14, Math.max(1, String(s).split('\n').length));
+
+/* ================= Editor widgets ================= */
+const speakerIds = () => Object.keys(isObj(P.scene.speakers) ? P.scene.speakers : {}).filter(k => !k.startsWith('$'));
+const beatIds = () => P.scene.beats.map(b => b && b.id).filter(Boolean);
+const optList = (ids, cur, extra = '') => extra + ids.map(id => `<option value="${esc(id)}"${id === cur ? ' selected' : ''}>${esc(id)}</option>`).join('') + (cur && typeof cur === 'string' && !ids.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)} (missing)</option>` : '');
+const tools = (p, noteable) => `<span class="tools">${noteable ? `<button class="btn tiny" data-a="note" data-p="${p}" title="Add a comment">//</button>` : ''}<button class="btn tiny" data-a="up" data-p="${p}" aria-label="Move up">↑</button><button class="btn tiny" data-a="down" data-p="${p}" aria-label="Move down">↓</button><button class="btn tiny" data-a="dup" data-p="${p}" aria-label="Duplicate">⧉</button><button class="btn tiny" data-a="del" data-p="${p}" aria-label="Remove">×</button></span>`;
+const codeField = (p, v) => `<textarea class="in code" data-p="${p}" data-k="js" rows="${rows(shown(v))}" spellcheck="false">${esc(shown(v))}</textarea>`;
+const numx = (p, v, ph = '') => `<input class="in mono" style="width:150px" list="dl-refs" data-p="${p}" data-k="numx" value="${esc(shown(v))}" placeholder="${ph}">`;
+const raw = (p, v) => `<textarea class="in raw" data-p="${p}" data-k="raw" rows="${rows(rawShown(v))}" spellcheck="false">${esc(rawShown(v))}</textarea>`;
+const noteKey = o => (o.$tnote !== undefined ? '$tnote' : o.$note !== undefined ? '$note' : null);
+const noteField = (p, o) => { const k = noteKey(o); return k ? `<input class="in note" data-p="${p}.${k}" data-k="note" value="${esc(o[k])}" placeholder="Comment, exported as // …">` : ''; };
+const keyNotes = o => { const all = [...Object.entries(o.$keyNotes || {}), ...Object.entries(o.$keyTNotes || {})]; return all.length ? `<div class="sub hint mono" title="Comments beside fields; kept on export, edit them in your file">${all.map(([k, t]) => esc(k + ': // ' + t.replace(/\n/g, ' '))).join('<br>')}</div>` : ''; };
+function textField(p, v, cls) {
+  if (isJs(v)) return `<div class="tf"><textarea class="in code" data-p="${p}" data-k="js" rows="${rows(v.$js)}" spellcheck="false">${esc(v.$js)}</textarea><button class="btn tiny" data-a="to-plain" data-p="${p}" title="Back to plain text">Aa</button></div>`;
+  return `<div class="tf"><input class="in ${cls}" data-p="${p}" data-k="str" value="${esc(v ?? '')}" placeholder="What is said"><button class="btn tiny" data-a="to-js" data-p="${p}" title="Make this line a function of the game state, e.g. read the clock">ƒx</button></div>`;
+}
+function condSelect(p, v, allowNone) {
+  const cur = isJs(v) ? v.$js.trim() : '';
+  const isH = helperFns.includes(cur);
+  let h = `<select class="in" data-p="${p}" data-k="cond">`;
+  if (allowNone) h += `<option value=""${v === undefined ? ' selected' : ''}>Always</option>`;
+  h += helperFns.map(n => `<option value="h:${esc(n)}"${isH && cur === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  h += `<option value="custom"${v !== undefined && !isH ? ' selected' : ''}>Custom code…</option></select>`;
+  return h;
+}
+const isCustomCond = v => v !== undefined && !(isJs(v) && helperFns.includes(v.$js.trim()));
+function actionList(p, v) {
+  if (isJs(v)) return `<div class="jsval">${codeField(p, v)}<button class="btn tiny" data-a="to-list" data-p="${p}" title="Replace with a list of actions">List</button></div>`;
+  const a = arr(v);
+  return `<div class="acts">${a.map((x, k) => actionRow(`${p}.${k}`, x)).join('')}</div><div class="qa"><span>Add</span>${['say', 'wait', 'anim', 'set', 'setPhase', 'if'].map(t => `<button class="chip" data-a="add-action" data-t="${t}" data-p="${p}">${t}</button>`).join('')}</div>`;
+}
+const KNOWN = { say: ['who', 'text'], wait: ['seconds'], anim: ['who', 'name', 'duration'], set: ['key', 'value'], setPhase: ['phase'], if: ['test', 'then', 'else'] };
+const whoSel = (p, v) => `<select class="in" data-p="${p}.who" data-k="str">${optList(speakerIds(), v, v === undefined ? '<option value="" selected>—</option>' : '')}</select>`;
+const fld = (label, html, cls = '') => `<span class="f ${cls}">${label}${html}</span>`;
+function actionRow(p, a) {
+  if (!isObj(a)) return `<div class="act">${raw(p, a)}${tools(p)}</div>`;
+  const t = a.do;
+  const type = KNOWN[t] ? t : 'other';
+  let f = '', below = '';
+  if (t === 'say') f = whoSel(p, a.who) + `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span>`;
+  else if (t === 'wait') f = fld('', numx(p + '.seconds', a.seconds, 'seconds')) + '<span class="f">seconds</span>';
+  else if (t === 'anim') f = whoSel(p, a.who) + `<span class="f grow"><input class="in" list="dl-anims" data-p="${p}.name" data-k="str" value="${esc(a.name ?? '')}" placeholder="animation"></span>` + fld('for', numx(p + '.duration', a.duration, 'duration'));
+  else if (t === 'set') f = `<span class="f"><input class="in mono" style="width:150px" data-p="${p}.key" data-k="str" value="${esc(a.key ?? '')}" placeholder="key"></span>` + `<span class="f grow">=${raw(p + '.value', a.value)}</span>`;
+  else if (t === 'setPhase') f = `<span class="f grow"><input class="in mono" list="dl-phases" data-p="${p}.phase" data-k="str" value="${esc(a.phase ?? '')}" placeholder="phase"></span>`;
+  else if (t === 'if') {
+    f = condSelect(p + '.test', a.test, false);
+    if (isCustomCond(a.test)) below += `<div class="branch">${codeField(p + '.test', a.test)}</div>`;
+    below += `<div class="branch"><div class="blabel">then</div>${actionList(p + '.then', a.then)}</div><div class="branch"><div class="blabel">else</div>${actionList(p + '.else', a.else)}</div>`;
+  } else f = `<span class="f grow"><input class="in mono" data-p="${p}.do" data-k="str" data-r="1" value="${esc(t ?? '')}" placeholder="action name"></span>`;
+  const extra = Object.keys(a).filter(k => k !== 'do' && !k.startsWith('$') && !(KNOWN[t] || []).includes(k));
+  const extraHtml = extra.map(k => `<div class="kv" style="flex-basis:100%"><span class="k mono">${esc(k)}</span>${raw(`${p}.${k}`, a[k])}<button class="btn tiny" data-a="del-key" data-p="${p}.${k}" aria-label="Remove field">×</button></div>`).join('');
+  const addKey = type === 'other' ? `<div class="kv" style="flex-basis:100%"><input class="in mono" placeholder="new field" data-addkey style="max-width:160px"><button class="btn tiny" data-a="add-key" data-p="${p}">+ field</button></div>` : '';
+  const sel = `<select class="atype" data-p="${p}" data-k="atype">${Object.keys(KNOWN).map(k => `<option${k === type ? ' selected' : ''}>${k}</option>`).join('')}<option value="other"${type === 'other' ? ' selected' : ''}>other…</option></select>`;
+  return `<div class="act t-${type}">${sel}${f}${tools(p, !noteKey(a))}${noteKey(a) ? `<span class="f" style="flex-basis:100%">${noteField(p, a)}</span>` : ''}${below}${extraHtml}${addKey}</div>`;
+}
+const outcomeOf = o => (o.advance ? 'advance' : 'goto' in o ? (o.goto === null ? 'end' : isJs(o.goto) ? 'cond' : 'goto') : 'respond');
+function optionCard(p, o, k) {
+  if (!isObj(o)) return `<div class="card opt">${raw(p, o)}${tools(p)}</div>`;
+  const mode = outcomeOf(o);
+  const outs = [['advance', 'Advance the story (next beat)'], ['respond', 'Get a response, stay here'], ['goto', 'Go to a beat'], ['cond', 'Go to a beat, decided by code'], ['end', 'End the conversation']];
+  let h = `<div class="card opt"><div class="cardhead"><span class="num">${k + 1}</span>${textField(p + '.text', o.text, 'line')}<label class="check sm"><input type="checkbox" data-p="${p}.silent" data-k="flag"${o.silent ? ' checked' : ''}> silent</label>${tools(p, !noteKey(o))}</div>`;
+  if (noteKey(o)) h += `<div class="sub">${noteField(p, o)}</div>`;
+  h += keyNotes(o);
+  h += `<div class="grid2"><label class="field"><span>Then</span><select class="in" data-p="${p}" data-k="outcome">${outs.map(([v, l]) => `<option value="${v}"${v === mode ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
+  if (mode === 'goto') h += `<label class="field"><span>Beat</span><select class="in" data-p="${p}.goto" data-k="str">${optList(beatIds(), o.goto)}</select></label>`;
+  h += `<label class="field"><span>Show only if</span>${condSelect(p + '.showIf', o.showIf, true)}</label></div>`;
+  if (mode === 'cond') h += `<div class="sub"><div class="lbl">Which beat (return a beat id, or null to end)</div>${codeField(p + '.goto', o.goto)}</div>`;
+  if (isCustomCond(o.showIf)) h += `<div class="sub"><div class="lbl">Show only if (code)</div>${codeField(p + '.showIf', o.showIf)}</div>`;
+  if (o.actions !== undefined) h += `<div class="sub"><div class="lbl">${mode === 'respond' ? 'First' : 'Before moving on'}</div>${actionList(p + '.actions', o.actions)}</div>`;
+  if (mode === 'respond' || o.response !== undefined) h += `<div class="sub"><div class="lbl">Response${isJs(o.response) ? '' : arr(o.response).length ? '' : ' (empty = silence)'}</div>${actionList(p + '.response', o.response)}</div>`;
+  if (o.actions === undefined) h += `<div class="sub"><button class="chip" data-a="add-actions" data-p="${p}">+ actions ${mode === 'respond' ? 'first' : 'before moving on'}</button></div>`;
+  const extra = Object.keys(o).filter(x => !ORDER.option.includes(x) && !x.startsWith('$'));
+  if (extra.length) h += `<div class="others">${extra.map(x => `<div class="kv"><span class="k mono">${esc(x)}</span>${raw(`${p}.${x}`, o[x])}<button class="btn tiny" data-a="del-key" data-p="${p}.${x}" aria-label="Remove field">×</button></div>`).join('')}</div>`;
+  return h + '</div>';
+}
+function optionList(p, v) {
+  if (isJs(v)) return codeField(p, v);
+  return `<div>${arr(v).map((o, k) => optionCard(`${p}.${k}`, o, k)).join('')}</div><button class="btn add-opt" data-a="add-option" data-p="${p}">+ Add option</button>`;
+}
+function otherFields(p, o, known) {
+  const keys = Object.keys(o).filter(k => !known.includes(k) && !k.startsWith('$'));
+  return `<div class="sec"><h3>Other fields <small>anything else your director reads, as JavaScript</small></h3><div class="body others" style="margin-left:0">${keys.map(k => `<div class="kv"><span class="k mono">${esc(k)}</span>${raw(`${p ? p + '.' : ''}${k}`, o[k])}<button class="btn tiny" data-a="del-key" data-p="${p ? p + '.' : ''}${k}" aria-label="Remove field">×</button></div>`).join('')}<div class="kv"><input class="in mono" placeholder="new field name" data-addkey style="max-width:200px"><button class="btn tiny" data-a="add-key" data-p="${p}">+ field</button></div></div></div>`;
+}
+const sec = (title, sub, body) => `<div class="sec"><h3>${title}${sub ? ` <small>${sub}</small>` : ''}</h3><div class="body">${body}</div></div>`;
+
+function beatForm(i) {
+  const b = P.scene.beats[i];
+  if (!isObj(b)) return `<div class="empty">This beat isn't a plain object, so it can only be edited in the Code tab.</div>`;
+  const p = `beats.${i}`, isStart = P.scene.start === b.id;
+  const trig = isObj(b.trigger) ? b.trigger : {};
+  let nextHtml = isJs(b.next) ? codeField(p + '.next', b.next) : `<select class="in" data-p="${p}.next" data-k="strOpt">${optList(beatIds(), b.next, `<option value=""${b.next === undefined ? ' selected' : ''}>(none: conversation ends)</option>`)}</select>`;
+  return `<div class="formhead">
+    <label class="idfield"><span>Beat id</span><input class="in id" data-p="${p}.id" data-k="id" value="${esc(b.id ?? '')}" spellcheck="false"></label>
+    ${isStart ? '<span class="stamp">Start beat</span>' : `<button class="btn ghost tiny" data-a="make-start" data-i="${i}">Make start beat</button>`}
+    <span class="sp"></span>
+    <button class="btn tiny" data-a="beat-up" data-i="${i}" aria-label="Move beat up">↑</button><button class="btn tiny" data-a="beat-down" data-i="${i}" aria-label="Move beat down">↓</button>
+    <button class="btn tiny" data-a="dup-beat" data-i="${i}">Duplicate</button>
+    <button class="btn tiny danger" data-a="del-beat" data-i="${i}">Delete</button>
+  </div>
+  <label class="field"><span>Notes</span><textarea class="in note" rows="${rows(b.$note || '')}" data-p="${p}.$note" data-k="note" placeholder="Exported as a // comment above the beat">${esc(b.$note || '')}</textarea></label>
+  <div class="row3">
+    <label class="field"><span>Trigger</span><input class="in mono" list="dl-trig" data-p="${p}.trigger.type" data-k="str" value="${esc(trig.type ?? '')}"></label>
+    <label class="field"><span>Target</span><input class="in mono" list="dl-targets" data-p="${p}.trigger.target" data-k="str" value="${esc(trig.target ?? '')}"></label>
+    <label class="check"><input type="checkbox" data-p="${p}.autoOpen" data-k="flag"${b.autoOpen ? ' checked' : ''}><span>Opens by itself<small style="display:block">choices appear without talking first</small></span></label>
+  </div>
+  ${sec('When this beat opens', 'runs before the choices appear', actionList(p + '.onOpen', b.onOpen))}
+  ${sec('Player options', 'near-identical lines are part of the joke', optionList(p + '.options', b.options))}
+  ${sec('While locked', 'what the player can say while the gate is running; empty means nothing appears', optionList(p + '.lockedOptions', b.lockedOptions))}
+  ${sec('When the story advances', 'runs after an “advance” option', actionList(p + '.onAdvance', b.onAdvance) + `<div class="row3"><label class="field"><span>Next beat</span>${nextHtml}</label><label class="field"><span>Next beat unlocks after (seconds)</span>${numx(p + '.nextUnlockAfter', b.nextUnlockAfter, 'e.g. T.gate or 12')}</label></div>`)}
+  ${otherFields(p, b, ORDER.beat)}`;
+}
+function sceneForm() {
+  const S = P.scene, sp = isObj(S.speakers) ? S.speakers : {};
+  const spRows = speakerIds().map(id => {
+    const s = isObj(sp[id]) ? sp[id] : {};
+    const extra = Object.keys(s).filter(k => !['name', 'pitch', 'actor'].includes(k) && !k.startsWith('$'));
+    return `<div class="card"><div class="row3" style="margin:0">
+      <label class="field"><span>Speaker id</span><input class="in mono" data-k="speaker-id" data-old="${esc(id)}" value="${esc(id)}"></label>
+      <label class="field"><span>Display name</span><input class="in" data-p="speakers.${id}.name" data-k="str" value="${esc(s.name ?? '')}"></label>
+      <label class="field"><span>Voice pitch</span>${numx(`speakers.${id}.pitch`, s.pitch)}</label>
+      <label class="field"><span>Actor in scene</span><input class="in mono" data-p="speakers.${id}.actor" data-k="strOpt" value="${esc(s.actor ?? '')}" placeholder="(none)"></label>
+    </div>${extra.map(k => `<div class="kv" style="margin-top:6px"><span class="k mono">${esc(k)}</span>${raw(`speakers.${id}.${k}`, s[k])}</div>`).join('')}
+    <div style="text-align:right;margin-top:6px"><button class="btn tiny danger" data-a="del-speaker" data-id="${esc(id)}">Remove speaker</button></div></div>`;
+  }).join('');
+  return `<div class="formhead"><div><span class="idfield"><span>Scene</span></span><div style="font:600 22px var(--mono)">${esc(P.exportName)}</div></div></div>
+  <div class="row3">
+    <label class="field"><span>Exported name</span><input class="in mono" data-k="export-name" value="${esc(P.exportName)}"></label>
+    <label class="field"><span>Start beat</span><select class="in" data-p="start" data-k="str">${optList(beatIds(), S.start)}</select></label>
+    <label class="field"><span>Targets <small>(comma-separated)</small></span><input class="in mono" data-p="targets" data-k="csv" value="${esc(arr(S.targets).join(', '))}"></label>
+  </div>
+  ${sec('Speakers', 'who can talk, as shown in the dialogue box', spRows + `<button class="btn" data-a="add-speaker">+ Add speaker</button>`)}
+  ${otherFields('', S, ['start', 'targets', 'speakers', 'beats'])}`;
+}
+
+/* ================= Rendering ================= */
+function renderIndex() {
+  const S = P.scene;
+  const summary = b => {
+    if (!isObj(b)) return '';
+    const o = arr(b.options).find(x => isObj(x) && x.advance) || arr(b.options)[0];
+    if (o && typeof o.text === 'string') return o.text ? '“' + o.text + '”' : 'no line written yet';
+    if (o && isJs(o.text)) return 'ƒx line';
+    return arr(b.options).length + ' options';
+  };
+  $('#index').innerHTML = `<button class="li${sel.kind === 'scene' ? ' on' : ''}" data-a="sel-scene"><b>Scene settings</b><small>${esc(P.exportName)} · ${S.beats.length} beats · ${speakerIds().length} speakers</small></button>
+  <div class="idxhead">Beats, in file order</div>` +
+    S.beats.map((b, k) => `<button class="li${sel.kind === 'beat' && sel.i === k ? ' on' : ''}" data-a="sel-beat" data-i="${k}"><span class="lid">${esc(b && b.id || '(no id)')}</span>${b && S.start === b.id ? '<span class="st">start</span>' : ''}${b && b.autoOpen ? '<span class="tag">auto</span>' : ''}<small>${esc(summary(b))}</small></button>`).join('') +
+    `<button class="btn add" data-a="add-beat">+ Add beat</button>`;
+}
+function renderEditor() {
+  const ed = $('#editor'), st = ed.scrollTop;
+  ed.innerHTML = sel.kind === 'scene' ? sceneForm() : (P.scene.beats[sel.i] ? beatForm(sel.i) : '<div class="empty">No beats yet. Add one from the list.</div>');
+  ed.scrollTop = st;
+  renderLists();
+}
+function collect(v, fn) { if (Array.isArray(v)) v.forEach(x => collect(x, fn)); else if (isObj(v)) { fn(v); for (const k in v) if (!k.startsWith('$')) collect(v[k], fn); } }
+function renderLists() {
+  const anims = new Set(['lookAtPlayer', 'resumeSolitaire']), phases = new Set(['arrival', 'reception', 'waiting', 'brawl', 'doorOpen']), trig = new Set(['interact']);
+  collect(P.scene, o => { if (o.do === 'anim' && typeof o.name === 'string') anims.add(o.name); if (o.do === 'setPhase' && typeof o.phase === 'string') phases.add(o.phase); });
+  P.scene.beats.forEach(b => { if (isObj(b) && isObj(b.trigger) && typeof b.trigger.type === 'string') trig.add(b.trigger.type); });
+  const refs = new Set([...accessed].filter(x => !x.includes('(')).map(shortPath).concat(helperVals));
+  const fill = (id, set) => { $('#' + id).innerHTML = [...set].map(x => `<option value="${esc(x)}"></option>`).join(''); };
+  fill('dl-anims', anims); fill('dl-phases', phases); fill('dl-trig', trig); fill('dl-refs', refs);
+  fill('dl-targets', new Set([...arr(P.scene.targets), ...speakerIds()]));
+}
+let sideTimer = null;
+function refreshSide(now) {
+  clearTimeout(sideTimer);
+  const go = () => { renderIndex(); renderChecks(); if (tab === 'flow') renderFlow(); if (tab === 'code') renderCode(); };
+  if (now) go(); else sideTimer = setTimeout(go, 180);
+}
+function renderAll() { renderIndex(); renderEditor(); renderChecks(); renderTab(); }
+
+/* ================= Flow map ================= */
+function graph() {
+  const beats = P.scene.beats, ids = beats.map(b => (isObj(b) ? b.id : undefined));
+  const edges = [];
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const label = t => (typeof t === 'string' ? '“' + trunc(t, 24) + '”' : 'ƒx line');
+  beats.forEach((b, k) => {
+    if (!isObj(b)) return;
+    if (typeof b.next === 'string') edges.push({ a: b.id, b: b.next, kind: 'next', label: b.nextUnlockAfter ? 'wait ' + shown(b.nextUnlockAfter) : '' });
+    for (const list of ['options', 'lockedOptions']) arr(b[list]).forEach(o => {
+      if (!isObj(o) || !('goto' in o) || o.advance) return;
+      if (o.goto === null) edges.push({ a: b.id, b: '(end)', kind: 'end', label: label(o.text) });
+      else if (typeof o.goto === 'string') edges.push({ a: b.id, b: o.goto, kind: 'goto', label: label(o.text) });
+      else if (isJs(o.goto)) ids.filter(id => id && new RegExp(`(['"\`])${reEsc(id)}\\1`).test(o.goto.$js)).forEach(id => edges.push({ a: b.id, b: id, kind: 'cond', label: label(o.text) }));
+    });
+    if (arr(b.options).some(o => isObj(o) && o.advance) && b.next === undefined) edges.push({ a: b.id, b: '(end)', kind: 'end', label: 'advance' });
+  });
+  return { ids, edges };
+}
+function renderFlow() {
+  const el = $('#tab-flow');
+  let { ids, edges } = graph();
+  if (!ids.length) { el.innerHTML = '<p class="hint">No beats yet.</p>'; return; }
+  const nodes = new Map();
+  P.scene.beats.forEach((b, k) => { if (isObj(b) && b.id && !nodes.has(b.id)) nodes.set(b.id, { id: b.id, k, b }); });
+  const enders = new Set(edges.filter(e => e.kind === 'end').map(e => e.a));
+  edges = edges.filter(e => e.kind !== 'end');
+  edges.forEach(e => { if (!nodes.has(e.b)) nodes.set(e.b, { id: e.b, k: -1, pseudo: true, bad: true }); });
+  const depth = new Map(), start = P.scene.start;
+  const out = id => edges.filter(e => e.a === id);
+  if (nodes.has(start)) { depth.set(start, 0); const qu = [start]; while (qu.length) { const id = qu.shift(); for (const e of out(id)) if (!depth.has(e.b)) { depth.set(e.b, depth.get(id) + 1); qu.push(e.b); } } }
+  const max = Math.max(0, ...depth.values());
+  for (const n of nodes.values()) if (!depth.has(n.id)) { depth.set(n.id, max + 1); n.unreached = !n.pseudo; }
+  const W = 196, H = 68, GX = 34, GY = 80, PAD = 20, LEFT = 110, RIGHT = 150;
+  const rowsArr = [];
+  for (const n of nodes.values()) (rowsArr[depth.get(n.id)] ||= []).push(n);
+  rowsArr.forEach(r => r && r.sort((a, b) => (a.k < 0 ? 1e9 : a.k) - (b.k < 0 ? 1e9 : b.k)));
+  const widest = Math.max(...rowsArr.filter(Boolean).map(r => r.length));
+  const inner = widest * W + (widest - 1) * GX;
+  rowsArr.forEach((r, d) => { if (!r) return; const rw = r.length * W + (r.length - 1) * GX; r.forEach((n, j) => { n.x = PAD + LEFT + (inner - rw) / 2 + j * (W + GX); n.y = PAD + d * (H + GY); }); });
+  const svgW = PAD * 2 + LEFT + inner + RIGHT, svgH = PAD * 2 + rowsArr.length * (H + GY) - GY + 10;
+  // merge parallel edges
+  const merged = new Map();
+  const RANK = { next: 0, goto: 1, cond: 2 };
+  for (const e of edges) { const key = e.a + '→' + e.b; if (merged.has(key)) { const m = merged.get(key); if (RANK[e.kind] < RANK[m.kind]) m.kind = e.kind; if (e.label && !m.label.includes(e.label)) m.label += (m.label ? ' / ' : '') + e.label; } else merged.set(key, { ...e }); }
+  let paths = '', labels = '', backN = 0, skipN = 0;
+  const outCount = new Map();
+  for (const e of merged.values()) {
+    const A = nodes.get(e.a), B = nodes.get(e.b); if (!A || !B) continue;
+    const mk = `url(#ar-${e.kind})`;
+    let d, lx, ly, anchor = 'middle';
+    if (A === B) {
+      const x = A.x + W, y = A.y;
+      d = `M${x},${y + 16} C${x + 46},${y + 4} ${x + 46},${y + H - 4} ${x + 2},${y + H - 16}`; lx = x + 44; ly = y + H / 2 + 4; anchor = 'start';
+    } else if (B.y > A.y + H + GY + 1) {
+      skipN++; const X = Math.min(A.x, B.x) - 30 - skipN * 16;
+      d = `M${A.x},${A.y + H / 2} C${X},${A.y + H / 2} ${X},${B.y + H / 2} ${B.x - 2},${B.y + H / 2}`; lx = X + 4; ly = (A.y + B.y) / 2 + H / 2; anchor = 'end';
+    } else if (B.y > A.y) {
+      const n = outCount.get(A.id) || 0; outCount.set(A.id, n + 1);
+      const x1 = A.x + W / 2 + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 22, y1 = A.y + H, x2 = B.x + W / 2, y2 = B.y - 2;
+      d = `M${x1},${y1} C${x1},${y1 + GY / 2} ${x2},${y2 - GY / 2} ${x2},${y2}`; lx = (x1 + x2) / 2 + (x1 === x2 ? 6 : 0); ly = (y1 + y2) / 2 + 4; anchor = x1 === x2 ? 'start' : 'middle';
+    } else {
+      backN++; const X = Math.max(A.x, B.x) + W + 30 + backN * 16;
+      d = `M${A.x + W},${A.y + H / 2} C${X},${A.y + H / 2} ${X},${B.y + H / 2} ${B.x + W + 2},${B.y + H / 2}`; lx = X - 4; ly = (A.y + B.y) / 2 + H / 2; anchor = 'start';
+    }
+    paths += `<path class="e ${e.kind}" d="${d}" marker-end="${mk}"/>`;
+    if (e.label) labels += `<text class="el" x="${lx}" y="${ly}" text-anchor="${anchor}">${esc(trunc(e.label, 40))}</text>`;
+  }
+  let nodeSvg = '';
+  for (const n of nodes.values()) {
+    const on = sel.kind === 'beat' && n.k === sel.i;
+    if (n.pseudo) {
+      nodeSvg += `<g class="node bad" transform="translate(${n.x},${n.y})"><rect width="${W}" height="${H}" rx="6"/><text class="nid" x="${W / 2}" y="${H / 2 + 4}" text-anchor="middle">missing: ${esc(trunc(n.id, 16))}</text></g>`;
+      continue;
+    }
+    const o = arr(n.b.options).find(x => isObj(x) && x.advance) || arr(n.b.options)[0];
+    const sum = o ? (typeof o.text === 'string' ? '“' + trunc(o.text, 25) + '”' : 'ƒx line') : 'no options';
+    nodeSvg += `<g class="node${on ? ' on' : ''}${n.unreached ? ' bad' : ''}" data-i="${n.k}" tabindex="0" role="button" aria-label="Open beat ${esc(n.id)}" transform="translate(${n.x},${n.y})"><rect width="${W}" height="${H}" rx="6"/><text class="nid" x="12" y="22">${esc(trunc(n.id, 20))}</text>${n.id === start ? `<text class="nst" x="${W - 10}" y="18" text-anchor="end">START</text>` : n.b.autoOpen ? `<text class="nst" x="${W - 10}" y="18" text-anchor="end" style="fill:var(--muted)">AUTO</text>` : ''}<text class="nsum" x="12" y="41">${esc(sum)}</text>${n.unreached ? `<text class="nst" x="12" y="${H - 9}">UNREACHED</text>` : enders.has(n.id) ? `<text class="nst" x="12" y="${H - 9}" style="fill:var(--muted)">CAN END</text>` : ''}</g>`;
+  }
+  const marker = (id, col, dash) => `<marker id="ar-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:${col}"/></marker>`;
+  el.innerHTML = `<div class="legend"><span><i></i>advance (next)</span><span><i class="g"></i>option goes to</span><span><i class="c"></i>decided by code</span><span>CAN END: an option ends the conversation</span></div>
+  <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" role="img" aria-label="Flow map of beats"><defs>${marker('next', 'var(--ink)')}${marker('goto', 'var(--muted)')}${marker('cond', 'var(--accent)')}${marker('end', 'var(--muted)')}</defs>${paths}${nodeSvg}${labels}</svg>`;
+}
+
+/* ================= Checks ================= */
+function checks() {
+  const out = [], S = P.scene, beats = S.beats, ids = beatIds();
+  const E = (m, i) => out.push({ lv: 'error', m, i }), Wn = (m, i) => out.push({ lv: 'warn', m, i });
+  if (!beats.length) Wn('There are no beats yet.');
+  const seen = new Set();
+  beats.forEach((b, k) => { if (!isObj(b)) return; if (!b.id) E(`Beat ${k + 1} has no id.`, k); else if (seen.has(b.id)) E(`Two beats share the id “${b.id}”.`, k); seen.add(b.id); });
+  if (!S.start) Wn('No start beat is set (Scene settings).'); else if (!ids.includes(S.start)) E(`The start beat “${S.start}” doesn't exist.`);
+  const spk = speakerIds(), targets = arr(S.targets);
+  beats.forEach((b, k) => {
+    if (!isObj(b)) return;
+    const id = b.id || `beat ${k + 1}`;
+    if (typeof b.next === 'string' && !ids.includes(b.next)) E(`“${id}” advances to “${b.next}”, which doesn't exist.`, k);
+    const opts = arr(b.options);
+    if (!opts.length && !isJs(b.options)) Wn(`“${id}” has no player options.`, k);
+    if (opts.length && !opts.some(o => isObj(o) && (o.advance || 'goto' in o))) Wn(`No option in “${id}” moves the story on, so the player is stuck here.`, k);
+    if (opts.some(o => isObj(o) && o.advance) && b.next === undefined) Wn(`“${id}” has an advancing option but no next beat, so the conversation ends there.`, k);
+    [...opts, ...arr(b.lockedOptions)].forEach((o, n) => {
+      if (!isObj(o)) return;
+      if (typeof o.goto === 'string' && !ids.includes(o.goto)) E(`An option in “${id}” goes to “${o.goto}”, which doesn't exist.`, k);
+      if (o.text === '' || o.text === undefined) Wn(`Option ${n + 1} in “${id}” has no text.`, k);
+    });
+    if (isObj(b.trigger) && b.trigger.target && targets.length && !targets.includes(b.trigger.target)) Wn(`“${id}” is triggered by “${b.trigger.target}”, which isn't in the scene's targets.`, k);
+    collect(b, o => { if ((o.do === 'say' || o.do === 'anim') && o.who && !spk.includes(o.who)) Wn(`“${id}” has a ${o.do} by “${o.who}”, who isn't a speaker.`, k); if (o.do === 'say' && !o.text) Wn(`“${id}” has an empty say line.`, k); });
+  });
+  const { edges } = graph();
+  if (ids.includes(S.start)) {
+    const reach = new Set([S.start]), qu = [S.start];
+    while (qu.length) { const id = qu.shift(); edges.filter(e => e.a === id).forEach(e => { if (!reach.has(e.b)) { reach.add(e.b); qu.push(e.b); } }); }
+    beats.forEach((b, k) => { if (isObj(b) && b.id && !reach.has(b.id)) Wn(`Nothing leads to “${b.id}” from the start beat.`, k); });
+  }
+  return out;
+}
+function renderChecks() {
+  const c = checks(), n = $('#chk-n');
+  n.textContent = c.length; n.className = 'badge' + (c.length ? '' : ' zero');
+  if (tab !== 'checks') return;
+  $('#checks').innerHTML = c.length ? c.map(x => `<li class="${x.lv}" data-i="${x.i ?? ''}"><b>${x.lv === 'error' ? 'Error' : 'Check'}</b><span>${esc(x.m)}</span></li>`).join('') : '<li class="ok" style="border:0;cursor:default">Nothing to flag. Every reference resolves and every beat can be reached.</li>';
+}
+
+/* ================= Code tab ================= */
+function renderCode() {
+  const pre = $('#c-pre');
+  if (document.activeElement !== pre) pre.value = P.preamble;
+  const name = $('#c-name'); if (document.activeElement !== name) name.value = P.exportName;
+  const tail = $('#c-tail'); if (document.activeElement !== tail) tail.value = P.tail;
+  $('#c-out').textContent = exportText();
+}
+
+/* ================= Tabs ================= */
+let tab = 'flow';
+function renderTab() {
+  $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + tab));
+  if (tab === 'flow') renderFlow(); if (tab === 'code') renderCode(); if (tab === 'checks') renderChecks(); if (tab === 'play') { if (!PT) ptStart(); ptRender(); }
+}
+
+/* ================= Play test ================= */
+let PT = null, ptConfigText = '', ptConfigCustom = false;
+const GUESS = { gate: 12, glanceDuration: 2, beat2IgnoreBeforeLine: 3, beat3PauseBeforeLine: 1.5, sideOptionPause: 1, clipboardSlide: 1, hour: 14, minute: 0, onTimeMinutes: 2 };
+function guessConfig() {
+  const all = [...accessed].filter(p => !p.includes('('));
+  const leaves = all.filter(p => !all.some(o => o.startsWith(p + '.')));
+  const obj = {};
+  for (const p of leaves) {
+    const ks = p.split('.'); let cur = obj;
+    ks.slice(0, -1).forEach(k => { if (typeof cur[k] !== 'object' || cur[k] === null) cur[k] = {}; cur = cur[k]; });
+    const last = ks[ks.length - 1];
+    cur[last] = last in GUESS ? GUESS[last] : /pitch/i.test(last) ? 1 : 1;
+  }
+  return JSON.stringify(obj, null, 2);
+}
+function ptValues() {
+  const src = ptConfigText.trim();
+  if (!src) return {};
+  if (/\bexport\b/.test(src)) { const a = analyzePre(src); return runModule(src, '{ ' + a.names.join(', ') + ' }', tok).value; }
+  return new Function('return (' + src + '\n)')();
+}
+const parseClock = t => { const m = /(\d{1,2}):(\d{2})/.exec(t || ''); const h = m ? +m[1] : 1, mi = m ? +m[2] : 55; return ((h % 12) + 12) * 3600 + mi * 60; };
+const fmtClock = ct => { const t = Math.floor(ct / 60) % 720, h = Math.floor(t / 60) || 12; return `${h}:${String(t % 60).padStart(2, '0')}<small>:${String(Math.floor(ct) % 60).padStart(2, '0')}</small>`; };
+function ptLine(cls, text, who) {
+  const d = document.createElement('div'); d.className = 'ln ' + cls;
+  if (who) { const b = document.createElement('b'); b.textContent = who; d.append(b); }
+  d.append(document.createTextNode(text));
+  const log = $('#pt-log'); log.append(d); log.scrollTop = log.scrollHeight;
+}
+function ptStart() {
+  if (PT) PT.dead = true;
+  $('#pt-log').innerHTML = ''; $('#pt-dirty').hidden = true;
+  if (!ptConfigCustom) { ptConfigText = guessConfig(); }
+  $('#pt-config').value = ptConfigText;
+  let scene;
+  try {
+    const vals = ptValues();
+    scene = runModule(P.preamble, lit(P.scene, '', 'root'), n => (vals && n in vals ? vals[n] : tok(n))).value;
+  } catch (e) { PT = null; ptLine('err', 'Could not start: ' + e.message); ptRender(); return; }
+  const beats = {}; arr(scene.beats).forEach(b => { if (b && b.id != null && !(b.id in beats)) beats[b.id] = b; });
+  PT = { scene, beats, current: scene.start, gateAt: 0, game: 0, sleepers: [], menu: null, busy: false, opened: false, ranOpen: false, dead: false,
+    state: { clockTime: parseClock($('#pt-start').value), phase: 'arrival' } };
+  ptLine('sys', 'Scene loaded. Walk up to someone.');
+  ptRender();
+}
+const ptSleep = (me, s) => new Promise(res => { if (!(s > 0)) return res(); me.sleepers.push({ at: me.game + s, res }); });
+const ptText = (me, t) => (typeof t === 'function' ? String(t(me.state)) : String(t ?? ''));
+const nameOf = (me, who) => (me.scene.speakers && me.scene.speakers[who] && me.scene.speakers[who].name) || who || '?';
+async function ptRun(list, me) {
+  if (!Array.isArray(list)) return;
+  for (const a of list) {
+    if (me.dead) return;
+    if (!a || typeof a !== 'object') continue;
+    switch (a.do) {
+      case 'say': { const t = ptText(me, a.text); ptLine(a.who === 'player' ? 'player' : 'npc', t, nameOf(me, a.who)); await ptSleep(me, 0.6 + t.length * 0.045); break; }
+      case 'wait': { const s = +a.seconds || 0; if (s >= 1) ptLine('sys', `(${Math.round(s * 10) / 10} s pass)`); await ptSleep(me, s); break; }
+      case 'anim': ptLine('sys', `[${a.who} · ${a.name}${a.duration ? ' · ' + (Math.round(a.duration * 10) / 10) + ' s' : ''}]`); if (+a.duration > 0) await ptSleep(me, +a.duration); break;
+      case 'set': me.state[a.key] = a.value; ptLine('sys', `set ${a.key} = ${JSON.stringify(a.value)}`); break;
+      case 'setPhase': me.state.phase = a.phase; ptLine('sys', `phase → ${a.phase}`); break;
+      case 'if': { const r = typeof a.test === 'function' ? !!a.test(me.state) : !!a.test; ptLine('sys', `if ${typeof a.test === 'function' && a.test.name && a.test.name !== 'test' ? a.test.name : 'test'} → ${r ? 'then' : 'else'}`); await ptRun(r ? a.then : a.else, me); break; }
+      default: { let s = ''; try { s = JSON.stringify(a, (k, v) => (typeof v === 'function' ? 'ƒ' : v)); } catch {} ptLine('sys', `[${a.do || 'action'} — not simulated] ${s}`); }
+    }
+  }
+}
+function ptTargets(me) {
+  const t = new Set(arr(me.scene.targets));
+  Object.values(me.beats).forEach(b => b.trigger && b.trigger.target && t.add(b.trigger.target));
+  return [...t];
+}
+function ptTalk(target) {
+  const me = PT; if (!me || me.busy || me.menu) return;
+  const b = me.beats[me.current];
+  if (!b) { ptLine('sys', me.current == null ? `(${nameOf(me, target)} has nothing more to say.)` : `(Beat “${me.current}” doesn't exist.)`); return; }
+  if (b.trigger && b.trigger.target && b.trigger.target !== target) { ptLine('sys', `(${nameOf(me, target)} doesn't respond.)`); return; }
+  if (me.game < me.gateAt) {
+    const lo = arr(b.lockedOptions);
+    if (lo.length) return ptShow(b, lo);
+    ptLine('sys', `(No options yet. Unlocks in ${Math.ceil(me.gateAt - me.game)} s.)`); return;
+  }
+  ptOpen(b);
+}
+async function ptOpen(b) {
+  const me = PT; me.opened = true;
+  if (!me.ranOpen) { me.ranOpen = true; me.busy = true; ptRender(); try { await ptRun(b.onOpen, me); } catch (e) { ptLine('err', e.message); } if (me.dead) return; me.busy = false; }
+  ptShow(b, b.options);
+}
+function ptShow(b, list) {
+  const me = PT;
+  const opts = arr(list).filter(o => { try { return !o.showIf || (typeof o.showIf === 'function' ? o.showIf(me.state) : o.showIf); } catch (e) { ptLine('err', 'showIf: ' + e.message); return false; } });
+  let shown = [];
+  try { shown = opts.map(o => ({ o, text: ptText(me, o.text) })); } catch (e) { ptLine('err', 'text: ' + e.message); }
+  me.menu = { b, list, opts: shown };
+  ptRender();
+}
+async function ptChoose(k) {
+  const me = PT; if (!me || !me.menu || !me.menu.opts[k]) return;
+  const { b } = me.menu, { o, text } = me.menu.opts[k];
+  me.menu = null; me.busy = true; ptRender();
+  try {
+    if (!o.silent) ptLine('player', text, nameOf(me, 'player'));
+    await ptRun(o.actions, me);
+    if (o.advance) { await ptRun(b.onAdvance, me); ptGo(me, b.next, b.nextUnlockAfter); }
+    else if ('goto' in o) ptGo(me, typeof o.goto === 'function' ? o.goto(me.state) : o.goto, 0);
+    else { await ptRun(o.response, me); if (!arr(o.response).length && !o.silent) ptLine('sys', '(No reply.)'); }
+  } catch (e) { ptLine('err', e.message); }
+  if (me.dead) return;
+  me.busy = false; ptRender();
+}
+function ptGo(me, id, gate) {
+  me.current = id ?? null; me.gateAt = me.game + (+gate || 0); me.opened = false; me.ranOpen = false;
+  if (id == null) ptLine('sys', '(Conversation over.)');
+  else if (+gate > 0) ptLine('sys', `(Next beat “${id}” unlocks in ${Math.round(+gate * 10) / 10} s.)`);
+}
+function ptRender() {
+  const me = PT;
+  $('#pt-clock').innerHTML = fmtClock(me ? me.state.clockTime : parseClock($('#pt-start').value));
+  if (!me) { $('#pt-targets').innerHTML = ''; $('#pt-menu').innerHTML = ''; $('#pt-state').innerHTML = ''; return; }
+  const b = me.beats[me.current];
+  const free = !me.busy && !me.menu;
+  let t = ptTargets(me).map(x => `<button class="btn" data-pt-talk="${esc(x)}"${free ? '' : ' disabled'}>Talk to ${esc(nameOf(me, x).toLowerCase())}</button>`).join('');
+  if (b && b.trigger && b.trigger.type && b.trigger.type !== 'interact') t += `<button class="btn" data-pt-fire="1"${free ? '' : ' disabled'}>Fire “${esc(b.trigger.type)}” trigger</button>`;
+  $('#pt-targets').innerHTML = t;
+  $('#pt-menu').innerHTML = me.menu ? (me.menu.opts.length ? me.menu.opts.map((x, k) => `<button data-pt-opt="${k}"><b>${k + 1}</b>${esc(x.text)}</button>`).join('') : '<span class="wait">(No options are showing.)</span>') + `<button data-pt-close style="font:12px var(--sans);color:var(--muted)">Walk away</button>` : me.busy ? '<span class="wait">…</span>' : '';
+  ptState();
+}
+function ptState() {
+  const me = PT; if (!me) return;
+  const lock = Math.max(0, me.gateAt - me.game);
+  const vars = Object.entries(me.state).filter(([k]) => k !== 'clockTime' && k !== 'phase');
+  $('#pt-state').innerHTML = `<span>beat</span><span>${esc(me.current ?? '(none)')}${lock > 0 ? ` · locked ${Math.ceil(lock)} s` : ''}</span><span>phase</span><span>${esc(me.state.phase)}</span>` + vars.map(([k, v]) => `<span>${esc(k)}</span><span>${esc(JSON.stringify(v))}</span>`).join('');
+}
+let lastT = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
+  const me = PT; if (!me || me.dead) return;
+  const sp = +$('#pt-speed').value || 1;
+  me.game += dt * sp; me.state.clockTime += dt * sp;
+  const due = me.sleepers.filter(s => me.game >= s.at); me.sleepers = me.sleepers.filter(s => me.game < s.at); due.forEach(s => s.res());
+  const b = me.beats[me.current];
+  if (b && b.autoOpen && !me.busy && !me.menu && !me.opened && me.game >= me.gateAt) ptOpen(b);
+  if (tab === 'play') { $('#pt-clock').innerHTML = fmtClock(me.state.clockTime); ptState(); }
+}, 100);
+
+/* ================= Events: editor ================= */
+function readVal(el) {
+  const v = el.type === 'checkbox' ? el.checked : el.value;
+  switch (el.dataset.k) {
+    case 'str': case 'note': return v;
+    case 'strOpt': return v === '' ? undefined : v;
+    case 'flag': return v ? true : undefined;
+    case 'numx': return parseNumx(v);
+    case 'raw': return parseLiteral(v);
+    case 'js': return { $js: v };
+    case 'csv': return v.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return undefined;
+}
+const SIMPLE = new Set(['str', 'note', 'strOpt', 'flag', 'numx', 'raw', 'js', 'csv']);
+const editor = $('#editor');
+editor.addEventListener('input', e => {
+  const el = e.target;
+  if (el.tagName === 'TEXTAREA') { el.rows = rows(el.value); }
+  if (!el.dataset || !SIMPLE.has(el.dataset.k) || el.tagName === 'SELECT' || el.type === 'checkbox') return;
+  setPath(P.scene, el.dataset.p, readVal(el)); commit(); refreshSide();
+});
+editor.addEventListener('change', e => {
+  const el = e.target, k = el.dataset && el.dataset.k, p = el.dataset && el.dataset.p;
+  if (!k) return;
+  if ((el.tagName === 'SELECT' || el.type === 'checkbox') && SIMPLE.has(k)) { setPath(P.scene, p, readVal(el)); commit(true); refreshSide(true); if (p === 'start') renderEditor(); return; }
+  if (k === 'id') {
+    const [bp] = [p.replace(/\.id$/, '')]; const b = getPath(P.scene, bp); const old = b.id, nu = el.value.trim();
+    if (nu === old) return;
+    b.id = nu;
+    if (old) renameRefs(old, nu);
+    commit(true); refreshSide(true); renderEditor(); return;
+  }
+  if (k === 'outcome') {
+    const o = getPath(P.scene, p), v = el.value;
+    delete o.advance; const prevGoto = o.goto; delete o.goto;
+    const others = beatIds().filter(id => id !== (P.scene.beats[sel.i] || {}).id);
+    if (v === 'advance') o.advance = true;
+    else if (v === 'goto') o.goto = typeof prevGoto === 'string' ? prevGoto : (others[0] || '');
+    else if (v === 'end') o.goto = null;
+    else if (v === 'cond') o.goto = isJs(prevGoto) ? prevGoto : { $js: `(state) => (${helperFns[0] || 'someCondition'}(state) ? '${others[0] || 'beat_a'}' : '${others[1] || others[0] || 'beat_b'}')` };
+    else if (v === 'respond' && o.response === undefined) o.response = [];
+    if (v !== 'respond' && Array.isArray(o.response) && !o.response.length) delete o.response;
+    commit(true); refreshSide(true); renderEditor(); return;
+  }
+  if (k === 'cond') {
+    const v = el.value, cur = getPath(P.scene, p);
+    if (v === '') setPath(P.scene, p, undefined);
+    else if (v.startsWith('h:')) setPath(P.scene, p, { $js: v.slice(2) });
+    else setPath(P.scene, p, isCustomCond(cur) && cur !== undefined ? cur : { $js: '(state) => true' });
+    commit(true); refreshSide(true); renderEditor(); return;
+  }
+  if (k === 'atype') {
+    const a = getPath(P.scene, p), who = a.who || speakerIds().find(x => x !== 'player') || speakerIds()[0];
+    const t = el.value;
+    const fresh = newAction(t === 'other' ? 'custom' : t, who);
+    for (const nk of ['$note', '$tnote']) if (a[nk] !== undefined) fresh[nk] = a[nk];
+    setPath(P.scene, p, fresh); commit(true); refreshSide(true); renderEditor(); return;
+  }
+  if (k === 'speaker-id') {
+    const old = el.dataset.old, nu = el.value.trim(); if (!nu || nu === old || speakerIds().includes(nu)) { el.value = old; return; }
+    const sp = P.scene.speakers, out = {}; for (const key of Object.keys(sp)) out[key === old ? nu : key] = sp[key]; P.scene.speakers = out;
+    collect(P.scene.beats, o => { if (o.who === old) o.who = nu; });
+    commit(true); refreshSide(true); renderEditor(); return;
+  }
+  if (k === 'export-name') { const v = el.value.trim(); if (IDENT.test(v)) P.exportName = v; else el.value = P.exportName; commit(true); refreshSide(true); return; }
+  if (el.dataset.r) renderEditor();
+});
+function renameRefs(old, nu) {
+  const S = P.scene;
+  if (S.start === old) S.start = nu;
+  const re = new RegExp(`(['"\`])${old.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1`, 'g');
+  S.beats.forEach(b => {
+    if (!isObj(b)) return;
+    if (b.next === old) b.next = nu;
+    [...arr(b.options), ...arr(b.lockedOptions)].forEach(o => { if (!isObj(o)) return; if (o.goto === old) o.goto = nu; else if (isJs(o.goto)) o.goto.$js = o.goto.$js.replace(re, `$1${nu}$1`); });
+  });
+}
+function newAction(t, who) {
+  switch (t) {
+    case 'say': return { do: 'say', who, text: '' };
+    case 'wait': return { do: 'wait', seconds: 1 };
+    case 'anim': return { do: 'anim', who, name: '' };
+    case 'set': return { do: 'set', key: '', value: true };
+    case 'setPhase': return { do: 'setPhase', phase: '' };
+    case 'if': return { do: 'if', test: { $js: helperFns[0] || '(state) => true' }, then: [], else: [] };
+    default: return { do: t };
+  }
+}
+function uniqueId(base) { const ids = beatIds(); let n = 1, id = base; while (ids.includes(id)) id = base + '_' + ++n; return id; }
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-a]'); if (!t) return;
+  const a = t.dataset.a, p = t.dataset.p, S = P.scene;
+  const done = (side = true) => { commit(true); clampSel(); renderIndex(); renderEditor(); if (side) refreshSide(true); };
+  switch (a) {
+    case 'sel-scene': sel = { kind: 'scene' }; renderIndex(); renderEditor(); if (tab === 'flow') renderFlow(); persist(); return;
+    case 'sel-beat': sel = { kind: 'beat', i: +t.dataset.i }; renderIndex(); editor.scrollTop = 0; renderEditor(); if (tab === 'flow') renderFlow(); persist(); return;
+    case 'add-beat': {
+      const cur = S.beats[sel.kind === 'beat' ? sel.i : -1];
+      const b = { id: uniqueId('new_beat'), trigger: { type: 'interact', target: arr(S.targets)[0] || 'receptionist' }, options: [{ text: '', advance: true }], lockedOptions: [], onAdvance: [], nextUnlockAfter: 0 };
+      const at = sel.kind === 'beat' ? sel.i + 1 : S.beats.length; S.beats.splice(at, 0, b);
+      if (isObj(cur) && cur.next === undefined) cur.next = b.id;
+      sel = { kind: 'beat', i: at }; editor.scrollTop = 0; if (!S.start) S.start = b.id; done(); return;
+    }
+    case 'dup-beat': { const i = +t.dataset.i, c = JSON.parse(JSON.stringify(S.beats[i])); c.id = uniqueId((c.id || 'beat') + '_copy'); S.beats.splice(i + 1, 0, c); sel = { kind: 'beat', i: i + 1 }; done(); return; }
+    case 'del-beat': { const i = +t.dataset.i, id = S.beats[i] && S.beats[i].id; S.beats.splice(i, 1); done(); toast(`Deleted beat “${id}”.`, true); return; }
+    case 'beat-up': case 'beat-down': { const i = +t.dataset.i, j = a === 'beat-up' ? i - 1 : i + 1; if (j < 0 || j >= S.beats.length) return; [S.beats[i], S.beats[j]] = [S.beats[j], S.beats[i]]; sel = { kind: 'beat', i: j }; done(); return; }
+    case 'make-start': S.start = S.beats[+t.dataset.i].id; done(); return;
+    case 'add-option': { const list = getPath(S, p); if (!Array.isArray(list)) setPath(S, p, []); getPath(S, p).push({ text: '', response: [] }); done(); return; }
+    case 'add-actions': setPath(S, p + '.actions', []); done(); return;
+    case 'add-action': {
+      if (!Array.isArray(getPath(S, p))) setPath(S, p, []);
+      const who = speakerIds().find(x => x !== 'player') || speakerIds()[0];
+      getPath(S, p).push(newAction(t.dataset.t, who)); done(); return;
+    }
+    case 'del': { const [lp, i] = parentOf(p); getPath(S, lp).splice(i, 1); done(); return; }
+    case 'dup': { const [lp, i] = parentOf(p); const l = getPath(S, lp); l.splice(i + 1, 0, JSON.parse(JSON.stringify(l[i]))); done(); return; }
+    case 'up': case 'down': { const [lp, i] = parentOf(p); const l = getPath(S, lp), j = a === 'up' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; done(); return; }
+    case 'note': { const o = getPath(S, p), k = 'do' in o ? '$tnote' : '$note'; o[k] = ''; done(false); setTimeout(() => { const n = editor.querySelector(`[data-p="${CSS.escape(p + '.' + k)}"]`); n && n.focus(); }); return; }
+    case 'to-js': { const v = getPath(S, p) || ''; setPath(S, p, { $js: '(state) => `' + String(v).replace(/[`\\$]/g, '\\$&') + '`' }); done(); return; }
+    case 'to-plain': setPath(S, p, ''); done(); return;
+    case 'to-list': setPath(S, p, []); done(); return;
+    case 'del-key': setPath(S, p, undefined); done(); return;
+    case 'add-key': {
+      const inp = t.parentElement.querySelector('[data-addkey]'), k = inp && inp.value.trim();
+      if (!k || !IDENT.test(k)) { inp && inp.focus(); return; }
+      const obj = p === '' ? S : getPath(S, p); if (k in obj) return; obj[k] = ''; done(); return;
+    }
+    case 'add-speaker': { if (!isObj(S.speakers)) S.speakers = {}; let n = 1, id = 'speaker'; while (id in S.speakers) id = 'speaker' + ++n; S.speakers[id] = { name: id.toUpperCase() }; done(); return; }
+    case 'del-speaker': delete S.speakers[t.dataset.id]; done(); return;
+  }
+});
+$('#tab-flow').addEventListener('click', e => { const g = e.target.closest('.node[data-i]'); if (!g) return; sel = { kind: 'beat', i: +g.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); renderFlow(); });
+$('#tab-flow').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.node[data-i]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+$('#checks').addEventListener('click', e => { const li = e.target.closest('li[data-i]'); if (!li || li.dataset.i === '') return; sel = { kind: 'beat', i: +li.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); });
+$$('.tabs button').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; renderTab(); }));
+
+/* ================= Events: play test ================= */
+$('#tab-play').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.ptTalk) ptTalk(t.dataset.ptTalk);
+  else if (t.dataset.ptOpt !== undefined) ptChoose(+t.dataset.ptOpt);
+  else if (t.dataset.ptFire) { const b = PT && PT.beats[PT.current]; if (b) ptOpen(b); }
+  else if (t.hasAttribute('data-pt-close')) { PT.menu = null; ptRender(); }
+});
+$('#pt-restart').addEventListener('click', ptStart);
+function ptNudge(d) {
+  if (!PT) return;
+  PT.state.clockTime += d * 60;
+  if (PT.menu) ptShow(PT.menu.b, PT.menu.list); else ptRender();
+}
+$('#pt-m').addEventListener('click', () => ptNudge(-1));
+$('#pt-p').addEventListener('click', () => ptNudge(1));
+$('#pt-config-apply').addEventListener('click', () => { ptConfigText = $('#pt-config').value; ptConfigCustom = true; persist(); ptStart(); });
+$('#pt-config-reset').addEventListener('click', () => { ptConfigCustom = false; persist(); ptStart(); });
+$('#pt-config-file').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; ptConfigText = await f.text(); ptConfigCustom = true; persist(); ptStart(); e.target.value = ''; toast(`Using ${f.name} for the play test.`); });
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); travel(e.shiftKey ? 1 : -1); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); travel(1); return; }
+  if (e.key === 'Escape') { $('#m-paste').classList.remove('on'); return; }
+  if (tab === 'play' && !typing && PT && PT.menu && /^[1-9]$/.test(e.key)) ptChoose(+e.key - 1);
+});
+
+/* ================= Events: code tab ================= */
+$('#c-pre').addEventListener('input', e => { P.preamble = e.target.value; commit(); });
+$('#c-pre').addEventListener('change', () => { refreshHelpers(); renderEditor(); refreshSide(true); });
+$('#c-tail').addEventListener('input', e => { P.tail = e.target.value; commit(); });
+$('#c-tail').addEventListener('change', () => refreshSide(true));
+$('#c-name').addEventListener('change', e => { const v = e.target.value.trim(); if (IDENT.test(v)) { P.exportName = v; commit(true); refreshSide(true); } else e.target.value = P.exportName; });
+
+/* ================= Toolbar: open, paste, copy, save ================= */
+let toastTimer = null;
+function toast(msg, undo) {
+  $('#toast-t').textContent = msg; $('#toast-b').hidden = !undo; $('#toast').classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 5000);
+}
+$('#toast-b').addEventListener('click', () => { travel(-1); $('#toast').classList.remove('on'); });
+function doImport(text, name, handle) {
+  const p = importText(text);
+  fileHandle = handle || null; $('#b-save').hidden = !fileHandle;
+  if (fileHandle) $('#b-save').textContent = 'Save to ' + fileHandle.name;
+  loadProject(p, `Opened ${name || p.exportName}: ${p.scene.beats.length} beats.`);
+  if (PT) ptStart();
+}
+const topLevel = (() => { try { return window.self === window.top; } catch { return false; } })();
+$('#b-open').addEventListener('click', async () => {
+  if (topLevel && window.showOpenFilePicker) {
+    try {
+      const [h] = await window.showOpenFilePicker({ types: [{ description: 'JavaScript', accept: { 'text/javascript': ['.js', '.mjs'] } }] });
+      const f = await h.getFile(); doImport(await f.text(), f.name, h); return;
+    } catch (e) { if (e.name === 'AbortError') return; if (e.message && !/picker|security|cross-origin/i.test(e.message)) { toast('Could not open: ' + e.message); return; } }
+  }
+  $('#f-open').click();
+});
+$('#f-open').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { doImport(await f.text(), f.name); } catch (err) { toast('Could not open: ' + err.message); } e.target.value = ''; });
+$('#b-paste').addEventListener('click', () => { $('#m-paste-err').textContent = ''; $('#m-paste').classList.add('on'); $('#m-paste-t').focus(); });
+$('#m-paste-x').addEventListener('click', () => $('#m-paste').classList.remove('on'));
+$('#m-paste-ok').addEventListener('click', () => { try { doImport($('#m-paste-t').value, 'pasted file'); $('#m-paste').classList.remove('on'); $('#m-paste-t').value = ''; } catch (err) { $('#m-paste-err').textContent = 'Could not read it: ' + err.message; } });
+$('#b-new').addEventListener('click', () => { fileHandle = null; $('#b-save').hidden = true; loadProject(JSON.parse(JSON.stringify(BLANK)), 'Started a new scene.'); if (PT) ptStart(); });
+$('#b-undo').addEventListener('click', () => travel(-1));
+$('#b-redo').addEventListener('click', () => travel(1));
+async function copyOut() {
+  try { await navigator.clipboard.writeText(exportText()); toast(`Copied ${P.exportName}.js. Paste it over the file in VS Code.`); }
+  catch { tab = 'code'; renderTab(); const r = document.createRange(); r.selectNodeContents($('#c-out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Copy was blocked. The code is selected in the Code tab; press Ctrl+C.'); }
+}
+$('#b-copy').addEventListener('click', copyOut);
+$('#c-copy').addEventListener('click', copyOut);
+if (topLevel) {
+  $('#c-dl').hidden = false;
+  $('#c-dl').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportText()], { type: 'text/javascript' })); a.download = P.exportName + '.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+}
+$('#b-save').addEventListener('click', async () => {
+  if (!fileHandle) return;
+  try { const w = await fileHandle.createWritable(); await w.write(exportText()); await w.close(); toast('Saved to ' + fileHandle.name + '.'); }
+  catch (e) { toast('Could not save: ' + e.message); }
+});
+document.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); document.body.classList.add('drop'); } });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop'); });
+document.addEventListener('drop', async e => {
+  document.body.classList.remove('drop'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (!f) return; e.preventDefault();
+  let handle = null; try { const it = e.dataTransfer.items[0]; if (topLevel && it && it.getAsFileSystemHandle) handle = await it.getAsFileSystemHandle(); } catch {}
+  try { doImport(await f.text(), f.name, handle && handle.kind === 'file' ? handle : null); } catch (err) { toast('Could not open: ' + err.message); }
+});
+
+/* ================= Start ================= */
+window.SceneDesk = { importText, exportText: () => exportText(), get project() { return P; } };
+(function boot() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch {}
+  if (saved && saved.P && saved.P.scene) {
+    P = saved.P; P.scene.beats = arr(P.scene.beats); sel = saved.sel || sel;
+    if (saved.pt) { ptConfigText = saved.pt; ptConfigCustom = true; }
+    // re-learn config paths from the saved script
+    try { runModule(P.preamble, lit(P.scene, '', 'root'), tok); } catch {}
+    refreshHelpers(); clampSel(); commit(true); renderAll(); persist();
+  } else {
+    try { doImport($('#sample').textContent, 'waitingRoomBeats.js'); $('#toast').classList.remove('on'); }
+    catch (e) { loadProject(JSON.parse(JSON.stringify(BLANK))); toast('Sample failed to load: ' + e.message); }
+  }
+})();
+}
+</script>
+</body>
+</html>
