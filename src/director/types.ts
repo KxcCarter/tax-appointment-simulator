@@ -16,13 +16,14 @@ export type Seconds = number | number[];
 export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 
 /** Animations the receptionist understands (characters/receptionist.js). */
-export type ReceptionistAnim = 'lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard';
+export type ReceptionistAnim =
+  | 'lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee';
 
 /** Animations a waiting NPC understands (characters/npc.js): turn to the player / go back to fidgeting. */
 export type NpcAnim = 'attend' | 'resume';
 
 /** Expression presets (config.characters.expressions). */
-export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased';
+export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious';
 
 /** Sounds a scene can trigger directly (audio/sfx.js). */
 export type SoundName =
@@ -31,7 +32,8 @@ export type SoundName =
 
 export type Action =
   | { do: 'say'; who: string; text: Live<string> }
-  | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number }
+  | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number; untilDone?: boolean }
+  | { do: 'notice'; text: string; seconds?: number }
   | { do: 'wait'; seconds: Seconds }
   | { do: 'setPhase'; phase: Phase }
   | { do: 'set'; key: keyof GameState; value: unknown }

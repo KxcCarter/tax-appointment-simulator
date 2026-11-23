@@ -50,6 +50,13 @@ export class Face {
       // Upper lid: a skin-coloured dome over the eyeball. Rotating it forward closes the eye.
       const lid = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 1.12, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), m(colors.skin));
       socket.add(lid);
+      // Eyelashes ride on the lid's front edge, flicking out at the corner
+      if (colors.lashes !== undefined) {
+        const lash = new THREE.Mesh(partGeometry('figure', 'trim', eyeR * 2.4, 0.005, 0.008), m(colors.lashes));
+        lash.position.set(side * 0.003, 0.001, eyeR * 1.12);
+        lash.rotation.z = side * -0.12;
+        lid.add(lash);
+      }
       // Lower lid: a thin fixed rim, so the eye sits in the face rather than on it
       const lower = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 1.1, 16, 6, 0, Math.PI * 2, Math.PI * 0.72, Math.PI * 0.28), m(colors.skin));
       socket.add(lower);

@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
 import { RAPIER } from '../physics.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
+import { Walker } from './walker.js';
 
 /*
   A waiting-room NPC. For now (Milestone 3) only the seated states:
@@ -33,7 +34,7 @@ export class Npc {
     this.personality = def.personality;
 
     const look = characterPalettes.cast[def.look];
-    this.rig = buildRig(look);
+    this.rig = buildRig({ ...look, proportions: config.characters.builds?.[def.id] });
     this.face = this.rig.face;
     this.restExpression = def.expression ?? 'bored';
     this.face?.setExpression(this.restExpression, 100);
@@ -44,6 +45,7 @@ export class Npc {
     const body = chair.object.userData.body;
     body?.setBodyType(RAPIER.RigidBodyType.Fixed, false);
     this._seat();
+    this.walker = new Walker(this._walkerHost());
 
     // Smoothed pose targets (chair-local)
     this.t = {
@@ -184,7 +186,16 @@ export class Npc {
 
   update(dt, camera) {
     this.time += dt;
-    if (this.errand) return this._updateErrand(dt, camera);
+    if (this.walker.active) {
+      this.walker.update(dt, camera);
+      // Her magazine waits on the seat
+      if (this.magazine) {
+        this.magazine.position.copy(this.w(0, SEAT_TOP + 0.01, 0.02));
+        this.magazine.quaternion.copy(this.chair.object.quaternion);
+      }
+      if (!this.walker.active) this.nextAction = rand(3, 6);
+      return;
+    }
     const desired = {
       lHand: new THREE.Vector3(), rHand: new THREE.Vector3(), look: new THREE.Vector3(),
       lean: 0, twist: 0, bend: 0.05,
@@ -356,151 +367,71 @@ export class Npc {
 
   /** True while they're up and about. */
   get busyElsewhere() {
-    return !!this.errand;
+    return this.walker.active;
   }
 
   /**
-   * Get up, walk to `standSpot` (world, on the floor), face `faceYaw`, reach for `reachTarget()`,
-   * call `onReach()` at the moment of contact, then walk back and sit down.
+   * Get up, walk to `standSpot`, face `faceYaw`, reach for `reachTarget()` (onReach at contact),
+   * then walk back and sit down. Called again while already up, they turn round and go again,
+   * faster and angrier (anger > 0).
    */
-  startErrand({ standSpot, faceYaw, reachTarget, onReach }) {
-    this.attending = false;
-    this.action = null;
-    this.reaction = null;
-    const front = this.w(0, 0, 0.34); front.y = 0;
-    this.errand = {
-      phase: 'rise', t: 0, standSpot: standSpot.clone(), faceYaw, reachTarget, onReach, reached: false,
-      front, pos: front.clone(), yaw: this.chairYaw, step: 0, moving: 0, blocked: false,
-    };
+  startErrand({ standSpot, faceYaw, reachTarget, onReach, anger = 0 }) {
+    const A = N.anger;
+    const opts = { speedMul: Math.min(A.maxSpeed, 1 + anger * A.speedPerLevel), anger };
+    const there = [
+      { type: 'walk', to: standSpot, leg: 'there' },
+      { type: 'face', yaw: faceYaw, leg: 'there' },
+      { type: 'reach', target: reachTarget, onReach, leg: 'there' },
+    ];
+    const back = [
+      { type: 'walk', to: 'front', glare: anger > 0, leg: 'back' },
+      { type: 'turn', yaw: 'chair', leg: 'back' },
+      { type: 'sit', leg: 'back' },
+    ];
+    const wk = this.walker;
+    if (!wk.active) {
+      this.attending = false;
+      this.action = null;
+      this.reaction = null;
+      wk.start([{ type: 'rise' }, ...there, ...back], opts);
+      return;
+    }
+    const cur = wk.current;
+    if (cur.type === 'sit') {
+      // Half sat down: back up from where she is
+      const startT = (1 - Math.min(1, wk.t / N.walk.sitTime)) * N.walk.riseTime;
+      wk.start([{ type: 'rise', startT }, ...there, ...back], opts);
+    } else if (cur.leg === 'back') {
+      wk.start([...there, ...back], opts);            // turn straight round
+    } else if (cur.type === 'reach') {
+      wk.start([there[2], ...back], opts);            // reach again
+    } else {
+      // Still on the way there: just hurry up
+      wk.speedMul = opts.speedMul;
+      wk.anger = anger;
+      for (const st of wk.steps) {
+        if (st.type === 'reach') st.onReach = onReach;
+        if (st.leg === 'back' && st.type === 'walk') st.glare = anger > 0;
+      }
+    }
   }
 
-  _updateErrand(dt, camera) {
-    const e = this.errand, W = N.walk;
-    const j = this.rig.joints, L = this.rig.lengths, root = this.rig.root;
-    e.t += dt;
-    const smooth01 = (x) => smooth(Math.min(1, Math.max(0, x)));
-    let sit = 0;            // 1 = seated, 0 = standing
-    let bend = 0.06, reach = 0, look = null, expression = 'bored';
-
-    const turnTowards = (goal) => {
-      let d = goal - e.yaw;
-      d = Math.atan2(Math.sin(d), Math.cos(d));
-      const stepYaw = Math.sign(d) * Math.min(Math.abs(d), W.turnSpeed * dt);
-      e.yaw += stepYaw;
-      return Math.abs(d) < 0.04;
+  /** The host interface the Walker needs (see walker.js). */
+  _walkerHost() {
+    const self = this;
+    return {
+      rig: this.rig, sfx: this.sfx, face: this.face,
+      seatRoot: this.seatRoot, seatQuat: this.chair.object.quaternion.clone(), chairYaw: this.chairYaw,
+      frontOffset: 0.34,
+      w: (x, y, z) => self.w(x, y, z),
+      seatedFoot: (side) => self.w(side * 0.11, 0, 0.44),
+      seatedHand: (side) => self.w(side * 0.13, 0.6, 0.24),
+      expression: (wk) => {
+        if (self.called) return 'annoyed';
+        const ladder = N.anger.expressions;
+        return wk.anger > 0 ? ladder[Math.min(ladder.length - 1, wk.anger - 1)] : 'bored';
+      },
     };
-    const walkTowards = (target) => {
-      const to = target.clone().sub(e.pos); to.y = 0;
-      const dist = to.length();
-      if (dist < 0.03) { e.moving = Math.max(0, e.moving - dt * 4); return true; }
-      turnTowards(Math.atan2(to.x, to.z));
-      // Someone in the way? Stop and wait for them to move (and look at them).
-      const ahead = e.pos.clone().addScaledVector(to.clone().normalize(), 0.35);
-      const cam = camera.position;
-      e.blocked = Math.hypot(cam.x - ahead.x, cam.z - ahead.z) < W.personalSpace;
-      if (e.blocked) { e.moving = Math.max(0, e.moving - dt * 4); expression = 'unimpressed'; look = cam.clone(); return false; }
-      const step = Math.min(dist, W.speed * dt);
-      e.pos.addScaledVector(to.normalize(), step);
-      e.step += (step / W.stride) * Math.PI;
-      e.moving = Math.min(1, e.moving + dt * 4);
-      return false;
-    };
-
-    switch (e.phase) {
-      case 'rise': {
-        sit = 1 - smooth01(e.t / W.riseTime);
-        bend = 0.06 + Math.sin(Math.min(1, e.t / W.riseTime) * Math.PI) * 0.4;
-        if (e.t >= W.riseTime) { e.phase = 'walkTo'; e.t = 0; }
-        break;
-      }
-      case 'walkTo':
-        if (walkTowards(e.standSpot)) { e.phase = 'face'; e.t = 0; }
-        break;
-      case 'face':
-        if (turnTowards(e.faceYaw)) { e.phase = 'reach'; e.t = 0; }
-        break;
-      case 'reach': {
-        const u = e.t / W.reachTime;
-        bend = 0.06 + Math.sin(Math.min(1, u) * Math.PI) * 0.45;
-        reach = Math.sin(Math.min(1, u) * Math.PI);
-        look = e.reachTarget();
-        if (!e.reached && u >= 0.5) { e.reached = true; e.onReach?.(); }
-        if (u >= 1) { e.phase = 'walkBack'; e.t = 0; }
-        break;
-      }
-      case 'walkBack':
-        if (walkTowards(e.front)) { e.phase = 'turnToSit'; e.t = 0; }
-        break;
-      case 'turnToSit':
-        if (turnTowards(this.chairYaw)) { e.phase = 'sit'; e.t = 0; }
-        break;
-      case 'sit': {
-        sit = smooth01(e.t / W.sitTime);
-        bend = 0.06 + Math.sin(Math.min(1, e.t / W.sitTime) * Math.PI) * 0.4;
-        if (e.t >= W.sitTime) {
-          this.errand = null;
-          root.position.copy(this.seatRoot);
-          root.quaternion.copy(this.chair.object.quaternion);
-          this.nextAction = rand(3, 6);
-          return;
-        }
-        break;
-      }
-    }
-
-    // --- body placement: between the seat and standing in front of the chair ---
-    const fwd = new THREE.Vector3(Math.sin(e.yaw), 0, Math.cos(e.yaw));
-    const left = new THREE.Vector3(Math.cos(e.yaw), 0, -Math.sin(e.yaw));
-    const bob = -Math.abs(Math.sin(e.step)) * 0.02 * e.moving;
-    const standRoot = e.pos.clone().setY(-0.03 + bob);
-    root.position.lerpVectors(standRoot, this.seatRoot, sit);
-    root.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), e.yaw);
-    j.spine.rotation.set(bend, 0, 0);
-    root.updateMatrixWorld(true);
-
-    // --- feet: stepping while moving; on the floor in front of the chair while seated ---
-    const stride = 0.13 * e.moving;
-    for (const side of [1, -1]) {
-      const ph = e.step + (side === 1 ? 0 : Math.PI);
-      const standFoot = e.pos.clone()
-        .addScaledVector(left, side * 0.1)
-        .addScaledVector(fwd, Math.sin(ph) * stride);
-      standFoot.y = Math.max(0, Math.cos(ph)) * 0.06 * e.moving;
-      const seatedFoot = this.w(side * 0.11, 0, 0.44);
-      const foot = standFoot.lerp(seatedFoot, sit);
-      const [hip, knee] = side === 1 ? [j.lHip, j.lKnee] : [j.rHip, j.rKnee];
-      solveTwoBone(hip, knee, foot, L.upperLeg, L.lowerLeg, fwd.clone().add(new THREE.Vector3(0, 0.3, 0)).normalize());
-    }
-
-    // --- arms: swinging at the sides; the right hand reaches for the target ---
-    j.spine.updateMatrixWorld(true);
-    const shoulderY = root.position.y + 0.8 * this.rig.scale;
-    for (const side of [1, -1]) {
-      const swing = Math.sin(e.step + (side === 1 ? Math.PI : 0)) * 0.12 * e.moving;
-      let hand = e.pos.clone().addScaledVector(left, side * 0.24).addScaledVector(fwd, 0.05 + swing);
-      hand.y = shoulderY - 0.05;
-      const seatedHand = this.w(side * 0.13, 0.6, 0.24);
-      hand.lerp(seatedHand, sit);
-      if (side === -1 && reach > 0) hand.lerp(e.reachTarget(), reach);
-      const [sh, el] = side === 1 ? [j.lShoulder, j.lElbow] : [j.rShoulder, j.rElbow];
-      solveTwoBone(sh, el, hand, L.upperArm, L.lowerArm, left.clone().multiplyScalar(side * 0.6).addScaledVector(fwd, -1).add(new THREE.Vector3(0, -0.4, 0)).normalize());
-    }
-
-    // --- head and face ---
-    const lookAt = look ?? e.pos.clone().addScaledVector(fwd, 3).setY(1.2);
-    aimJoint(j.neck, lookAt, { maxYaw: 1.1, maxPitch: 0.6, alpha: 1 - Math.exp(-N.headTurnSpeed * dt) });
-    if (this.called) expression = 'annoyed';
-    if (this.face) {
-      this.face.setExpression(expression);
-      this.face.lookAt(lookAt);
-      this.face.update(dt);
-    }
-
-    // Her magazine waits on the seat
-    if (this.magazine) {
-      this.magazine.position.copy(this.w(0, SEAT_TOP + 0.01, 0.02));
-      this.magazine.quaternion.copy(this.chair.object.quaternion);
-    }
   }
 
   _solve(dt, d, eyesOn, footLift) {

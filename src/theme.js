@@ -68,6 +68,10 @@ export const palette = {
   watchFace: 0xd9c27a,
   briefcase: 0x5a3a22,
   radioCase: 0x7a5232,          // wood-grain plastic
+  backRoom: 0x5a5444,           // the dim staff room behind EMPLOYEES ONLY
+  backRoomFloor: 0x3a3a34,
+  coffeeCup: 0xf4f1e8,
+  coffee: 0x3b2414,
   radioGrille: 0x2b2a26,
   radioDialOff: 0x5a5440,
   radioDialOn: 0xffc870,         // warm glow once it's on
@@ -156,13 +160,17 @@ export const characterPalettes = {
       jacket: 0x6b7a3a, shirt: 0xe8e2cf, trousers: 0x2d4a6a, shoes: 0xe8e2cf,
       hat: 'cap', hatColor: 0x7a2a3a,
     },
-    sitter: {         // woman, mustard jacket, ponytail, perfectly still
-      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'ponytail', eyes: 0x3b2a1a, lips: 0x7a4040,
-      jacket: 0xa8822a, shirt: 0xd8a8a0, trousers: 0x3b3b38, shoes: 0x1b1a18,
+    sitter: {         // woman: mustard jacket, pencil skirt and stockings, ponytail, perfectly still
+      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'ponytail', eyes: 0x3b2a1a, lips: 0xa8303a,
+      jacket: 0xa8822a, shirt: 0xd8a8a0, trousers: 0x3b3b38, shoes: 0x7a1a22,
+      legUpper: 0x3b3b38,   // skirt colour on the thighs...
+      legLower: 0x6a4a3a,   // ...and stockings below the knee
+      lashes: 0x1b1a18,
+      earrings: 0xd9c27a,
     },
   },
   receptionist: {
-    skin: 0xe0ac85,
+    skin: 0x6f4a32,
     hair: 0x8a3a1a,
     blouse: 0xd8a8a0,
     cardigan: 0x6b7a3a,

@@ -292,24 +292,26 @@ export class Sfx {
 
   // ---------------------------------------------------------------- music (the radio)
 
-  /** Fetch and decode an audio file from public/. Resolves to null (with a warning) if it isn't there. */
+  /** Fetch and decode an audio file. Resolves to null (with a warning) if it's missing or unreadable. */
   async loadAudio(url) {
     if (!this.ctx) return null;
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      // A missing file can come back as the HTML page instead of a 404
+      if ((res.headers.get('content-type') ?? '').includes('text/html')) throw new Error('file not found');
       return await this.ctx.decodeAudioData(await res.arrayBuffer());
     } catch (err) {
-      console.warn(`Audio file not loaded (${url}): ${err.message}. Put it in public/ to hear it.`);
+      console.warn(`Audio file not loaded (${url}): ${err.message}`);
       return null;
     }
   }
 
   /**
    * Loop a decoded buffer from a point in the room, optionally band-limited like a small speaker.
-   * Returns { stop() }.
+   * offset: seconds into the track to start from. Returns { stop() }.
    */
-  playLoop(buffer, position, { volume, refDistance, rolloff, tinny, highpass, lowpass }) {
+  playLoop(buffer, position, { volume, refDistance, rolloff, tinny, highpass, lowpass }, offset = 0) {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
@@ -329,7 +331,7 @@ export class Sfx {
     const t = this.ctx.currentTime;
     out.gain.setValueAtTime(0.0001, t);
     out.gain.exponentialRampToValueAtTime(volume, t + 1.5);
-    src.start();
+    src.start(0, (offset ?? 0) % buffer.duration);
     return {
       stop: () => {
         const now = this.ctx.currentTime;
@@ -339,6 +341,16 @@ export class Sfx {
         src.stop(now + 0.85);
       },
     };
+  }
+
+  /** An angry footstep; heavier the angrier she is. */
+  stomp(position, anger = 1) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const v = A.stomp.volume * Math.min(2, 0.7 + anger * 0.3) * rand(0.85, 1.1);
+    const out = this._out(v, position, A.stomp);
+    this._noise(t, 0.1, out, 'lowpass', rand(300, 420), 1, 1, 0.003);
+    this._tone(t, 0.12, out, 'sine', rand(55, 70), 0.9, 0.002, 38);
   }
 
   ticketTear(position = null) {

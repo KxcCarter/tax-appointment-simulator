@@ -83,25 +83,92 @@ export function buildWaitingRoom(scene, physics) {
   const baseMat = mat('woodDark');
   const T = 0.2; // wall thickness
 
-  // Each wall: [centre x, centre z, length, yaw of inward normal]
+  // Each wall: centre, length, inward normal, and door openings (centre along the wall, width, height).
+  // Openings are real holes, so doors can open onto something.
+  const EMP_DOOR = { x: -3.9, w: 0.95, h: 2.15 };  // EMPLOYEES ONLY, behind the reception desk
+  const ACC_DOOR = { x: 3.6, w: 1.02, h: 2.12 };   // ACCOUNTANT - PRIVATE
   const walls = [
-    { x: 0, z: -hd - T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, 1) },  // north
-    { x: 0, z: hd + T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, -1) },  // south
-    { x: -hw - T / 2, z: 0, len: D, normal: new THREE.Vector3(1, 0, 0) },          // west
-    { x: hw + T / 2, z: 0, len: D, normal: new THREE.Vector3(-1, 0, 0) },          // east
+    { x: 0, z: -hd - T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, 1), openings: [EMP_DOOR, ACC_DOOR] }, // north
+    { x: 0, z: hd + T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, -1), openings: [] },                   // south
+    { x: -hw - T / 2, z: 0, len: D, normal: new THREE.Vector3(1, 0, 0), openings: [] },                           // west
+    { x: hw + T / 2, z: 0, len: D, normal: new THREE.Vector3(-1, 0, 0), openings: [] },                           // east
   ];
+  /** Pieces of [a, b] left after cutting out the openings. */
+  const spans = (a, b, openings) => {
+    const out = [];
+    let cur = a;
+    for (const o of [...openings].sort((p, q) => p.x - q.x)) {
+      if (o.x - o.w / 2 > cur) out.push([cur, o.x - o.w / 2]);
+      cur = Math.max(cur, o.x + o.w / 2);
+    }
+    if (b > cur) out.push([cur, b]);
+    return out;
+  };
   for (const w of walls) {
     const alongX = w.normal.z !== 0;
-    const sx = alongX ? w.len : T, sz = alongX ? T : w.len;
-    box(sx, H, sz, wallMat, w.x, H / 2, w.z);
-    staticBox(w.x, H / 2, w.z, sx / 2 + (alongX ? 0 : 0.05), H / 2 + 1, sz / 2 + (alongX ? 0.05 : 0));
-    // Mint wainscot, wooden chair rail, dark baseboard (slightly proud of the wall)
-    const off = (d) => ({ x: w.x + w.normal.x * (T / 2 + d), z: w.z + w.normal.z * (T / 2 + d) });
-    const inner = alongX ? w.len - 2 * T : w.len;
-    const ix = alongX ? inner : 0.02, iz = alongX ? 0.02 : inner;
-    let p = off(0.01); box(ix, 0.9, iz, wainscotMat, p.x, 0.45, p.z);
-    p = off(0.025); box(alongX ? inner : 0.04, 0.05, alongX ? 0.04 : inner, railMat, p.x, 0.92, p.z);
-    p = off(0.02); box(alongX ? inner : 0.03, 0.1, alongX ? 0.03 : inner, baseMat, p.x, 0.05, p.z);
+    // A strip along the wall from u0 to u1 (wall coordinate), at height y..y+h, depth d, pushed `off` into the room
+    const strip = (u0, u1, y, h, d, off, material) => {
+      const len = u1 - u0, mid = (u0 + u1) / 2;
+      const cx = alongX ? w.x + mid : w.x + w.normal.x * off;
+      const cz = alongX ? w.z + w.normal.z * off : w.z + mid;
+      return box(alongX ? len : d, h, alongX ? d : len, material, cx, y + h / 2, cz);
+    };
+    const half = w.len / 2;
+    for (const [u0, u1] of spans(-half, half, w.openings)) strip(u0, u1, 0, H, T, 0, wallMat);
+    for (const o of w.openings) strip(o.x - o.w / 2, o.x + o.w / 2, o.h, H - o.h, T, 0, wallMat); // header above the door
+    staticBox(w.x, H / 2, w.z, (alongX ? w.len : T) / 2 + (alongX ? 0 : 0.05), H / 2 + 1, (alongX ? T : w.len) / 2 + (alongX ? 0.05 : 0));
+    // Mint wainscot, wooden chair rail, dark baseboard (slightly proud of the wall), broken by doors
+    const inner = alongX ? half - T : half;
+    for (const [u0, u1] of spans(-inner, inner, w.openings)) {
+      strip(u0, u1, 0, 0.9, 0.02, T / 2 + 0.01, wainscotMat);
+      strip(u0, u1, 0.895, 0.05, 0.04, T / 2 + 0.025, railMat);
+      strip(u0, u1, 0, 0.1, 0.03, T / 2 + 0.02, baseMat);
+    }
+  }
+
+  // ---------- EMPLOYEES ONLY door and the back room behind it ----------
+  {
+    const dx = EMP_DOOR.x, wallFace = -hd;
+    // Frame
+    for (const side of [-1, 1]) box(0.06, EMP_DOOR.h + 0.06, 0.08, mat('woodDark'), dx + side * (EMP_DOOR.w / 2 + 0.01), EMP_DOOR.h / 2, wallFace + 0.02);
+    box(EMP_DOOR.w + 0.14, 0.06, 0.08, mat('woodDark'), dx, EMP_DOOR.h + 0.02, wallFace + 0.02);
+    // Door, hinged on its west edge, swinging into the back room
+    const pivot = new THREE.Group();
+    pivot.position.set(dx - EMP_DOOR.w / 2 + 0.02, 0, wallFace - 0.03);
+    scene.add(pivot);
+    box(EMP_DOOR.w - 0.04, EMP_DOOR.h - 0.03, 0.045, mat('doorWood'), (EMP_DOOR.w - 0.04) / 2, (EMP_DOOR.h - 0.03) / 2, 0, pivot);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), mat('metalGrey'));
+    knob.position.set(EMP_DOOR.w - 0.14, 1.0, 0.04);
+    pivot.add(knob);
+    const signTex = theme.canvasTexture(160, 48, (c, w, h) => {
+      c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+      c.strokeStyle = theme.css('inkRed'); c.lineWidth = 3; c.strokeRect(3, 3, w - 6, h - 6);
+      c.fillStyle = theme.css('inkRed'); c.font = 'bold 17px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('EMPLOYEES ONLY', w / 2, h / 2 + 1);
+    });
+    box(0.46, 0.14, 0.01, theme.textured(signTex), (EMP_DOOR.w - 0.04) / 2, 1.6, 0.028, pivot);
+
+    // A small, dim back room: floor, ceiling, three walls
+    const bx = dx, bz = wallFace - T - 0.8, bw = 1.6, bd = 1.6, bh = 2.4;
+    const back = mat('backRoom');
+    box(bw, 0.02, bd, mat('backRoomFloor'), bx, 0.0, bz);
+    box(bw, 0.02, bd, back, bx, bh, bz);
+    box(0.05, bh, bd, back, bx - bw / 2, bh / 2, bz);
+    box(0.05, bh, bd, back, bx + bw / 2, bh / 2, bz);
+    box(bw, bh, 0.05, back, bx, bh / 2, bz - bd / 2);
+    // A shelf with a coffee machine, glimpsed through the door
+    box(0.7, 0.05, 0.35, mat('woodDark'), bx + 0.3, 0.95, bz - bd / 2 + 0.2);
+    box(0.22, 0.32, 0.22, mat('black'), bx + 0.3, 1.13, bz - bd / 2 + 0.2);
+
+    anchors.employeeDoor = {
+      pivot,
+      openAngle: 1.6,
+      // Walking route from behind the desk, through the door, out of sight
+      front: new THREE.Vector3(dx + 0.1, 0, wallFace + 0.55),
+      threshold: new THREE.Vector3(dx + 0.1, 0, wallFace - 0.1),
+      inside: new THREE.Vector3(dx + 0.1, 0, wallFace - 0.75),
+      behindDesk: new THREE.Vector3(-3.05, 0, -4.35),
+    };
   }
 
   // ---------- light fixtures (the theme decides what light they emit) ----------
@@ -446,6 +513,7 @@ export function buildWaitingRoom(scene, physics) {
       knob,
       speaker: grille,
       turnOn() { dial.material = theme.unlit('radioDialOn'); },
+      turnOff() { dial.material = theme.unlit('radioDialOff'); },
       // Where someone stands to reach it, and which way they face (towards the wall, +x)
       standSpot: new THREE.Vector3(tx - 0.6, 0, tz),
       faceYaw: Math.PI / 2,

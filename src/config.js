@@ -69,6 +69,8 @@ export const config = {
       beat3PauseBeforeLine: 1.2,    // beat 3: pause before "Take a number..."
       sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
       clipboardSlide: 2.0,          // on time: she slides the check-in sheet over (whole motion)
+      coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
+      coffeeSip: 2.2,               // one sip of coffee
       clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
     },
     dialogue: {
@@ -78,7 +80,8 @@ export const config = {
       reactionDelay: 0.5,           // after a line finishes typing, before the next action starts
     },
     waiting: {
-      duration: 60,                 // seconds from "waiting" phase (told + ticket) to being called
+      duration: 300,                // seconds from "waiting" phase (told + ticket) to being called.
+                                    // Owner's decision: long enough that the clock passes 2:00 first.
       fastDuration: 6,              // with ?fastwait in the URL (testing)
     },
     call: {
@@ -109,15 +112,19 @@ export const config = {
     shift: { every: [15, 26], duration: 1.2 },
     calledLookDelay: [0.2, 0.9],  // after the call, each head turns to the player after a moment
     // Getting up, walking and sitting back down (the radio errand; the brawl reuses it)
+    // Each time the player turns the radio off, she gets angrier: faster and faster
+    anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
     walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55 },
   },
 
   // ---- The radio (owner's request) ----
   radio: {
-    at: 120,                    // seconds of play (pauses don't count) before someone turns it on
-    who: 'reader',              // which waiting person gets up (id from src/data/waitingRoomCast.js)
-    file: 'audio/look_to_the_sky.wav', // in public/; loops until the accountant's door opens
-    volume: 0.05,               // very, very soft
+    at: 60,                     // seconds of play (pauses don't count) before someone turns it on
+    who: 'sitter',              // which waiting person gets up (id from src/data/waitingRoomCast.js);
+                                // the sitter is across the room, so it's a long walk
+    // The song (src/audio/), bundled by Vite; loops until the accountant's door opens
+    file: new URL('./audio/look_to_the_sky.mp3', import.meta.url).href,
+    volume: 0.18,               // very, very soft: about 4-5 dB under the fluorescent hum
     refDistance: 6,             // positional, but nearly the same volume anywhere in the room
     rolloff: 0.25,
     tinny: true,                // band-limit it like a small radio speaker
@@ -156,6 +163,21 @@ export const config = {
       shoulderInset: 0.03,
       hipSpacing: 0.1,
     },
+    // Individual builds for the waiting people (override the shared proportions above)
+    builds: {
+      sitter: {   // feminine and curvy: narrow shoulders and waist, wide hips, a bust
+        pelvis: { w: 0.46, h: 0.18, d: 0.3 },
+        torso: { w: 0.34, h: 0.48, d: 0.22 },
+        bust: { r: 0.085, spacing: 0.085, y: 0.33, forward: 0.07 },
+        head: { w: 0.24, h: 0.29, d: 0.26 },
+        upperArm: { len: 0.29, thick: 0.095 },
+        lowerArm: { len: 0.26, thick: 0.085 },
+        upperLeg: { len: 0.42, thick: 0.17 },
+        lowerLeg: { len: 0.4, thick: 0.115 },
+        hipSpacing: 0.12,
+        shoulderInset: 0.02,
+      },
+    },
     // Per-style changes to the proportions above (theme.look.characterStyle picks the style)
     styleProportions: {
       figure: {
@@ -175,10 +197,28 @@ export const config = {
       annoyed:     { lids: 0.3,  brows: { raise: -0.006, angle: -0.35 },  mouth: { smile: -0.35, width: 0.8 } },
       surprised:   { lids: 0,    brows: { raise: 0.012, angle: 0.15 },    mouth: { smile: 0, open: 0.55, width: 0.75 } },
       pleased:     { lids: 0.2,  brows: { raise: 0.004, angle: 0.05 },    mouth: { smile: 0.35, width: 1.1 } },
+      angry:       { lids: 0.15, brows: { raise: -0.009, angle: -0.5 },   mouth: { smile: -0.5, width: 0.75 } },
+      furious:     { lids: 0.0,  brows: { raise: -0.011, angle: -0.65 },  mouth: { smile: -0.6, open: 0.25, width: 0.7 } },
     },
     blinkInterval: [2.5, 6],
     receptionist: {
       scale: 0.94,
+      // Her build: very fat. Overrides the shared proportions above (same joints, wider parts).
+      proportions: {
+        pelvis: { w: 0.66, h: 0.22, d: 0.5 },
+        torso: { w: 0.74, h: 0.5, d: 0.54 },
+        belly: { w: 0.66, h: 0.4, d: 0.26, y: 0.17 },  // rounded front of the torso, low down
+        chest: { w: 0.62, h: 0.22, d: 0.14, y: 0.36 },  // fuller upper front
+        head: { w: 0.29, h: 0.31, d: 0.29 },
+        jowls: { w: 0.24, h: 0.09, d: 0.14 },            // double chin under the jaw
+        neck: 0.02,
+        upperArm: { len: 0.3, thick: 0.2 },
+        lowerArm: { len: 0.27, thick: 0.165 },
+        upperLeg: { len: 0.42, thick: 0.29 },
+        lowerLeg: { len: 0.4, thick: 0.21 },
+        hipSpacing: 0.19,
+        shoulderInset: 0.05,
+      },
       voicePitch: 320,              // Hz, dialogue blips
       headTurnSpeed: 5,             // how quickly she turns to look
       clockGlanceTwist: 0.75,       // radians of upper-body turn to see the clock behind her
@@ -202,6 +242,7 @@ export const config = {
     chairShift: { volume: 0.25 },
     watchTick: { volume: 0.12, refDistance: 0.4, rolloff: 2.0 },
     chime: { volume: 0.45 },
+    stomp: { volume: 0.35, refDistance: 1.5, rolloff: 1.0 },
     chairCreak: { volume: 0.35 },
   },
 

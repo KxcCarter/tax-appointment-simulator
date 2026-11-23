@@ -22,7 +22,8 @@
 
   Actions ({ do: ... }):
     say      { who, text }            typewriter line with voice blips; text may be (state) => string
-    anim     { who, name, duration? } actors[who].play(name); waits `duration` if given
+    anim     { who, name, duration?, untilDone? } actors[who].play(name); waits `duration`, or until it's done
+    notice   { text, seconds? }       a short message on screen (not spoken)
     wait     { seconds }              (number or [min, max])
     setPhase { phase }
     set      { key, value }           write to the global state
@@ -180,6 +181,11 @@ export class Director {
     if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing && !this.pendingSequence) this.openChoices(next);
   }
 
+  /** Run a named sequence's actions right now, without waiting for the dialogue to be free. */
+  runNow(name) {
+    return this.runActions(this.data.sequences?.[name] ?? []);
+  }
+
   /** Run a named sequence from the data once the director is free. */
   async play(name) {
     const list = this.data.sequences?.[name];
@@ -209,9 +215,14 @@ export class Director {
       case 'say':
         // text may be (state) => string for live values, e.g. the time on the clock
         return this.say(a.who, typeof a.text === 'function' ? a.text(this.state) : a.text);
-      case 'anim':
-        this.actors[a.who]?.play(a.name);
-        if (a.duration) await this.wait(a.duration);
+      case 'anim': {
+        const done = this.actors[a.who]?.play(a.name);
+        if (a.untilDone && done?.then) await done; // e.g. a walk that takes as long as it takes
+        else if (a.duration) await this.wait(a.duration);
+        return;
+      }
+      case 'notice':
+        this.ui.toast(a.text, a.seconds ?? 3);
         return;
       case 'wait':
         return this.wait(a.seconds);

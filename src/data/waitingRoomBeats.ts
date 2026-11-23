@@ -56,6 +56,18 @@ export const waitingRoomBeats: Scene = {
 
   // Sequences the game starts itself (director.play(name)).
   sequences: {
+    // The player tries to sign the check-in sheet on the counter
+    signSheet: [
+      { do: 'notice', text: "You don't have a pen." },
+      {
+        do: 'if',
+        test: (state) => !state.needsPen,
+        then: [
+          { do: 'set', key: 'needsPen', value: true },
+          { do: 'goto', beat: 'pen_request' }, // now the player can ask her for one
+        ],
+      },
+    ],
     // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
     // Proposal from the brief; the wording is easy to change.
     call: [
@@ -99,7 +111,7 @@ export const waitingRoomBeats: Scene = {
       lockedOptions: [],
       onAdvance: [
         { do: 'wait', seconds: T.beat2IgnoreBeforeLine }, // clicks continue
-        { do: 'say', who: 'receptionist', text: "Sshhh, momma's got to play her game." },
+        { do: 'say', who: 'receptionist', text: "Sshhh, momma's gotta play her game." },
       ],
       next: 'reception_3',
       nextUnlockAfter: T.gate,
@@ -137,7 +149,27 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'What time is it now?' },
           ],
         },
-        { text: '(Say nothing)', silent: true, goto: null },
+        // Letting it go isn't final: she can be asked again later (protest_again)
+        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // The same objection, raised again later by walking up and pressing E (no auto-open).
+      // Reached after "(Say nothing)" or "...Take a seat and wait.", so the player can come
+      // back once the clock reads 2:00.
+      id: 'protest_again',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'But I have an appointment at 2.',
+          goto: 'what_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'What time is it now?' },
+          ],
+        },
+        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
       ],
       lockedOptions: [],
     },
@@ -186,7 +218,9 @@ export const waitingRoomBeats: Scene = {
         {
           text: 'My appointment is at 2:00.',
           // On time she asks about the check-in sheet (checkin_sheet); otherwise the exchange is over
-          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : null),
+          // On time: the check-in sheet. Early ("not 2:00 yet"): she can be asked again later.
+          // Late: the exchange is over.
+          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : late(state) ? null : 'protest_again'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -254,6 +288,81 @@ export const waitingRoomBeats: Scene = {
       lockedOptions: [],
       onAdvance: [],
       nextUnlockAfter: 0,
+    },
+
+    // ---- No pen. (Signing the sheet sends the exchange here; see sequences.signSheet.) ----
+    {
+      id: 'pen_request',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Do you have a pen?',
+          goto: 'pen_borrow',
+          actions: [
+            // She ignores the question entirely
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'Mamma gotta get her some coffee...' },
+            { do: 'anim', who: 'receptionist', name: 'coffeeBreak', untilDone: true }, // ~30 s away
+            { do: 'set', key: 'hadCoffee', value: true },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'pen_borrow',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Do you have a pen I can borrow?',
+          goto: 'how_check_in',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'No.' },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'how_check_in',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'How am I supposed to check in for my appointment then?',
+          goto: 'online_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'You can check-in online. What time is your appointment?' },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'online_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: ['2:00.', "It's supposed to be right now."].map((text) => ({
+        text,
+        // Back to asking for a pen: the loop can go round again
+        goto: 'pen_borrow',
+        actions: [
+          // The clock, the computer, a sip of coffee. Then the verdict.
+          { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+          { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          { do: 'wait', seconds: 0.8 },
+          { do: 'anim', who: 'receptionist', name: 'sipCoffee', duration: T.coffeeSip },
+          { do: 'wait', seconds: 0.4 },
+          {
+            do: 'say',
+            who: 'receptionist',
+            text: "You're late for your appointment so the system won't let you sign in online, you're gonna have to fill in the check-in sheet.",
+          },
+        ] as Action[],
+      })),
+      lockedOptions: [],
     },
   ],
 };

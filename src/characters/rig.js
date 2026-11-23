@@ -28,7 +28,8 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 
 export function buildRig(look = {}) {
   const style = look.style ?? theme.look.characterStyle;
-  const P = { ...config.characters.proportions, ...(config.characters.styleProportions?.[style] ?? {}) };
+  // Shared proportions <- style tweaks <- this character's own build (look.proportions)
+  const P = { ...config.characters.proportions, ...(config.characters.styleProportions?.[style] ?? {}), ...(look.proportions ?? {}) };
   const s = look.scale ?? 1;
   const col = {
     skin: look.skin, hair: look.hair, shirt: look.shirt, jacket: look.jacket ?? look.shirt,
@@ -64,12 +65,41 @@ export function buildRig(look = {}) {
 
   const spine = joint(pelvis, 0, P.pelvis.h / 2, 0, 'spine');
   parts.torso = part(spine, 'torso', P.torso.w, P.torso.h, P.torso.d, col.jacket, P.torso.h / 2, 'torsoMesh');
+  if (P.belly) {
+    // A rounded belly on the lower front of the torso
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m(col.jacket));
+    belly.scale.set(P.belly.w, P.belly.h, P.belly.d * 2);
+    belly.position.set(0, P.belly.y, P.torso.d / 2 - P.belly.d * 0.35);
+    belly.name = 'bellyMesh';
+    spine.add(belly);
+  }
+  if (P.bust) {
+    for (const side of [1, -1]) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(P.bust.r, 20, 14), m(col.jacket));
+      b.scale.set(1, 0.92, 0.85);
+      b.position.set(side * P.bust.spacing, P.bust.y, P.torso.d / 2 - P.bust.r + P.bust.forward);
+      spine.add(b);
+    }
+  }
+  if (P.chest) {
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m(col.jacket));
+    chest.scale.set(P.chest.w, P.chest.h, P.chest.d * 2);
+    chest.position.set(0, P.chest.y, P.torso.d / 2 - P.chest.d * 0.45);
+    spine.add(chest);
+  }
 
   const neck = joint(spine, 0, P.torso.h, 0, 'neck');
   part(neck, 'neck', 0.1, P.neck + 0.04, 0.1, col.skin, P.neck / 2, 'neckMesh');
   const headPivot = joint(neck, 0, P.neck, 0, 'head');
   parts.head = part(headPivot, 'head', P.head.w, P.head.h, P.head.d, col.skin, P.head.h / 2, 'headMesh');
   const face = addFace(headPivot, look, P.head, style, m);
+  if (P.jowls) {
+    // A double chin under the jaw
+    const jowls = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 14), m(col.skin));
+    jowls.scale.set(P.jowls.w, P.jowls.h, P.jowls.d);
+    jowls.position.set(0, P.jowls.h * 0.15, P.head.d * 0.18);
+    headPivot.add(jowls);
+  }
   addHair(headPivot, look, P.head, style, m);
 
   const armY = P.torso.h - P.upperArm.thick / 2;
@@ -112,8 +142,10 @@ export function buildRig(look = {}) {
     dial.position.x = P.lowerArm.thick / 2 + 0.008;
     watch.add(dial);
   }
-  const lLeg = limb(pelvis, P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, col.trousers, col.trousers, 'l', 'leg');
-  const rLeg = limb(pelvis, -P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, col.trousers, col.trousers, 'r', 'leg');
+  // Legs: trousers by default; a skirt + stockings look via legUpper / legLower
+  const legUp = look.legUpper ?? col.trousers, legLow = look.legLower ?? col.trousers;
+  const lLeg = limb(pelvis, P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, legUp, legLow, 'l', 'leg');
+  const rLeg = limb(pelvis, -P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, legUp, legLow, 'r', 'leg');
 
   // Shirt front / tie on the chest. On the round 'soft' torso the front is curved, so sit them a bit proud.
   const chestZ = P.torso.d / 2 + (style === 'soft' ? 0.012 : 0.004);
@@ -215,6 +247,11 @@ function addExpressiveFace(headPivot, look, H, front, m) {
     const ear = new THREE.Mesh(partGeometry('figure', 'ear', 0.035, 0.07, 0.03), m(look.skin));
     ear.position.set(side * (H.w / 2 + 0.006), H.h * 0.5, -0.01);
     headPivot.add(ear);
+    if (look.earrings !== undefined) {
+      const ring = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), m(look.earrings));
+      ring.position.set(side * (H.w / 2 + 0.012), H.h * 0.33, -0.005);
+      headPivot.add(ring);
+    }
   }
   const noseY = H.h * 0.42;
   const nose = new THREE.Mesh(partGeometry('figure', 'nose', 0.032, 0.066, 0.04), m(look.skin));
@@ -235,6 +272,7 @@ function addExpressiveFace(headPivot, look, H, front, m) {
     eyes: look.eyes ?? pal.eyes[0],
     brows: look.brows ?? look.hair,
     lips: look.lips ?? look.skin,
+    lashes: look.lashes,
   });
 
   if (look.glasses !== undefined) {

@@ -76,6 +76,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     onInteract: () => director.interact('receptionist'),
   });
 
+  // --- the check-in sheet on the counter (once she's slid it over) ---
+  interaction.register(A.clipboard, {
+    prompt: () => (state.clipboardOffered && !director.active ? '[E] Sign Check-in Sheet' : null),
+    onInteract: () => director.runNow('signSheet'),
+  });
+
   // --- ticket dispenser: works any time; taking a ticket early doesn't help ---
   interaction.register(A.ticketDispenser, {
     prompt: () => (state.ticketNumber == null ? '[E] Take number' : null),
@@ -130,15 +136,48 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   player.onStep = () => sfx.footstep();
   let lastSecond = Math.floor(state.clockTime);
   // --- the radio ---
-  let radioStarted = false, radioLoop = null;
+  // The sitter turns it on at config.radio.at. The player can turn it off; every time they do,
+  // she gets up again, angrier and faster, and turns it back on.
+  let radioStarted = false, radioLoop = null, radioBuffer = null, stationStart = null;
   const radioPos = () => A.radio.speaker.getWorldPosition(new THREE.Vector3());
+  const radioWho = () => npcs.find((n) => n.id === config.radio.who);
+
+  function sendToRadio(anger) {
+    radioWho()?.startErrand({
+      standSpot: A.radio.standSpot,
+      faceYaw: A.radio.faceYaw,
+      reachTarget: () => A.radio.knob.getWorldPosition(new THREE.Vector3()),
+      onReach: () => turnOnRadio(),
+      anger,
+    });
+  }
+
   async function turnOnRadio() {
+    if (state.radioOn || state.phase === config.radio.stopAtPhase) return;
     state.radioOn = true;
     A.radio.turnOn();
     sfx.radioClick(radioPos());
-    const buffer = await sfx.loadAudio(import.meta.env.BASE_URL + config.radio.file);
-    if (buffer && state.phase !== config.radio.stopAtPhase) radioLoop = sfx.playLoop(buffer, radioPos(), config.radio);
+    radioBuffer ??= await sfx.loadAudio(config.radio.file);
+    if (!radioBuffer || !state.radioOn) return;
+    // A station keeps broadcasting while it's off: resume where the song would be by now
+    stationStart ??= sfx.ctx.currentTime;
+    radioLoop = sfx.playLoop(radioBuffer, radioPos(), config.radio, sfx.ctx.currentTime - stationStart);
   }
+
+  function turnOffRadio() {
+    state.radioOn = false;
+    A.radio.turnOff();
+    sfx.radioClick(radioPos());
+    radioLoop?.stop();
+    radioLoop = null;
+    state.radioOffCount++;
+    sendToRadio(state.radioOffCount); // she's up before the static has faded
+  }
+
+  interaction.register(A.radio.group, {
+    prompt: () => (state.radioOn && state.phase !== config.radio.stopAtPhase ? '[E] Turn off the radio' : null),
+    onInteract: () => { if (state.radioOn) turnOffRadio(); },
+  });
 
   const waitDuration = fastWait ? config.timings.waiting.fastDuration : config.timings.waiting.duration;
   const _a = new THREE.Vector3(), _b = new THREE.Vector3();
@@ -170,15 +209,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       state.playTime += dt;
       const R = config.radio;
       if (!radioStarted && state.playTime >= R.at) {
-        const who = npcs.find((n) => n.id === R.who);
+        const who = radioWho();
         if (who && !who.attending && !who.conversation?.active) {
           radioStarted = true;
-          who.startErrand({
-            standSpot: A.radio.standSpot,
-            faceYaw: A.radio.faceYaw,
-            reachTarget: () => A.radio.knob.getWorldPosition(new THREE.Vector3()),
-            onReach: () => turnOnRadio(),
-          });
+          sendToRadio(0);
         }
       }
       if (radioLoop && state.phase === R.stopAtPhase) {
