@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
-import { partGeometry, faceZ, roundGlasses } from './partShapes.js';
+import { partGeometry, faceZ, roundGlasses, isFigure } from './partShapes.js';
 import { Face } from './face.js';
 
 /*
@@ -197,7 +197,7 @@ export function buildRig(look = {}) {
 function addFace(headPivot, look, H, style, m) {
   const cy = H.h / 2;                  // head centre height within the head pivot
   const front = (x, y) => faceZ(style, H, x, y - cy);
-  if (style === 'figure') return addExpressiveFace(headPivot, look, H, front, m);
+  if (isFigure(style)) return addExpressiveFace(headPivot, look, H, front, m);
   const eyeY = H.h * 0.58, eyeX = 0.065;
   const round = style !== 'blocky';
 
@@ -295,11 +295,11 @@ function addExpressiveFace(headPivot, look, H, front, m) {
 function addHair(headPivot, look, H, style, m) {
   const hairMat = m(look.hair);
   if (look.hairStyle !== 'bald') {
-    if (style === 'figure') {
+    if (isFigure(style)) {
       // Hair follows the head: rounded pieces sized just outside it (no clipping),
       // with a clean hairline above the brows and fuller at the back and sides.
       const piece = (w, h, d, x, y, z) => {
-        const mesh = new THREE.Mesh(partGeometry('figure', 'head', w, h, d), hairMat);
+        const mesh = new THREE.Mesh(partGeometry(style, 'head', w, h, d), hairMat);
         mesh.position.set(x, y, z);
         headPivot.add(mesh);
       };
@@ -336,7 +336,7 @@ function addHair(headPivot, look, H, style, m) {
       headPivot.add(back);
     }
   }
-  if (look.hairStyle === 'ponytail' && style === 'figure') {
+  if (look.hairStyle === 'ponytail' && isFigure(style)) {
     const tail = new THREE.Mesh(partGeometry('figure', 'upperArm', 0.07, H.h * 0.6, 0.07), hairMat);
     tail.position.set(0, H.h * 0.45, -H.d / 2 - 0.05);
     tail.rotation.x = 0.25;
@@ -353,7 +353,7 @@ function addHair(headPivot, look, H, style, m) {
   if (look.hat === 'fedora' || look.hat === 'cap') {
     const hatMat = m(look.hatColor);
     const top = style === 'soft' ? H.h * 0.9 : H.h;
-    const fig = style === 'figure';
+    const fig = isFigure(style);
     if (look.hat === 'fedora') {
       const brim = new THREE.Mesh(new THREE.CylinderGeometry(fig ? 0.21 : 0.26, fig ? 0.21 : 0.26, 0.018, 28), hatMat);
       brim.position.y = top + (fig ? 0.02 : 0.04);

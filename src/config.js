@@ -312,6 +312,16 @@ export const config = {
         neck: 0.075,
         mitten: { w: 0.07, h: 0.1, d: 0.045 }, // mitten hands instead of balls
       },
+      // MOCKUP: organic shapes (egg head with a jaw, chest and waist, hips, tapering limbs)
+      sculpted: {
+        head: { w: 0.245, h: 0.3, d: 0.265 },
+        neck: 0.08,
+        mitten: { w: 0.066, h: 0.1, d: 0.038 },
+        upperArm: { len: 0.3, thick: 0.11 },
+        lowerArm: { len: 0.27, thick: 0.095 },
+        upperLeg: { len: 0.42, thick: 0.16 },
+        lowerLeg: { len: 0.4, thick: 0.13 },
+      },
     },
     // Facial expressions (only the 'figure' style has a face that can show them).
     //   lids   0 = wide open .. 1 = shut
