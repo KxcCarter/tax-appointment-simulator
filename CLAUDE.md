@@ -47,7 +47,10 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 ### 2.3 Taking a number and waiting
 - A ticket dispenser sits on or near the desk. The player takes a ticket. **The ticket can be taken at any time, even before the receptionist says so, but it doesn't help:** she still ignores the first two attempts (decided by the owner). *(proposal: the ticket number is absurdly high, e.g. **847**, while a "Now Serving" display shows a low number such as **12**.)*
 - The player can sit in an empty chair (interact to sit and stand) or wander around.
+- **The wait counts no matter what** the player does (sitting, standing, wandering) (decided by the owner).
 - **Placeholder for content not yet designed:** the time between taking a number and being called. For the first draft, use a configurable wait (default about 60 s) with small ambient beats: NPC idle animations, a sigh, someone checking their watch, someone coughing too often, the clock ticking. **The clock always runs in real time** (decided by the owner).
+- **The waiting people (first draft, Milestone 3):** each has one idle personality: the **cougher** (coughs too often), the **watch-checker** (checks his watch, then the clock, sighs; has a briefcase), the **reader** (reads a magazine, turns pages), the **leg-jiggler** (arms crossed, knee bouncing, long exhales at the ceiling), and the **sitter** (barely moves, shifts occasionally). All glance at the clock now and then. Their eyes (not heads) follow the player up close; everyone looks over when the player takes a ticket; sitting right next to someone makes them lean away. They can't be talked to (their dialogue is still to be designed by the owner).
+- **At the call** the Now Serving display chimes and jumps to the ticket number, and all five heads turn to the player one by one and stay there, annoyed. That's where the brawl (Milestone 4) takes over. If the player is mid-conversation with the receptionist, the call waits for the current line to finish, then ends the exchange.
 - When the wait is over, the receptionist calls the player: *(proposal)* "Eight hundred forty-seven. He'll see you now." The Now Serving display jumps to 847.
 
 ### 2.4 The brawl
@@ -87,6 +90,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - Seated mode locks the camera to the chair with limited look-around.
 
 ### 3.4 Characters and ragdolls
+- **Fixed cast (decided by the owner):** the five waiting people are always the same characters with the same design, defined explicitly (looks in `theme.js`, seats and personalities in `src/data/waitingRoomCast.js`), not randomized per load.
 - Every humanoid (NPCs and receptionist) uses one parametric **primitive rig**: pelvis, torso, head, upper and lower arms, upper and lower legs. Clothing colors, height, hats (fedora, cap), hair and accessories are randomized per NPC so they read as distinct people.
 - **Two modes per character:**
   1. **Animated (alive):** limbs are driven procedurally in code (sitting, fidgeting, standing up, walking, punching, flinching). Rapier bodies are *kinematic* and follow the animation, so hits can be detected.

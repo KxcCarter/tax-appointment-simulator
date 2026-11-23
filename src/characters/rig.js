@@ -96,8 +96,22 @@ export function buildRig(look = {}) {
     return { upper: a, lower: b, end };
   };
   const lowerArmColor = col.shirt === col.jacket ? col.skin : col.jacket;
-  const lArm = limb(spine, armX, armY, P.upperArm, P.lowerArm, col.jacket, lowerArmColor, 'l', 'arm');
-  const rArm = limb(spine, -armX, armY, P.upperArm, P.lowerArm, col.jacket, lowerArmColor, 'r', 'arm');
+  const sleeve = look.shortSleeves ? col.skin : lowerArmColor;
+  const lArm = limb(spine, armX, armY, P.upperArm, P.lowerArm, col.jacket, sleeve, 'l', 'arm');
+  const rArm = limb(spine, -armX, armY, P.upperArm, P.lowerArm, col.jacket, sleeve, 'r', 'arm');
+  // Wristwatch on the left wrist, face on the back of the wrist (outward, +x)
+  let watch = null;
+  if (look.watch) {
+    watch = new THREE.Group();
+    watch.position.set(0, -P.lowerArm.len * 0.86, 0);
+    lArm.lower.add(watch);
+    const strap = new THREE.Mesh(new THREE.CylinderGeometry(P.lowerArm.thick / 2 + 0.006, P.lowerArm.thick / 2 + 0.006, 0.022, 16), theme.material('watchStrap'));
+    watch.add(strap);
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.008, 16), theme.material('watchFace'));
+    dial.rotation.z = Math.PI / 2;
+    dial.position.x = P.lowerArm.thick / 2 + 0.008;
+    watch.add(dial);
+  }
   const lLeg = limb(pelvis, P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, col.trousers, col.trousers, 'l', 'leg');
   const rLeg = limb(pelvis, -P.hipSpacing, -P.pelvis.h / 2, P.upperLeg, P.lowerLeg, col.trousers, col.trousers, 'r', 'leg');
 
@@ -128,6 +142,7 @@ export function buildRig(look = {}) {
     joints,
     parts,
     face,      // Face (expressions, gaze, talking) for the 'figure' style; null otherwise
+    watch,     // wristwatch group (left wrist) or null
     style,
     scale: s,
     hipHeight: hipHeight * s,
@@ -207,6 +222,13 @@ function addExpressiveFace(headPivot, look, H, front, m) {
   nose.rotation.x = -0.25; // tip forward, bridge back
   headPivot.add(nose);
 
+  if (look.moustache) {
+    const y = H.h * 0.31;
+    const tache = new THREE.Mesh(partGeometry('figure', 'trim', 0.075, 0.018, 0.016), m(look.brows ?? look.hair));
+    tache.position.set(0, y, front(0, y) + 0.006);
+    headPivot.add(tache);
+  }
+
   const pal = characterPalettes;
   const face = new Face(headPivot, H, front, {
     skin: look.skin,
@@ -243,10 +265,20 @@ function addHair(headPivot, look, H, style, m) {
         headPivot.add(mesh);
       };
       const g = 0.016; // gap outside the head
-      piece(H.w + 2 * g, H.h * 0.24, H.d + 2 * g, 0, H.h * 0.93, 0);               // top, hairline at ~0.81
-      piece(H.w + 2 * g, H.h * 0.72, H.d * 0.45, 0, H.h * 0.62, -H.d * 0.29);      // back
-      for (const side of [1, -1]) {
-        piece(0.03, H.h * 0.42, H.d * 0.62, side * (H.w / 2 + g * 0.6), H.h * 0.7, -H.d * 0.17); // sides, above the ears
+      const hs = look.hairStyle ?? 'short';
+      // 'balding': no top, just a horseshoe at the back and sides
+      if (hs !== 'balding') piece(H.w + 2 * g, H.h * 0.24, H.d + 2 * g, 0, H.h * 0.93, 0);   // top, hairline at ~0.81
+      if (hs === 'bob') {
+        // Chin-length: back and sides come down past the ears, framing the face
+        piece(H.w + 2 * g, H.h * 0.8, H.d * 0.5, 0, H.h * 0.5, -H.d * 0.26);
+        for (const side of [1, -1]) {
+          piece(0.026, H.h * 0.66, H.d * 0.66, side * (H.w / 2 + g * 0.7), H.h * 0.47, -H.d * 0.14);
+        }
+      } else {
+        piece(H.w + 2 * g, H.h * 0.72, H.d * 0.45, 0, H.h * 0.62, -H.d * 0.29);              // back
+        for (const side of [1, -1]) {
+          piece(0.03, H.h * 0.42, H.d * 0.62, side * (H.w / 2 + g * 0.6), H.h * 0.7, -H.d * 0.17); // sides, above the ears
+        }
       }
     } else if (style === 'soft') {
       // A cap over the top and back of the egg, tilted back to show the forehead
@@ -265,6 +297,15 @@ function addHair(headPivot, look, H, style, m) {
       headPivot.add(back);
     }
   }
+  if (look.hairStyle === 'ponytail' && style === 'figure') {
+    const tail = new THREE.Mesh(partGeometry('figure', 'upperArm', 0.07, H.h * 0.6, 0.07), hairMat);
+    tail.position.set(0, H.h * 0.45, -H.d / 2 - 0.05);
+    tail.rotation.x = 0.25;
+    headPivot.add(tail);
+    const tie = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 10), hairMat);
+    tie.position.set(0, H.h * 0.74, -H.d / 2 - 0.02);
+    headPivot.add(tie);
+  }
   if (look.hairStyle === 'bun') {
     const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), hairMat);
     bun.position.set(0, H.h + (style === 'soft' ? 0.06 : 0.1), -0.06);
@@ -273,12 +314,18 @@ function addHair(headPivot, look, H, style, m) {
   if (look.hat === 'fedora' || look.hat === 'cap') {
     const hatMat = m(look.hatColor);
     const top = style === 'soft' ? H.h * 0.9 : H.h;
+    const fig = style === 'figure';
     if (look.hat === 'fedora') {
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.02, 24), hatMat);
-      brim.position.y = top + 0.04;
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.14, 24), hatMat);
-      crown.position.y = top + 0.11;
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(fig ? 0.21 : 0.26, fig ? 0.21 : 0.26, 0.018, 28), hatMat);
+      brim.position.y = top + (fig ? 0.02 : 0.04);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(fig ? 0.115 : 0.13, fig ? 0.15 : 0.16, 0.13, 28), hatMat);
+      crown.position.y = top + (fig ? 0.09 : 0.11);
       headPivot.add(brim, crown);
+      if (fig) {
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.151, 0.151, 0.025, 28), m(look.hatBand ?? look.hatColor));
+        band.position.y = top + 0.042;
+        headPivot.add(band);
+      }
     } else {
       const crown = new THREE.Mesh(partGeometry(style, 'trim', H.w + 0.04, 0.09, H.d + 0.04), hatMat);
       crown.position.y = top + 0.05;

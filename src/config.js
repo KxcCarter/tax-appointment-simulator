@@ -76,6 +76,13 @@ export const config = {
       holdPerChar: 0.035,           // ...plus this per character
       reactionDelay: 0.5,           // after a line finishes typing, before the next action starts
     },
+    waiting: {
+      duration: 60,                 // seconds from "waiting" phase (told + ticket) to being called
+      fastDuration: 6,              // with ?fastwait in the URL (testing)
+    },
+    call: {
+      pauseBeforeLine: 0.8,
+    },
     receptionistClicks: {
       gap: [0.35, 2.4],             // seconds between solitaire clicks
       doubleClickChance: 0.18,
@@ -83,6 +90,23 @@ export const config = {
       longPauseChance: 0.12,        // occasionally she considers her move
       longPause: [3, 6],
     },
+  },
+
+  // ---- The five waiting people (see src/data/waitingRoomCast.js) ----
+  npc: {
+    noticeDistance: 3.0,        // eyes follow the player within this range (head stays put)
+    ticketGlance: 1.4,          // everyone looks over when the player takes a ticket
+    crowdedDistance: 0.85,      // player sits this close (chair to chair): neighbour leans away
+    crowdLean: 0.14,            // radians
+    headTurnSpeed: 4,
+    clockGlance: { every: [15, 32], duration: 2.0 },
+    cough: { every: [6, 10], coughs: [2, 3], gap: 0.28 },
+    watch: { every: [12, 20], lookAtWatch: 2.2, lookAtClock: 1.6 },
+    pageTurn: { every: [7, 13], duration: 0.7 },
+    jiggle: { rate: 5.5, height: 0.028 },
+    exhale: { every: [10, 18], duration: 2.2 },
+    shift: { every: [15, 26], duration: 1.2 },
+    calledLookDelay: [0.2, 0.9],  // after the call, each head turns to the player after a moment
   },
 
   interaction: {
@@ -154,6 +178,12 @@ export const config = {
     voice: { volume: 0.18 },
     ticketTear: { volume: 0.5 },
     paperSlide: { volume: 0.45 },
+    cough: { volume: 0.5, refDistance: 1.5, rolloff: 1.1 },
+    sigh: { volume: 0.35, refDistance: 1.2, rolloff: 1.2 },
+    pageTurn: { volume: 0.3, refDistance: 1.0, rolloff: 1.3 },
+    chairShift: { volume: 0.25 },
+    watchTick: { volume: 0.12, refDistance: 0.4, rolloff: 2.0 },
+    chime: { volume: 0.45 },
     chairCreak: { volume: 0.35 },
   },
 

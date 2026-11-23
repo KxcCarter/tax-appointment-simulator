@@ -89,7 +89,7 @@ async function boot() {
   await initRapier();
   physics = new Physics();
   player = new PlayerController(physics, camera);
-  level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx });
+  level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait: params.has('fastwait') });
   scene.add(camera);
 
   resize();
@@ -110,7 +110,13 @@ async function boot() {
     debugView = { x, y, z, yaw: THREE.MathUtils.degToRad(yaw), pitch: THREE.MathUtils.degToRad(pitch) };
   }
 
-  window.__game = { state, config, scene, camera, physics, player, level, renderer, sfx };
+  window.__game = {
+    state, config, scene, camera, physics, player, level, renderer, sfx,
+    // Debug: place a free camera (degrees), or pass nothing to return to the player
+    setView: (x, y, z, yaw = 0, pitch = 0) => {
+      debugView = x === undefined ? null : { x, y, z, yaw: THREE.MathUtils.degToRad(yaw), pitch: THREE.MathUtils.degToRad(pitch) };
+    },
+  };
   requestAnimationFrame(loop);
 }
 

@@ -29,6 +29,11 @@
     emit     { event }                tell the game something happened (hooks.onEvent)
     if       { test: (state) => bool, then: [actions], else: [actions] }   checked when reached
     face     { who, expression }      a preset from config.characters.expressions
+    goto     { beat }                 jump the beat list (null = the exchange is over)
+
+  Sequences: data.sequences[name] is a list of actions the game can start with
+  director.play(name) (e.g. the call when the wait is over). It waits until no
+  dialogue is open or playing, then runs.
 
   All waiting runs on game time, so pausing freezes the scene.
 */
@@ -158,7 +163,23 @@ export class Director {
       this.busy = false;
     }
     const next = this.current;
-    if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing) this.openChoices(next);
+    // A pending sequence (e.g. the call) takes priority over the next auto-opened choices
+    if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing && !this.pendingSequence) this.openChoices(next);
+  }
+
+  /** Run a named sequence from the data once the director is free. */
+  async play(name) {
+    const list = this.data.sequences?.[name];
+    if (!list) return console.warn('Director: no sequence', name);
+    this.pendingSequence = name;
+    while (this.busy || this.choosing) await this.wait(0.2);
+    this.busy = true;
+    try {
+      await this.runActions(list);
+    } finally {
+      this.busy = false;
+      this.pendingSequence = null;
+    }
   }
 
   moveTo(id, unlockAfter) {
@@ -195,6 +216,9 @@ export class Director {
       }
       case 'emit':
         this.onEvent(a.event);
+        return;
+      case 'goto':
+        this.moveTo(a.beat, 0);
         return;
       case 'face':
         this.actors[a.who]?.setExpression?.(a.expression);

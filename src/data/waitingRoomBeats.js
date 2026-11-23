@@ -44,6 +44,19 @@ export const waitingRoomBeats = {
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
   },
 
+  // Sequences the game starts itself (director.play(name)).
+  sequences: {
+    // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
+    // Proposal from the brief; the wording is easy to change.
+    call: [
+      { do: 'goto', beat: null },  // whatever stage the reception exchange reached, it's over
+      { do: 'wait', seconds: config.timings.call.pauseBeforeLine },
+      { do: 'say', who: 'receptionist', text: "Eight hundred forty-seven. He'll see you now." },
+      { do: 'set', key: 'nowServing', value: config.ticket.number }, // display jumps, chimes
+      { do: 'set', key: 'called', value: true },                     // every head turns to the player
+    ],
+  },
+
   beats: [
     {
       id: 'reception_1',

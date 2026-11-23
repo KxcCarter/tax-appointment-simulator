@@ -64,6 +64,10 @@ export const palette = {
   black: 0x1b1a18,
   white: 0xffffff,
   eyeWhite: 0xf2eee4,
+  watchStrap: 0x3b2a1a,
+  watchFace: 0xd9c27a,
+  briefcase: 0x5a3a22,
+  briefcaseLatch: 0xc8a54a,
   mouthDark: 0x4a2222,           // neutral base under textures
 
   // Clock
@@ -126,6 +130,33 @@ export const characterPalettes = {
   hats: [0x3b3b38, 0x5a4a3a, 0x7a2a3a, 0x2d4a6a],
   accessories: ['none', 'glasses', 'moustache', 'tie', 'briefcase'],
   hatStyles: ['none', 'fedora', 'cap'],
+  // The five people in the waiting room. Fixed cast: always these, always looking like this.
+  // (Seats and behaviour are in src/data/waitingRoomCast.js.)
+  cast: {
+    cougher: {        // older man, brown three-piece suit, fedora, moustache
+      scale: 0.97, skin: 0xe9b896, hair: 0xc9c2b4, hairStyle: 'balding', eyes: 0x4a6a8a, lips: 0xc08a78,
+      jacket: 0x5a4a3a, shirt: 0xe8e2cf, tie: 0x7a2a3a, trousers: 0x4a3a2a, shoes: 0x3b2a1a,
+      hat: 'fedora', hatColor: 0x6a5a44, hatBand: 0x2b2a26, moustache: true,
+    },
+    watchChecker: {   // tall man, navy suit, briefcase, wristwatch
+      scale: 1.04, skin: 0x6f4a32, hair: 0x1b1a18, hairStyle: 'short', eyes: 0x2b2a26, lips: 0x5a3a2e,
+      jacket: 0x3f4a5a, shirt: 0x9fb4c8, tie: 0xa8822a, trousers: 0x2d3a4a, shoes: 0x1b1a18,
+      watch: true,
+    },
+    reader: {         // woman, rust cardigan, glasses, bob
+      scale: 0.93, skin: 0xf1c9a5, hair: 0xa07a4a, hairStyle: 'bob', eyes: 0x5a6a3a, lips: 0xb0606a,
+      jacket: 0x7a3a2a, shirt: 0xf4f1e8, trousers: 0x5a4a3a, shoes: 0x5a4022, glasses: 0x6a4a2a,
+    },
+    jiggler: {        // young man, avocado windbreaker, cap, jeans
+      scale: 1.0, skin: 0xc68863, hair: 0x3b2a1a, hairStyle: 'short', eyes: 0x3b2a1a, lips: 0x9a6050,
+      jacket: 0x6b7a3a, shirt: 0xe8e2cf, trousers: 0x2d4a6a, shoes: 0xe8e2cf,
+      hat: 'cap', hatColor: 0x7a2a3a,
+    },
+    sitter: {         // woman, mustard jacket, ponytail, perfectly still
+      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'ponytail', eyes: 0x3b2a1a, lips: 0x7a4040,
+      jacket: 0xa8822a, shirt: 0xd8a8a0, trousers: 0x3b3b38, shoes: 0x1b1a18,
+    },
+  },
   receptionist: {
     skin: 0xe0ac85,
     hair: 0x8a3a1a,

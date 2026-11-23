@@ -222,6 +222,64 @@ export class Sfx {
     this._tone(t + 0.28, 0.06, out, 'sine', 160, 0.5, 0.002, 90);
   }
 
+  /** A dry, unproductive cough: two noise bursts through a throaty band-pass. */
+  cough(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.cough.volume * rand(0.8, 1.1), position, A.cough);
+    const f = rand(500, 750);
+    const a = this._noise(t, 0.16, out, 'bandpass', f, 2.2, 1, 0.006);
+    a.filter.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.16);
+    this._tone(t, 0.12, out, 'sawtooth', rand(110, 150), 0.25, 0.005, 80);
+    this._noise(t + 0.09, 0.1, out, 'bandpass', f * 1.4, 2, 0.4, 0.005);
+  }
+
+  /** A long, resigned exhale. */
+  sigh(position = null) {
+    if (!this.ctx) return;
+    const c = this.ctx;
+    const t = c.currentTime;
+    const out = this._out(A.sigh.volume, position, A.sigh);
+    const dur = rand(1.0, 1.5);
+    const n = this._noise(t, dur, out, 'lowpass', 1400, 0.7, 0.9, 0.25);
+    n.filter.frequency.exponentialRampToValueAtTime(350, t + dur);
+    this._tone(t + 0.05, dur * 0.6, out, 'sine', rand(150, 200), 0.08, 0.2, 110); // a hint of voice
+  }
+
+  pageTurn(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.pageTurn.volume, position, A.pageTurn);
+    const n = this._noise(t, 0.28, out, 'highpass', 1800, 0.8, 0.8, 0.04);
+    n.filter.frequency.exponentialRampToValueAtTime(4500, t + 0.28);
+  }
+
+  /** Someone shifting their weight on a vinyl chair. */
+  chairShift(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.chairShift.volume, position, { refDistance: 1.2, rolloff: 1.2 });
+    const n = this._noise(t, 0.35, out, 'bandpass', 420, 3, 0.7, 0.05);
+    n.filter.frequency.exponentialRampToValueAtTime(260, t + 0.35);
+    this._tone(t + 0.05, 0.25, out, 'sawtooth', 95, 0.15, 0.03, 75);
+  }
+
+  watchTick(position) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.watchTick.volume, position, A.watchTick);
+    this._noise(t, 0.008, out, 'highpass', 5000, 1, 0.8, 0.0005);
+  }
+
+  /** The NOW SERVING display: a dull two-tone electronic chime. */
+  chime(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.chime.volume, position, { refDistance: 3, rolloff: 0.6 });
+    this._tone(t, 0.9, out, 'triangle', 784, 0.6, 0.005);
+    this._tone(t + 0.45, 1.2, out, 'triangle', 622, 0.6, 0.005);
+  }
+
   ticketTear(position = null) {
     if (!this.ctx) return;
     const c = this.ctx;
