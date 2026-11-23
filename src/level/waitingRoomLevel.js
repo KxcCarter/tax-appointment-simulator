@@ -126,6 +126,28 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     });
   }
 
+  // --- a newcomer: after the receptionist's coffee run, someone walks in, takes the next ticket, sits ---
+  let newcomer = null, newcomerTimer = null, entranceAngle = 0;
+  function bringInNewcomer() {
+    const pref = config.newcomer.seatPreference;
+    const seat = pref.find((i) => A.chairs[i] && !A.chairs[i].occupant);
+    if (seat === undefined) return;
+    newcomer = new Npc({
+      scene, physics, sfx, clockPos, receptionistHead,
+      def: { id: 'newcomer', look: 'newcomer', seat, personality: 'sitter', expression: 'bored' },
+      chair: A.chairs[seat],
+    });
+    actors.newcomer = newcomer;
+    npcs.push(newcomer);
+    const disp = A.ticketDispenser.getWorldPosition(new THREE.Vector3());
+    newcomer.arrive({
+      door: A.entrance,
+      dispenserSpot: new THREE.Vector3(disp.x, 0, disp.z + 0.6),
+      dispenserTarget: () => disp.clone().add(new THREE.Vector3(0, 0.2, 0.08)),
+      onTicket: () => { sfx.ticketTear(disp); state.newcomerArrived = true; },
+    });
+  }
+
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
   const combat = new Combat({ camera, player, sfx, targets: () => npcs.filter((n) => !n.down) });
 
@@ -254,6 +276,15 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     /** Game-time update (not called while paused). */
     update(dt) {
+      // Newcomer: arrives config.newcomer.delay seconds after she's back with her coffee
+      if (state.hadCoffee && !newcomer) {
+        newcomerTimer = (newcomerTimer ?? config.newcomer.delay) - dt;
+        if (newcomerTimer <= 0) bringInNewcomer();
+      }
+      // The entrance door opens for whoever is walking through it
+      const nearEntrance = newcomer?.walker.active && newcomer.walker.pos.distanceTo(A.entrance.threshold) < 1.2;
+      entranceAngle += ((nearEntrance ? A.entrance.openAngle : 0) - entranceAngle) * (1 - Math.exp(-(nearEntrance ? 6 : 2.5) * dt));
+      A.entrance.pivot.rotation.y = entranceAngle;
       combat.enabled = state.canFightBack;
       combat.update(dt);
       const sitter = radioWho();

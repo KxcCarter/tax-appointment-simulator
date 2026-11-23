@@ -26,7 +26,7 @@
     notice   { text, seconds? }       a short message on screen (not spoken)
     wait     { seconds }              (number or [min, max])
     setPhase { phase }
-    set      { key, value }           write to the global state
+    set      { key, value }           write to the global state (value may be (state) => value)
     sound    { name, who? }           sfx[name](actor position)
     emit     { event }                tell the game something happened (hooks.onEvent)
     if       { test: (state) => bool, then: [actions], else: [actions] }   checked when reached
@@ -231,7 +231,8 @@ export class Director {
         this.onEvent('phase', a.phase);
         return;
       case 'set':
-        this.state[a.key] = a.value;
+        // value may be (state) => value, e.g. to count something up
+        this.state[a.key] = typeof a.value === 'function' ? a.value(this.state) : a.value;
         this.onEvent('set', a.key);
         return;
       case 'sound': {

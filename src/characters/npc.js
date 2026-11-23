@@ -469,6 +469,22 @@ export class Npc {
     }
   }
 
+  /**
+   * Arrive from outside: walk in through `door` (outside -> inside), take a ticket from the
+   * dispenser (onTicket at the moment of taking it), then walk to their chair and sit.
+   */
+  arrive({ door, dispenserSpot, dispenserTarget, onTicket }) {
+    this.walker.start([
+      { type: 'walk', to: door.inside },
+      { type: 'walk', to: dispenserSpot },
+      { type: 'face', yaw: Math.PI }, // facing the counter (north)
+      { type: 'reach', target: dispenserTarget, onReach: onTicket },
+      { type: 'walk', to: 'front' },
+      { type: 'turn', yaw: 'chair' },
+      { type: 'sit' },
+    ], { startPos: door.outside, startYaw: Math.PI });
+  }
+
   /** Punched by the player. Flinch; after enough hits, go down and stay down. */
   takeHit(dir) {
     if (this.down) return;

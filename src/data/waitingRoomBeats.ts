@@ -315,10 +315,25 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'Do you have a pen I can borrow?',
-          goto: 'how_check_in',
+          // The second "No." is followed by calling the next number: the exchange is over
+          goto: (state) => (state.penRefusals >= 2 ? null : 'how_check_in'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             { do: 'say', who: 'receptionist', text: 'No.' },
+            { do: 'set', key: 'penRefusals', value: (state: GameState) => state.penRefusals + 1 },
+            {
+              do: 'if',
+              test: (state) => state.penRefusals === 2,
+              then: [
+                { do: 'wait', seconds: T.sideOptionPause },
+                {
+                  do: 'say',
+                  who: 'receptionist',
+                  text: `Number ${config.ticket.number + 1}! Our 2:00 was a no-show so you can go on ahead.`,
+                },
+                { do: 'set', key: 'nowServing', value: config.ticket.number + 1 }, // display chimes, jumps
+              ],
+            },
           ],
         },
       ],

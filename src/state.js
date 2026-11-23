@@ -13,6 +13,8 @@ export const state = {
   clipboardOffered: false, // on time: she slid the check-in sheet over
   needsPen: false,         // tried to sign the check-in sheet without a pen
   hadCoffee: false,        // the receptionist has been for her coffee
+  penRefusals: 0,          // times she has said "No." to lending a pen
+  newcomerArrived: false,  // someone came in after her coffee and took the next ticket
   waitElapsed: 0,          // seconds spent in the waiting phase
   called: false,           // the receptionist called the player's number
   playTime: 0,             // seconds of play (pauses don't count)

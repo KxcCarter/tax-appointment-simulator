@@ -70,6 +70,8 @@ export const palette = {
   radioCase: 0x7a5232,          // wood-grain plastic
   backRoom: 0x5a5444,           // the dim staff room behind EMPLOYEES ONLY
   backRoomFloor: 0x3a3a34,
+  corridor: 0x8a8470,            // the building corridor outside the entrance
+  corridorFloor: 0x4a4038,
   coffeeCup: 0xf4f1e8,
   playerSkin: 0xd9a582,          // the player's fists
   playerSleeve: 0x4a4a48,
@@ -161,6 +163,10 @@ export const characterPalettes = {
       scale: 1.0, skin: 0xc68863, hair: 0x3b2a1a, hairStyle: 'short', eyes: 0x3b2a1a, lips: 0x9a6050,
       jacket: 0x6b7a3a, shirt: 0xe8e2cf, trousers: 0x2d4a6a, shoes: 0xe8e2cf,
       hat: 'cap', hatColor: 0x7a2a3a,
+    },
+    newcomer: {       // arrives later: middle-aged man, tan trench coat, glasses
+      scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
+      jacket: 0xb8a47a, shirt: 0xe8e2cf, tie: 0x2d4a6a, trousers: 0x4a4a48, shoes: 0x3b2a1a, glasses: 0x1b1a18,
     },
     sitter: {         // woman: mustard jacket, pencil skirt and stockings, ponytail, perfectly still
       scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'ponytail', eyes: 0x3b2a1a, lips: 0xa8303a,

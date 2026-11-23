@@ -63,6 +63,12 @@ export const config = {
     number: 847,
   },
 
+  // Someone who arrives after the receptionist's coffee run, takes the next ticket and sits down
+  newcomer: {
+    delay: 2,                         // seconds after she's back at her desk
+    seatPreference: [9, 4, 5, 7, 1],  // first free chair from this list (see waitingRoomCast.js)
+  },
+
   // The player's appointment, as read on the wall clock (12-hour face)
   appointment: {
     hour: 2,
@@ -136,7 +142,7 @@ export const config = {
     // The radio war: from the `violentFrom`-th time the radio is turned off, she attacks the player
     // first, in this order (the last one repeats). The player can fight back after `fightBackAfter`.
     violence: {
-      violentFrom: 4,
+      violentFrom: 3,
       escalation: ['slap', 'shove', 'punch', 'kick', 'combo', 'radio'],
       fightBackAfter: 'kick',
       approachDistance: 0.75,

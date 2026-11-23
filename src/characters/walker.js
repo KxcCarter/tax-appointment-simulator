@@ -76,14 +76,14 @@ export class Walker {
   }
 
   /** Start (or, if already up, replace) the step list. Resolves when they're seated again. */
-  start(steps, { speedMul = 1, anger = 0, onDone } = {}) {
+  start(steps, { speedMul = 1, anger = 0, onDone, startPos, startYaw } = {}) {
     const h = this.host;
     if (!this.steps) {
       const front = h.w(0, 0, h.frontOffset ?? 0.34);
       front.y = 0;
       this.front = front;
-      this.pos = front.clone();
-      this.yaw = h.chairYaw;
+      this.pos = startPos ? startPos.clone().setY(0) : front.clone(); // e.g. arriving from outside
+      this.yaw = startYaw ?? h.chairYaw;
       this.phase = 0;
       this.moving = 0;
       this.lastStep = 0;

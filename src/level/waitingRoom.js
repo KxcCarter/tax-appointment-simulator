@@ -89,7 +89,7 @@ export function buildWaitingRoom(scene, physics) {
   const ACC_DOOR = { x: 3.6, w: 1.02, h: 2.12 };   // ACCOUNTANT - PRIVATE
   const walls = [
     { x: 0, z: -hd - T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, 1), openings: [EMP_DOOR, ACC_DOOR] }, // north
-    { x: 0, z: hd + T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, -1), openings: [] },                   // south
+    { x: 0, z: hd + T / 2, len: W + 2 * T, normal: new THREE.Vector3(0, 0, -1), openings: [{ x: 0, w: 1.02, h: 2.12 }] }, // south (entrance)
     { x: -hw - T / 2, z: 0, len: D, normal: new THREE.Vector3(1, 0, 0), openings: [] },                           // west
     { x: hw + T / 2, z: 0, len: D, normal: new THREE.Vector3(-1, 0, 0), openings: [] },                           // east
   ];
@@ -183,10 +183,16 @@ export function buildWaitingRoom(scene, physics) {
   {
     const g = new THREE.Group();
     g.position.set(0, 0, hd - 0.01);
-    g.rotation.y = Math.PI; // faces -z, into the room
+    g.rotation.y = Math.PI; // local +z faces into the room
     scene.add(g);
-    box(1.2, 2.25, 0.06, mat('woodDark'), 0, 1.125, 0.0, g);
-    box(1.0, 2.1, 0.05, mat('doorWood'), 0, 1.05, 0.03, g);
+    // Frame around a real opening (jambs and header)
+    for (const side of [-1, 1]) box(0.1, 2.25, 0.08, mat('woodDark'), side * 0.55, 1.125, 0.0, g);
+    box(1.2, 0.13, 0.08, mat('woodDark'), 0, 2.185, 0.0, g);
+    // The door itself, hinged on the side away from the handle; it swings into the room
+    const pivot = new THREE.Group();
+    pivot.position.set(-0.5, 0, 0.03);
+    g.add(pivot);
+    box(1.0, 2.1, 0.05, mat('doorWood'), 0.5, 1.05, 0, pivot);
     // Frosted glass with the office name, mirrored because we see it from inside
     const glassTex = theme.canvasTexture(128, 160, (c, w, h) => {
       c.fillStyle = theme.css('frostedGlass');
@@ -204,9 +210,25 @@ export function buildWaitingRoom(scene, physics) {
       c.fillText('BY APPOINTMENT', -w / 2, 124);
       c.restore();
     });
-    box(0.7, 0.9, 0.02, theme.textured(glassTex), 0, 1.45, 0.06, g);
-    const handle = cyl(0.025, 0.025, 0.14, mat('metalGrey'), 0.38, 1.0, 0.09, g);
+    box(0.7, 0.9, 0.02, theme.textured(glassTex), 0.5, 1.45, 0.03, pivot);
+    const handle = cyl(0.025, 0.025, 0.14, mat('metalGrey'), 0.88, 1.0, 0.06, pivot);
     handle.rotation.x = Math.PI / 2;
+
+    // Outside: a short corridor, glimpsed when the door opens
+    const cz = hd + T + 1.0, corridor = mat('corridor');
+    box(2.4, 0.02, 2.0, mat('corridorFloor'), 0, 0.0, cz);
+    box(2.4, 0.02, 2.0, corridor, 0, 2.6, cz);
+    box(0.05, 2.6, 2.0, corridor, -1.2, 1.3, cz);
+    box(0.05, 2.6, 2.0, corridor, 1.2, 1.3, cz);
+    box(2.4, 2.6, 0.05, corridor, 0, 1.3, cz + 1.0);
+
+    anchors.entrance = {
+      pivot,
+      openAngle: -1.5,
+      threshold: new THREE.Vector3(0, 0, hd),
+      outside: new THREE.Vector3(0, 0, hd + 1.3),
+      inside: new THREE.Vector3(0, 0, hd - 0.8),
+    };
     // Floor mat
     const doormat = box(1.2, 0.01, 0.7, mat('doormat'), 0, 0.005, hd - 0.5);
     doormat.name = 'doormat';
