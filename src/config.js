@@ -419,6 +419,7 @@ export const config = {
       voicePitch: 320,              // Hz, dialogue blips
       headTurnSpeed: 5,             // how quickly she turns to look
       clockGlanceTwist: 0.75,       // radians of upper-body turn to see the clock behind her
+      signPointTwist: 0.35,         // radians of upper-body turn while pointing at the WALK-IN sign
     },
     playerVoicePitch: 190,
   },

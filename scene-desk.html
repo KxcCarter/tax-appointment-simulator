@@ -34,7 +34,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn.tiny{padding:3px 7px;font-size:12px;border-radius:5px}
 .btn:disabled{opacity:.45;cursor:default}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.app{display:grid;grid-template-columns:250px minmax(0,1fr) 450px;height:calc(100vh - 56px)}
+.app{display:grid;grid-template-columns:var(--w-index,250px) 6px minmax(0,1fr) 6px var(--w-drawer,450px);height:calc(100vh - 56px)}
+.split{cursor:col-resize;background:transparent;position:relative;z-index:2;touch-action:none}
+.split::after{content:'';position:absolute;top:0;bottom:0;left:2px;width:2px;background:var(--line);transition:background .15s}
+.split:hover::after,.split.drag::after{background:var(--accent)}
+body.resizing{cursor:col-resize;user-select:none}
+body.resizing iframe,body.resizing svg{pointer-events:none}
+.tabs .widen{margin-left:auto;border:1px solid var(--line);border-radius:6px;padding:4px 9px;margin-bottom:4px;color:var(--muted)}
+.tabs .widen.on{color:var(--ink);border-color:var(--accent)}
 .col{overflow:auto;height:100%}
 .index{border-right:1px solid var(--line);padding:12px 10px 40px}
 .index .li{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:7px;padding:8px 10px;margin-bottom:3px;cursor:pointer}
@@ -171,7 +178,7 @@ summary{cursor:pointer;font-size:13px}
 .toast.on{display:flex}
 .toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:5px;padding:2px 8px;cursor:pointer}
 .drop{outline:3px dashed var(--accent);outline-offset:-8px}
-@media (max-width:1150px){body{overflow:auto}.app{grid-template-columns:220px minmax(0,1fr);height:auto}.col,.drawer{height:auto;overflow:visible}.drawer{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.tab{overflow:visible}.index{max-height:none}}
+@media (max-width:1150px){.split,.tabs .widen{display:none}body{overflow:auto}.app{grid-template-columns:220px minmax(0,1fr);height:auto}.col,.drawer{height:auto;overflow:visible}.drawer{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.tab{overflow:visible}.index{max-height:none}}
 @media (max-width:700px){.app{grid-template-columns:minmax(0,1fr)}.index{border-right:0;border-bottom:1px solid var(--line)}.brand span,.status{display:none}.top{height:auto;flex-wrap:wrap;padding:8px 12px}.in,select{font-size:16px}.grid2,.sub,.others{margin-left:0}.btn{padding:8px 12px}}
 @media (prefers-reduced-motion:no-preference){.ptmenu button{transition:border-color .15s}}
 .top .tb{width:auto;flex:0 1 auto;max-width:210px;height:32px}
@@ -203,13 +210,16 @@ summary{cursor:pointer;font-size:13px}
 </header>
 <main class="app">
   <nav class="col index" id="index" aria-label="Beats"></nav>
+  <div class="split" data-split="index" role="separator" aria-orientation="vertical" title="Drag to resize the beat list. Double-click to reset."></div>
   <section class="col" id="editor" aria-label="Editor"></section>
+  <div class="split" data-split="drawer" role="separator" aria-orientation="vertical" title="Drag to resize the side panel (flow map, play test, code, checks). Double-click to reset."></div>
   <aside class="drawer">
     <div class="tabs" role="tablist">
       <button data-tab="flow" class="on">Flow map</button>
       <button data-tab="play">Play test</button>
       <button data-tab="code">Code</button>
       <button data-tab="checks">Checks <span class="badge zero" id="chk-n">0</span></button>
+      <button class="widen" id="drawer-wide" type="button" aria-pressed="false">⤢ Widen</button>
     </div>
     <div class="tab flow on" id="tab-flow"></div>
     <div class="tab" id="tab-play">
@@ -1161,7 +1171,7 @@ const VOCAB = {
     notice: ['text', 'seconds'], if: ['test', 'then', 'else'],
   },
   anims: {
-    receptionist: ['lookAtPlayer', 'glanceAtClock', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee'],
+    receptionist: ['lookAtPlayer', 'glanceAtClock', 'pointAtSign', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee'],
     npc: ['attend', 'resume', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick'],
   },
   expressions: ['default', 'neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled'],
@@ -1633,9 +1643,9 @@ let tab = 'flow';
 function renderTab() {
   // Lists have no flow or play test
   const listMode = isLists();
-  $$('.tabs button').forEach(b => { b.hidden = listMode && (b.dataset.tab === 'flow' || b.dataset.tab === 'play'); });
+  $$('.tabs button[data-tab]').forEach(b => { b.hidden = listMode && (b.dataset.tab === 'flow' || b.dataset.tab === 'play'); });
   if (listMode && (tab === 'flow' || tab === 'play')) tab = 'code';
-  $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + tab));
   if (tab === 'flow') renderFlow(); if (tab === 'code') renderCode(); if (tab === 'checks') renderChecks(); if (tab === 'play') { if (!PT) ptStart(); ptRender(); }
 }
@@ -1955,7 +1965,7 @@ document.addEventListener('click', e => {
 $('#tab-flow').addEventListener('click', e => { const g = e.target.closest('.node[data-i]'); if (!g) return; sel = { kind: 'beat', i: +g.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); renderFlow(); });
 $('#tab-flow').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.node[data-i]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
 $('#checks').addEventListener('click', e => { const li = e.target.closest('li[data-i]'); if (!li || li.dataset.i === '') return; sel = isLists() ? { kind: 'section', key: sectionKeys()[+li.dataset.i] } : { kind: 'beat', i: +li.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); });
-$$('.tabs button').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; renderTab(); }));
+$$('.tabs button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; renderTab(); }));
 
 /* ================= Events: play test ================= */
 $('#tab-play').addEventListener('click', e => {
@@ -2117,6 +2127,63 @@ window.SceneDesk = {
   roundTrip(text, name) { const keep = P; try { P = importText(text, name); return exportText(); } finally { P = keep; } },
   exportsOf: text => findExports(text).map(e => e.name),
 };
+/* ================= Resizable panels ================= */
+// Drag the handles between the beat list, the editor and the side panel; double-click resets one.
+// "Widen" makes the side panel about two-thirds of the window. Sizes are remembered in this browser.
+const LAYOUT_KEY = 'sceneDesk.layout';
+const LAYOUT = { index: 250, drawer: 450, wide: false };
+try { Object.assign(LAYOUT, JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}')); } catch {}
+const MIN = { index: 160, drawer: 300, editor: 360 };
+function applyLayout() {
+  const app = document.querySelector('.app'), W = app.clientWidth || window.innerWidth;
+  const index = Math.max(MIN.index, Math.min(LAYOUT.index, W - MIN.editor - MIN.drawer - 12));
+  const want = LAYOUT.wide ? Math.round(W * 0.66) : LAYOUT.drawer;
+  const drawer = Math.max(MIN.drawer, Math.min(want, W - index - MIN.editor - 12));
+  app.style.setProperty('--w-index', index + 'px');
+  app.style.setProperty('--w-drawer', drawer + 'px');
+  const btn = $('#drawer-wide');
+  btn.classList.toggle('on', LAYOUT.wide); btn.setAttribute('aria-pressed', String(LAYOUT.wide));
+  btn.textContent = LAYOUT.wide ? '⤡ Narrow' : '⤢ Widen';
+}
+function saveLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(LAYOUT)); } catch {} }
+let flowRedraw = null;
+const afterResize = () => { clearTimeout(flowRedraw); flowRedraw = setTimeout(() => { if (typeof tab !== 'undefined' && tab === 'flow' && P && !isLists()) renderFlow(); }, 120); };
+document.querySelectorAll('.split').forEach(h => {
+  let lastDown = 0, lastX = 0;
+  h.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    // Double-click (two quick presses in the same place) resets this handle. Done by hand because
+    // preventDefault above stops the browser's own dblclick.
+    if (e.timeStamp - lastDown < 400 && Math.abs(e.clientX - lastX) < 4) {
+      lastDown = 0;
+      if (h.dataset.split === 'index') LAYOUT.index = 250; else { LAYOUT.drawer = 450; LAYOUT.wide = false; }
+      applyLayout(); saveLayout(); afterResize();
+      return;
+    }
+    lastDown = e.timeStamp; lastX = e.clientX;
+    h.setPointerCapture(e.pointerId); h.classList.add('drag'); document.body.classList.add('resizing');
+    const app = document.querySelector('.app').getBoundingClientRect();
+    const move = ev => {
+      if (h.dataset.split === 'index') LAYOUT.index = Math.round(ev.clientX - app.left - 3);
+      else { LAYOUT.drawer = Math.round(app.right - ev.clientX - 3); LAYOUT.wide = false; }
+      applyLayout(); afterResize();
+    };
+    const up = () => {
+      h.releasePointerCapture(e.pointerId); h.classList.remove('drag'); document.body.classList.remove('resizing');
+      h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+      saveLayout();
+    };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  });
+  h.addEventListener('dblclick', () => {
+    if (h.dataset.split === 'index') LAYOUT.index = 250; else { LAYOUT.drawer = 450; LAYOUT.wide = false; }
+    applyLayout(); saveLayout(); afterResize();
+  });
+});
+$('#drawer-wide').addEventListener('click', () => { LAYOUT.wide = !LAYOUT.wide; applyLayout(); saveLayout(); afterResize(); });
+window.addEventListener('resize', () => { applyLayout(); afterResize(); });
+applyLayout();
+
 /* ================= Tooltips ================= */
 // Hover text for every button, menu and checkbox. Elements are rebuilt all the time, so an observer
 // fills these in whenever new ones appear. A tooltip already set by the code (e.g. Save's destination) wins.
@@ -2139,6 +2206,7 @@ const TIP_ID = {
   'pt-config-apply': 'Use the numbers in the box for the play test, and restart it.',
   'pt-config-reset': 'Forget your edits to the numbers: use the values from config.js (or guesses).',
   'pt-config': 'Numbers the play test uses for things the script reads from config.js (timings, the appointment time...).',
+  'drawer-wide': 'Make the side panel wide (about two-thirds of the window), e.g. to see more of the flow map. Click again to go back.',
   'c-copy': 'Copy the generated file to the clipboard.',
   'c-dl': 'Download the generated file.',
   'c-pre': 'Imports and helper functions above the scene. Helper functions appear in the condition menus.',

@@ -418,6 +418,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   lookable(A.poster, 'poster', undefined, null, config.interaction.readDistance);
   lookable(A.certificate, 'certificate', undefined, null, config.interaction.readDistance);
   lookable(A.arrivalSign, 'arrivalSign', undefined, null, config.interaction.readDistance); // readable from the counter
+  lookable(A.walkInSign, 'walkInSign', undefined, null, config.interaction.readDistance);
   lookable(A.plants?.[0], 'plantWest');
   lookable(A.plants?.[1], 'plantEast');
   for (const c of A.cabinets ?? []) lookable(c, 'cabinets', calm);

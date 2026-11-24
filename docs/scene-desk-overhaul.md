@@ -117,3 +117,6 @@ The flow map and play test are hidden in this mode; the Code tab and Checks (emp
    in the browser is linked to the file that exports the same name), or to the file you opened; a brand-new scene
    gets **Save as…**. **Save** writes the file back; **Try in game** saves and opens the game (no title / short wait / brawl /
    title screen). **Checks** lists anything that won't work in the game.
+5. **Panel sizes:** drag the thin bars between the beat list, the editor and the side panel (flow map, play test,
+   code, checks) to resize them; double-click a bar to put it back. **⤢ Widen** (next to the tabs) gives the side
+   panel two-thirds of the window, and **⤡ Narrow** puts it back. The sizes are remembered in the browser.

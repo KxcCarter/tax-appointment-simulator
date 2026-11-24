@@ -737,6 +737,20 @@ export function buildWaitingRoom(scene, physics) {
     (anchors.arrivalSign = box(0.72, 0.32, 0.01, mat('paperWhite'), -1.85, 1.75, -hd + 0.012)).material = [
       mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), theme.textured(signTex), mat('paperWhite'),
     ];
+
+    // A second notice, to her left, under the clock: the one she points at (beat 'protest')
+    const walkInTex = theme.canvasTexture(224, 112, (c, w, h) => {
+      c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+      c.strokeStyle = theme.css('inkBlack'); c.lineWidth = 2; c.strokeRect(5, 5, w - 10, h - 10);
+      c.fillStyle = theme.css('inkBlack'); c.textAlign = 'center';
+      c.font = 'bold 15px monospace';
+      ['WALK-IN GUESTS', 'MUST TAKE', 'A TICKET.'].forEach((l, i) => c.fillText(l, w / 2, 32 + i * 21));
+      c.fillStyle = theme.css('inkRed'); c.font = '9px monospace';
+      c.fillText('No exceptions.', w / 2, h - 13);
+    });
+    (anchors.walkInSign = box(0.5, 0.25, 0.01, mat('paperWhite'), -1.15, 1.62, -hd + 0.012)).material = [
+      mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), theme.textured(walkInTex), mat('paperWhite'),
+    ];
   }
 
   return {

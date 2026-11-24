@@ -31,6 +31,14 @@ export const roomRemarks: Record<string, RemarkSet> = {
       'It does not say what happens then.',
     ],
   },
+  walkInSign: {
+    prompt: '[E] Read the sign',
+    lines: [
+      '"Walk-in guests must take a ticket. No exceptions."',
+      'You are not a walk-in guest.',
+      'The tape on it is newer than the other sign\'s.',
+    ],
+  },
   certificate: {
     prompt: '[E] Read the certificate',
     lines: [

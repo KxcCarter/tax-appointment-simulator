@@ -209,7 +209,18 @@ export const waitingRoomBeats: Scene = {
         },
         // Letting it go isn't final: she can be asked again later (protest_again)
         { text: 'Okay.', silent: true, goto: 'protest_again' },
-        alreadyTookTicket, // only if he already has one
+        alreadyTookTicket,
+        {
+          // She points at the WALK-IN GUESTS sign over her shoulder without looking up (owner's request)
+          text: 'Why do I need a ticket if I have an appointment?',
+          response: [
+            pause,
+            { do: 'anim', who: 'receptionist', name: 'pointAtSign', duration: 1.2 },
+            { do: 'say', who: 'receptionist', text: 'Everybody gotta have a ticket.' },
+            { do: 'wait', seconds: 0.8 },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          ],
+        },
       ],
       lockedOptions: [],
       lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Got me a full stack...' }],
@@ -599,7 +610,11 @@ export const waitingRoomBeats: Scene = {
     {
       id: 'newcomer_checks_in',
       trigger: { type: 'interact', target: 'receptionist' },
-      options: [{ text: 'How come he gets to go first? My number was before his!', advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [
+        { text: 'How come he gets to go first? My number was before his!', advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+      ],
       lockedOptions: [],
       onAdvance: [
         { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', untilDone: true },
@@ -622,7 +637,11 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_1',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: 'But I was here first. I have an appointment at 2:00.', advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [
+        { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+      ],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -642,7 +661,11 @@ export const waitingRoomBeats: Scene = {
         { do: 'say', who: 'jiggler', text: 'Yeah dude, get a watch.' },
         pause,
         { do: 'anim', who: 'cougher', name: 'attend' },
-        { do: 'say', who: 'cougher', text: "These youngsters can't tell time anymore unless it's on their iPad phone." },
+        {
+          do: 'say',
+          who: 'cougher',
+          text: "These youngsters can't tell time anymore unless it's on their iPad phone.",
+        },
       ],
       next: 'argument_2',
       nextUnlockAfter: 0,
@@ -651,12 +674,13 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_2',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`, advance: true }, pleaCheckIn, pleaLetMeIn],
-      lockedOptions: [],
-      onAdvance: [
-        pause,
-        { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' },
+      options: [
+        { text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`, advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
       ],
+      lockedOptions: [],
+      onAdvance: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
       next: 'argument_3',
       nextUnlockAfter: 0,
     },
@@ -664,7 +688,11 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_3',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: "I'm not yelling. I'm just saying I was here first.", advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [
+        { text: "I'm not yelling. I'm just saying I was here first.", advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+      ],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -687,10 +715,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn],
       lockedOptions: [],
-      onAdvance: [
-        pause,
-        { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." },
-      ],
+      onAdvance: [pause, { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." }],
       next: 'argument_5',
       nextUnlockAfter: 0,
     },
@@ -727,8 +752,14 @@ export const waitingRoomBeats: Scene = {
         {
           do: 'if',
           test: (state: GameState) => !state.sitterDown,
-          then: [{ do: 'face', who: 'sitter', expression: 'furious' }, { do: 'anim', who: 'sitter', name: 'shoveHard', untilDone: true }],
-          else: [{ do: 'face', who: 'jiggler', expression: 'furious' }, { do: 'anim', who: 'jiggler', name: 'shoveHard', untilDone: true }],
+          then: [
+            { do: 'face', who: 'sitter', expression: 'furious' },
+            { do: 'anim', who: 'sitter', name: 'shoveHard', untilDone: true },
+          ],
+          else: [
+            { do: 'face', who: 'jiggler', expression: 'furious' },
+            { do: 'anim', who: 'jiggler', name: 'shoveHard', untilDone: true },
+          ],
         },
       ],
       next: 'argument_7',

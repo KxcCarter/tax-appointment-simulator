@@ -17,7 +17,7 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 
 /** Animations the receptionist understands (characters/receptionist.js). */
 export type ReceptionistAnim =
-  | 'lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee';
+  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee';
 
 /**
  * Animations a waiting NPC understands (characters/npc.js): attend = turn to the player, resume = back to

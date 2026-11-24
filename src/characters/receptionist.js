@@ -8,11 +8,12 @@ import { Walker } from './walker.js';
   The receptionist. Sits behind the desk playing solitaire.
   States: 'solitaire' (clicking, eyes on the CRT), 'look' (turned to the player, silent),
   'clock' (a glance over her shoulder at the wall clock),
+  'point' (points over her left shoulder at the WALK-IN GUESTS sign, eyes still on her game),
   'clipboard' (slides the check-in sheet onto the counter without looking up, then
   goes back to solitaire by herself), 'sip' (a sip of coffee, once she has some).
   'coffeeBreak' walks her through the EMPLOYEES ONLY door and back with a cup (returns a
   Promise that resolves when she's seated again).
-  The director drives her with play('lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' |
+  The director drives her with play('lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' |
   'slideClipboard' | 'coffeeBreak' | 'sipCoffee').
   She clicks the mouse on her own schedule (config.timings.receptionistClicks),
   and keeps doing so no matter what happens around her.
@@ -53,6 +54,8 @@ export class Receptionist {
     this.screen = anchors.crtScreen;
     this.clockPos = anchors.clock.getWorldPosition(new THREE.Vector3());
     this.clockTwist = 0; // upper-body turn for glancing at the clock behind her
+    this.signPos = anchors.walkInSign?.getWorldPosition(new THREE.Vector3()) ?? null;
+    this.pointAmt = 0; // 0 = left hand on the keys, 1 = arm out at the sign
 
     this.state = 'solitaire';
     this.lookTarget = new THREE.Vector3();
@@ -148,6 +151,7 @@ export class Receptionist {
     const face = (auto) => this.face?.setExpression(this.scripted ?? auto);
     if (name === 'lookAtPlayer') { this.state = 'look'; face('unimpressed'); }
     else if (name === 'glanceAtClock') { this.state = 'clock'; face('unimpressed'); }
+    else if (name === 'pointAtSign') { this.state = this.signPos ? 'point' : this.state; }
     else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
     else if (name === 'sipCoffee') { this.state = 'sip'; this.sipT = 0; }
@@ -255,7 +259,8 @@ export class Receptionist {
     // --- body: lean towards the desk, breathe (and lean further to reach the counter) ---
     const breathe = Math.sin(this.time * 1.6) * 0.01;
     // The wall clock is behind her left shoulder: twist the upper body to see it
-    const twistGoal = this.state === 'clock' ? config.characters.receptionist.clockGlanceTwist : 0;
+    const R = config.characters.receptionist;
+    const twistGoal = this.state === 'clock' ? R.clockGlanceTwist : this.state === 'point' ? R.signPointTwist : 0;
     this.clockTwist += (twistGoal - this.clockTwist) * (1 - Math.exp(-6 * dt));
     j.spine.rotation.set(0.12 + breathe + 0.35 * engage, 0.3 * engage + this.clockTwist, 0);
 
@@ -280,6 +285,14 @@ export class Receptionist {
     const handOnKeys = kb.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.12);
     handOnKeys.y += 0.05;
     if (clipHand) handOnKeys.lerp(clipHand, engage);
+    // Pointing at the sign: the left arm swings up and out over her shoulder (eases in and out)
+    this.pointAmt += ((this.state === 'point' ? 1 : 0) - this.pointAmt) * (1 - Math.exp(-7 * dt));
+    if (this.pointAmt > 0.001 && this.signPos) {
+      const sh = j.lShoulder.getWorldPosition(new THREE.Vector3());
+      const reach = (L.upperArm + L.lowerArm) * 0.97;
+      const aim = sh.clone().addScaledVector(this.signPos.clone().sub(sh).normalize(), reach);
+      handOnKeys.lerp(aim, this.pointAmt);
+    }
     // A sip of coffee: left hand to the cup, cup to the mouth, back down, back to the keys
     let sipping = 0;
     if (this.state === 'sip') {
