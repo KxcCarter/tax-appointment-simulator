@@ -60,6 +60,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (!data) continue;
     const d = new Director({
       data, state, ui, sfx, actors, player, config,
+      onEvent: (type) => { if (type === 'jiggleAsked') jiggleAsked(); },
       isBlocked: () => anyActive(d) || state.called || state.foughtBack, // nobody chats after the call, or with a maniac
     });
     smallTalk.push(d);
@@ -327,6 +328,37 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       }
     },
   };
+
+  // --- side scenarios: the bouncing knee, the man who wants the time ---
+  const byId = (id) => npcs.find((n) => n.id === id);
+  function jiggleAsked() {
+    const j = byId('jiggler'), J = config.npc.jiggle;
+    if (!j || state.jiggleAsks < 2) return; // the first time: "Stop what?"
+    j.jiggleStop = J.stopFor / Math.pow(2, state.jiggleAsks - 2);
+    j.jiggleRate = (j.jiggleRate ?? 1) * J.faster;
+  }
+  const nextTo = (n) => {
+    const mine = A.chairs.find((c) => c.occupant === 'player');
+    return mine && n && !n.walker.active && mine.object.position.distanceTo(n.chair.object.position) < config.npc.crowdedDistance;
+  };
+  let besideWatch = 0, askGap = 0;
+  function sideScenarios(dt) {
+    // Sitting next to the jiggler, the seat bounces with his knee
+    const j = byId('jiggler');
+    player.seatBob = nextTo(j) && !j.brawling ? (j.footLiftNow ?? 0) * config.npc.jiggle.seatShake : 0;
+    // Sitting next to the man with the watch: after a while he asks the time
+    const w = byId('watchChecker'), Q = config.npc.askTime;
+    askGap -= dt;
+    if (nextTo(w) && !state.called && calm()) besideWatch += dt; else besideWatch = 0;
+    if (besideWatch > Q.after && askGap <= 0 && state.timeAsks < Q.max && w.conversation && !anyActive(null)) {
+      askGap = Q.every;
+      state.timeAsks++;
+      w.conversation.runNow('askTime').then(() => {
+        const c = w.conversation;
+        if (c.current?.autoOpen && !c.active) c.openChoices(c.current);
+      });
+    }
+  }
 
   // --- things to look at (easter eggs; src/data/roomRemarks.ts) ---
   const remarkCount = {};
@@ -631,6 +663,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         radioLoop.stop();
         radioLoop = null;
       }
+
+      sideScenarios(dt);
 
       // Sitting right next to someone makes them lean away
       const mine = A.chairs.find((c) => c.occupant === 'player');

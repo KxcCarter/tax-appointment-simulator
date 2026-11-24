@@ -230,7 +230,13 @@ export const config = {
     cough: { every: [6, 10], coughs: [2, 3], gap: 0.28 },
     watch: { every: [12, 20], lookAtWatch: 2.2, lookAtClock: 1.6 },
     pageTurn: { every: [7, 13], duration: 0.7 },
-    jiggle: { rate: 5.5, height: 0.028 },
+    jiggle: {
+      rate: 5.5, height: 0.028,
+      seatShake: 0.35,       // the player's view bounces this much (x his knee lift) sitting next to him
+      stopFor: 6,            // seconds he stops when asked (halved each time after)
+      faster: 1.3,           // ...and then he starts again this much faster
+    },
+    askTime: { after: 4, every: 45, max: 3 }, // the man with the watch asks the time: seconds seated beside him, gap, times
     exhale: { every: [10, 18], duration: 2.2 },
     shift: { every: [15, 26], duration: 1.2 },
     calledLookDelay: [0.2, 0.9],

@@ -243,7 +243,10 @@ export class Npc {
         desired.lHand.set(-0.08, 0.93, 0.16); // arms crossed
         desired.rHand.set(0.08, 0.9, 0.18);
       }
-      footLift = Math.max(0, Math.sin(this.time * N.jiggle.rate * Math.PI * 2)) * N.jiggle.height;
+      // His own phase, so asking him to stop (jiggleStop) and the speed-up (jiggleRate) are smooth
+      this.jiggleStop = Math.max(0, (this.jiggleStop ?? 0) - dt);
+      this.jigglePhase = (this.jigglePhase ?? 0) + dt * N.jiggle.rate * (this.jiggleRate ?? 1);
+      footLift = this.jiggleStop > 0 ? 0 : Math.max(0, Math.sin(this.jigglePhase * Math.PI * 2)) * N.jiggle.height;
     }
 
     // --- talking to the player: look at them, hands down, no fidgeting ---
@@ -306,6 +309,7 @@ export class Npc {
     }
 
     this.face?.setExpression(expression);
+    this.footLiftNow = footLift;
     this._solve(dt, desired, eyesOn, footLift);
   }
 

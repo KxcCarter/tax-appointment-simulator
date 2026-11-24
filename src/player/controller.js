@@ -191,7 +191,7 @@ export class PlayerController {
     if (this.seat) {
       const S = config.seated;
       const eye = new THREE.Vector3(0, 0, S.eyeForward).applyQuaternion(this.seat.quaternion).add(this.seat.position);
-      eye.y = this.seat.position.y + S.eyeHeight;
+      eye.y = this.seat.position.y + S.eyeHeight + (this.seatBob ?? 0); // e.g. a neighbour's bouncing knee
       this.camera.position.copy(eye);
       this.camera.rotation.set(this.seatPitch, PlayerController.chairYaw(this.seat) + this.seatYaw, 0, 'YXZ');
       return;

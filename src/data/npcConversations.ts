@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import type { Action, Scene } from '../director/types.ts';
+import type { Action, GameState, Scene } from '../director/types.ts';
 
 /*
   Small talk with the five waiting people. Every conversation has the same shape:
@@ -169,6 +169,73 @@ function conversation(id: string, p: Person): Scene {
 export const npcConversations: Record<string, Scene> = Object.fromEntries(
   Object.entries(people).map(([id, p]) => [id, conversation(id, p)]),
 );
+
+// ---------------------------------------------------------------------------------------------
+// Side scenarios built on top of the small talk
+// ---------------------------------------------------------------------------------------------
+
+const clockReading = (state: GameState): string => {
+  const t = Math.floor(state.clockTime / 60) % 720;
+  return `${Math.floor(t / 60) || 12}:${String(t % 60).padStart(2, '0')}`;
+};
+const resume = (id: string): Action => ({ do: 'anim', who: id, name: 'resume' });
+
+/*
+  The leg-jiggler: sitting next to him, the player's view bounces with his knee. He can be asked to
+  stop. First: "Stop what?" (nothing changes). Then he stops, briefly, and starts again faster.
+  (The level counts the asks and does the stopping: event 'jiggleAsked'.)
+*/
+const jiggleReplies = ['Stop what?', 'Oh. Sorry.', 'Yeah. Sorry.', 'Sorry, man.', "I'm not doing anything."];
+npcConversations.jiggler.beats[0].options.push({
+  text: 'Could you stop bouncing your leg?',
+  goto: 'hello',
+  actions: [
+    { do: 'anim', who: 'jiggler', name: 'attend' },
+    pause,
+    { do: 'set', key: 'jiggleAsks', value: (state: GameState) => state.jiggleAsks + 1 },
+    { do: 'say', who: 'jiggler', text: (state) => jiggleReplies[Math.min(state.jiggleAsks - 1, jiggleReplies.length - 1)] },
+    { do: 'emit', event: 'jiggleAsked' },
+    resume('jiggler'),
+  ],
+});
+
+/*
+  The man with the watch: sitting next to him, he asks the player the time (the level starts it).
+  "It's 2:00." when it isn't gets what the receptionist said: "No it isn't."
+*/
+npcConversations.watchChecker.sequences = {
+  askTime: [
+    { do: 'anim', who: 'watchChecker', name: 'attend' },
+    pause,
+    { do: 'say', who: 'watchChecker', text: 'Excuse me. Do you have the time?' },
+    { do: 'goto', beat: 'timeAnswer' },
+  ],
+};
+npcConversations.watchChecker.beats.push({
+  id: 'timeAnswer',
+  trigger: { type: 'interact', target: 'watchChecker' },
+  autoOpen: true,
+  options: [
+    {
+      text: (state) => `It's ${clockReading(state)}.`,
+      goto: 'hello',
+      actions: [pause, { do: 'say', who: 'watchChecker', text: 'Thank you.' }, { do: 'wait', seconds: 1.4 },
+        { do: 'say', who: 'watchChecker', text: "I'm a minute fast." }, resume('watchChecker')],
+    },
+    {
+      text: "It's 2:00.",
+      showIf: (state) => clockReading(state) !== '2:00',
+      goto: 'hello',
+      actions: [pause, { do: 'wait', seconds: 0.8 }, { do: 'say', who: 'watchChecker', text: "No it isn't." }, resume('watchChecker')],
+    },
+    {
+      text: '(Say nothing)',
+      silent: true,
+      goto: 'hello',
+      actions: [{ do: 'wait', seconds: 2 }, { do: 'say', who: 'watchChecker', text: 'Never mind.' }, resume('watchChecker')],
+    },
+  ],
+});
 
 /*
   The first time the player hits the sitter back (after she has slapped, shoved, punched and
