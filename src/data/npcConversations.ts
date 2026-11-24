@@ -182,11 +182,17 @@ export const onlookers: Scene = {
   joins in. `opening` plays first, in order, one person each; after that, people on the
   sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
 */
-export const brawlShouts: { opening: string[]; anytime: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; again: string[]; anytime: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
     'Teach that creep a lesson!',
+  ],
+  // After the player wakes up in a chair with an even higher ticket and they go for him again (PROPOSAL)
+  again: [
+    "He's back.",
+    'Oh, here we go.',
+    'Get him!',
   ],
   anytime: [
     'Learn to tell time, idiot.',

@@ -63,9 +63,31 @@ export class Combat {
       this.fists[side] = g;
     }
 
+    // The kicking leg: trouser and shoe, out of sight below the view until a kick
+    this.leg = new THREE.Group();
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 14), theme.material('playerTrousers'));
+    shin.position.y = 0.28;
+    this.leg.add(shin);
+    const shoe = new THREE.Mesh(partGeometry('figure', 'foot', 0.11, 0.08, 0.27), theme.material('playerShoe'));
+    shoe.position.set(0, 0.0, -0.07);
+    this.leg.add(shoe);
+    this.leg.visible = false;
+    camera.add(this.leg);
+    this.kick = null;      // { t, hitDone }
+
+    // Right click (or F) kicks
+    document.addEventListener('contextmenu', (e) => { if (this.enabled) e.preventDefault(); });
+    const tryKick = () => {
+      if (!this.enabled || !this.player.canAct || this.player.seat) return;
+      if (this.kick || this.swing || this.punch || this.cooldown > 0) return;
+      this.kick = { t: 0, hitDone: false };
+    };
+    document.addEventListener('mousedown', (e) => { if (e.button === 2) tryKick(); });
+    document.addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat) tryKick(); });
+
     document.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !this.enabled || !this.player.canAct || this.player.seat) return;
-      if (this.punch || this.swing || this.cooldown > 0) return;
+      if (this.punch || this.swing || this.kick || this.cooldown > 0) return;
       if (this.held) {
         this.swing = { t: 0, hitDone: false };
       } else {
@@ -124,6 +146,7 @@ export class Combat {
     body.setTranslation({ x: o.position.x, y: o.position.y, z: o.position.z }, true);
     body.setRotation({ x: o.quaternion.x, y: o.quaternion.y, z: o.quaternion.z, w: o.quaternion.w }, true);
     body.setEnabled(true);
+    if (body.isFixed()) body.setBodyType(0, true); // e.g. a chair someone was sitting on: free it (0 = Dynamic)
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
     if (throwIt) {
@@ -169,7 +192,26 @@ export class Combat {
     }
 
     if (this.held) this._updateHeld(dt);
+    this._updateKick(dt);
     this._updateThrown(dt);
+  }
+
+  /** Kick: the leg swings up from below into view, foot first, and back down. */
+  _updateKick(dt) {
+    const K = C().kick;
+    if (!this.kick) { this.leg.visible = false; return; }
+    const k = this.kick;
+    k.t += dt;
+    const u = Math.min(1, k.t / K.time);
+    const out = Math.sin(u * Math.PI); // 0 -> 1 -> 0
+    this.leg.visible = true;
+    this.leg.position.set(0.08, -1.05 + 0.6 * out, -0.25 - 0.45 * out);
+    this.leg.rotation.set(-0.3 - 1.25 * out, 0, 0);
+    if (!k.hitDone && u >= K.hitAt) {
+      k.hitDone = true;
+      this._resolveHit({ reach: K.reach, damage: K.damage, knock: K.knock, sound: 'kick' }, -0.25);
+    }
+    if (u >= 1) { this.kick = null; this.cooldown = K.cooldown; }
   }
 
   /** Swing animation for the held weapon: wind up, strike through the crosshair, recover. */
@@ -221,7 +263,7 @@ export class Combat {
   }
 
   /** Does a blow (fist or weapon) connect with someone under the crosshair? */
-  _resolveHit({ reach, damage, knock, sound }) {
+  _resolveHit({ reach, damage, knock, sound }, aimY = 0) {
     const cam = this.camera;
     const list = this.targets();
     const roots = list.map((t) => t.rig.root);
@@ -229,7 +271,7 @@ export class Combat {
     // A few rays around the crosshair, so a swing doesn't need pixel-perfect aim
     let hit = null;
     for (const [x, y] of [[0, 0], [0.12, 0], [-0.12, 0], [0, -0.12]]) {
-      this.raycaster.setFromCamera(new THREE.Vector2(x, y), cam);
+      this.raycaster.setFromCamera(new THREE.Vector2(x, y + aimY), cam);
       const hits = this.raycaster.intersectObjects(roots, true);
       if (hits.length && (!hit || hits[0].distance < hit.distance)) hit = hits[0];
     }

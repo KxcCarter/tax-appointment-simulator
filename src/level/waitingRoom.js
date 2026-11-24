@@ -116,7 +116,14 @@ export function buildWaitingRoom(scene, physics) {
     const half = w.len / 2;
     for (const [u0, u1] of spans(-half, half, w.openings)) strip(u0, u1, 0, H, T, 0, wallMat);
     for (const o of w.openings) strip(o.x - o.w / 2, o.x + o.w / 2, o.h, H - o.h, T, 0, wallMat); // header above the door
-    staticBox(w.x, H / 2, w.z, (alongX ? w.len : T) / 2 + (alongX ? 0 : 0.05), H / 2 + 1, (alongX ? T : w.len) / 2 + (alongX ? 0.05 : 0));
+    // Colliders: one per solid span, so doorways can be walked through (each door has its own collider)
+    const solid = (u0, u1, y0, y1) => {
+      const len = u1 - u0, mid = (u0 + u1) / 2;
+      const cx = alongX ? w.x + mid : w.x, cz = alongX ? w.z : w.z + mid;
+      staticBox(cx, (y0 + y1) / 2, cz, (alongX ? len : T) / 2 + (alongX ? 0 : 0.05), (y1 - y0) / 2, (alongX ? T : len) / 2 + (alongX ? 0.05 : 0));
+    };
+    for (const [u0, u1] of spans(-half, half, w.openings)) solid(u0, u1, -1, H + 1);
+    for (const o of w.openings) solid(o.x - o.w / 2, o.x + o.w / 2, o.h, H + 1);
     // Mint wainscot, wooden chair rail, dark baseboard (slightly proud of the wall), broken by doors
     const inner = alongX ? half - T : half;
     for (const [u0, u1] of spans(-inner, inner, w.openings)) {
@@ -269,6 +276,8 @@ export function buildWaitingRoom(scene, physics) {
     box(0.05, 2.6, 2.0, corridor, 1.2, 1.3, cz);
     box(2.4, 2.6, 0.05, corridor, 0, 1.3, cz + 1.0);
 
+    // The entrance stays shut for the player (the newcomer walks in; nobody walks out)
+    staticBox(0, 1.06, hd + T / 2, 0.52, 1.06, 0.12);
     anchors.entrance = {
       pivot,
       openAngle: -1.5,

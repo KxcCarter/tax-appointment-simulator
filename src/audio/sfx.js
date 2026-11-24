@@ -413,6 +413,32 @@ export class Sfx {
     }
   }
 
+  /** The accountant's door unlocking: a deadbolt clunk. */
+  doorUnlock(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.6, position, A.hits);
+    this._noise(t, 0.05, out, 'bandpass', 2400, 3, 1, 0.001);
+    this._tone(t + 0.04, 0.09, out, 'square', 180, 0.4, 0.001, 120);
+  }
+
+  /** A door opening: a long low creak. */
+  doorOpen(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.5, position, A.hits);
+    this._tone(t, 1.1, out, 'sawtooth', 95, 0.18, 0.05, 140);
+    this._noise(t, 1.0, out, 'bandpass', 700, 8, 0.25, 0.1);
+  }
+
+  /** Trying a locked door: the handle rattles. */
+  doorRattle(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.5, position, A.hits);
+    for (let i = 0; i < 3; i++) this._noise(t + i * 0.09, 0.05, out, 'bandpass', 1600 + i * 200, 4, 0.8, 0.002);
+  }
+
   /** A swing that misses. */
   whoosh(position = null) {
     if (!this.ctx) return;

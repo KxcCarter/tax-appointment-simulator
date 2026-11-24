@@ -67,7 +67,7 @@ document.addEventListener('pointerlockchange', () => {
     sfx.resume();
     ui.showPause(false);
     ui.showHud(true);
-  } else if (state.started) {
+  } else if (state.started && !state.ended) {
     state.paused = true;
     player.enabled = false;
     player.keys.clear();
@@ -133,7 +133,10 @@ function loop(now) {
   last = now;
 
   const step = config.physics.fixedStep;
-  if (state.started && !state.paused) {
+  // Hit-stop: a blow that lands freezes the game for a few frames (config.combat.hitStop)
+  const frozen = state.hitStop > 0;
+  if (frozen) state.hitStop = Math.max(0, state.hitStop - dt);
+  if (state.started && !state.paused && !frozen) {
     accumulator += dt;
     let n = 0;
     while (accumulator >= step && n < config.physics.maxSubSteps) {

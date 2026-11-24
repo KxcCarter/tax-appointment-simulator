@@ -5,6 +5,10 @@ const CONTROLS = [
   'W A S D ...... walk',
   'SHIFT ........ walk briskly',
   'E ............ interact',
+  'R ............ pick up (when there is a fight on)',
+  'LEFT CLICK ... punch / swing',
+  'RIGHT CLICK, F  kick',
+  'Q ............ throw what you hold',
   'ESC .......... pause',
 ].join('\n');
 
@@ -19,6 +23,12 @@ export class UI {
         <div id="prompt" class="hidden"></div>
       </div>
       <div id="ticket" class="hidden"></div>
+      <div id="health" class="hidden"><div id="health-fill"></div></div>
+      <div id="knockdowns" class="hidden"></div>
+      <div id="held" class="hidden"></div>
+      <div id="damage"></div>
+      <div id="fade"></div>
+      <div id="endcard" class="hidden"></div>
       <div id="dialogue" class="hidden">
         <div id="dlg-speaker"></div>
         <div id="dlg-text"></div>
@@ -166,6 +176,52 @@ export class UI {
     const el = this.$('ticket');
     el.classList.toggle('hidden', n == null);
     if (n != null) el.textContent = `TICKET  ${n}`;
+  }
+
+  /** Player health 0..1, or null to hide the bar. */
+  setHealth(f) {
+    const el = this.$('health');
+    el.classList.toggle('hidden', f == null);
+    if (f == null) return;
+    this.$('health-fill').style.width = `${Math.max(0, f) * 100}%`;
+    el.classList.toggle('low', f < 0.3);
+  }
+
+  /** "Knocked down: n / of", or null to hide. */
+  setKnockdowns(n, of) {
+    const el = this.$('knockdowns');
+    el.classList.toggle('hidden', n == null);
+    if (n != null) el.textContent = `Knocked down: ${n} / ${of}`;
+  }
+
+  /** Name of the held weapon, or null. */
+  setHeld(name) {
+    const el = this.$('held');
+    el.classList.toggle('hidden', !name);
+    if (name) el.textContent = name;
+  }
+
+  /** A red flash at the edges of the screen (strength 0..1). */
+  damageFlash(strength = 1) {
+    const el = this.$('damage');
+    el.style.transition = 'none';
+    el.style.opacity = String(Math.min(1, 0.35 + strength * 0.65));
+    requestAnimationFrame(() => { el.style.transition = 'opacity 0.45s'; el.style.opacity = '0'; });
+  }
+
+  /** Fade the screen to black (true) or back (false). Resolves when done. */
+  fade(toBlack, seconds = 1.2) {
+    const el = this.$('fade');
+    el.style.transition = `opacity ${seconds}s`;
+    el.style.opacity = toBlack ? '1' : '0';
+    return new Promise((r) => setTimeout(r, seconds * 1000));
+  }
+
+  /** The end card ("To be continued.") with a few dry statistics. */
+  showEndCard(title, lines) {
+    const el = this.$('endcard');
+    el.innerHTML = `<div class="title">${title}</div><div class="stats">${lines.join('\n')}</div>`;
+    el.classList.remove('hidden');
   }
 
   setFps(fps) {

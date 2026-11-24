@@ -56,6 +56,10 @@ export const config = {
     punchHitAt: 0.4,         // fraction of punchTime when the fist connects
     punchCooldown: 0.12,
     punchDamage: 25,         // people have config.brawl.health
+    // Kick (right click or F): slower, longer reach, harder
+    kick: { reach: 1.55, time: 0.55, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
+    hitStop: 0.06,           // seconds the game freezes when a blow lands (game feel)
+    flashTime: 0.07,         // seconds someone flashes white when hit
     knockbackDecay: 6,       // how quickly being shoved wears off
     shakeDecay: 5,
   },
@@ -65,6 +69,17 @@ export const config = {
     placeholderDelay: 4,         // TEMPORARY trigger: seconds after "Number 848!" before the newcomer
                                  // fetches the clipboard (until the argument scene is written)
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
+    playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:
+                                 // the radio war stays feel-only, as designed)
+    knockdownsToOpen: 4,         // knocked-down people (the sitter from the radio war counts) to unlock the door
+    // Losing: the screen fades, the player wakes up in a chair with an even higher ticket, and it starts again
+    failure: {
+      ticketMultiplier: 2,       // 847 -> 1694 -> 3388 ...
+      fadeOut: 1.4,
+      blackFor: 1.5,
+      fadeIn: 1.2,
+      restartAfter: 5,           // seconds after waking before they come at him again
+    },
     maxAttackers: 2,             // at once, from two different sides; the rest hang back and shout
     flankAngle: 1.9,             // radians between the two attackers' angles of approach (~110 degrees)
     speed: 2.7,                  // walking speed multiplier while fighting (x config.npc.walk.speed)
@@ -221,13 +236,13 @@ export const config = {
     //   knock = shove speed in m/s, shake = camera shake, hits land within `reach` metres
     attacks: {
       reach: 1.15,
-      slap: { duration: 0.9, knock: 1.4, shake: 0.5, sound: 'slap' },
-      shove: { duration: 1.0, knock: 3.4, shake: 0.4, sound: 'shove' },
-      punch: { duration: 0.9, knock: 2.6, shake: 0.9, sound: 'punch' },
-      kick: { duration: 1.1, knock: 3.8, shake: 1.0, sound: 'kick' },
+      slap: { duration: 0.9, knock: 1.4, shake: 0.5, damage: 6, sound: 'slap' },
+      shove: { duration: 1.0, knock: 3.4, shake: 0.4, damage: 5, sound: 'shove' },
+      punch: { duration: 0.9, knock: 2.6, shake: 0.9, damage: 12, sound: 'punch' },
+      kick: { duration: 1.1, knock: 3.8, shake: 1.0, damage: 15, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
-      radio: { duration: 1.3, knock: 4.6, shake: 1.5, sound: 'radioHit' },
-      clipboard: { duration: 1.4, knock: 3.6, shake: 1.6, sound: 'clipboard', pose: 'radio' }, // the newcomer's opener
+      radio: { duration: 1.3, knock: 4.6, shake: 1.5, damage: 25, sound: 'radioHit' },
+      clipboard: { duration: 1.4, knock: 3.6, shake: 1.6, damage: 18, sound: 'clipboard', pose: 'radio' }, // the newcomer's opener
     },
     // The radio war: from the `violentFrom`-th time the radio is turned off, she attacks the player
     // first, in this order (the last one repeats). The player can fight back after `fightBackAfter`.

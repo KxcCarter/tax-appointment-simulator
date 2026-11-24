@@ -80,6 +80,9 @@ export const palette = {
   coffeeCup: 0xf4f1e8,
   playerSkin: 0xd9a582,          // the player's fists
   playerSleeve: 0x4a4a48,
+  playerTrousers: 0x3a3a40,     // the player's kicking leg
+  playerShoe: 0x2a1e16,
+  hitFlash: 0xffffff,           // someone flashes white when hit
   coffee: 0x3b2414,
   radioGrille: 0x2b2a26,
   radioDialOff: 0x5a5440,
@@ -233,6 +236,10 @@ export const ui = {
   '--dialogue-bg': 'rgba(12, 14, 9, 0.88)',
   '--dialogue-border': 'rgba(184, 240, 160, 0.35)',
   '--dialogue-text': '#e6f2dc',
+  '--health': '#c9d6a0',        // the player's health bar (subtle)
+  '--health-low': '#b5332b',
+  '--damage': 'rgba(150, 20, 10, 0.45)', // red flash at the edges when hit
+  '--fade': '#000000',
   '--ticket-bg': '#f4f1e8',
   '--ticket-text': '#b5332b',
   '--ticket-edge': '#b5332b',

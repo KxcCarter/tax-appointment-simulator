@@ -55,6 +55,27 @@ export class Brawl {
     this.nextShout = 0.8;
   }
 
+  /** Everyone has been put back in their seats: stop coordinating until restart(). */
+  reset() {
+    this.started = false;
+    this.attackers.clear();
+    this.queue = [];
+  }
+
+  /**
+   * After the player's failure loop: everyone is back in their seats. A moment later they all get
+   * up and go for him again, with a fresh set of opening shouts.
+   */
+  restart() {
+    this.started = false;
+    this.attackers.clear();
+    for (const n of this.npcs()) { n.justAttacked = false; n.angle = undefined; }
+    const saved = this.shouts.opening;
+    this.shouts.opening = this.shouts.again ?? saved;
+    this.start(null);
+    this.shouts.opening = saved;
+  }
+
   /** The player's head, as a target for approach/attack/look. */
   target = () => this.camera.position.clone();
 

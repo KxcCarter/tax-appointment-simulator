@@ -161,6 +161,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     camera, player, sfx, physics, scene,
     targets: () => npcs.filter((n) => !n.down),
     onHit: (target) => {
+      state.hitStop = config.combat.hitStop; // a tiny freeze on impact (main loop)
       // The first punch that lands on the sitter: everyone else is appalled, at the player
       if (target.id !== config.radio.who || state.foughtBack) return;
       state.foughtBack = true;
@@ -228,6 +229,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       const dir = new THREE.Vector3(camera.position.x - at.x, 0, camera.position.z - at.z);
       player.knock(dir, def.knock, def.shake);
       sfx.hit(def.sound, camera.position);
+      hurtPlayer(def.damage ?? 0, who);
       return true;
     }
     sfx.whoosh(at.clone().setY(1.3));
@@ -353,8 +355,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // The EMPLOYEES ONLY door opens for the player too (the bat is back there)
   A.employeeDoor.playerNear = () => Math.hypot(camera.position.x - A.employeeDoor.threshold.x, camera.position.z - A.employeeDoor.threshold.z) < 1.3;
-  let smashTimer = null;
+  let smashTimer = null, smashStarted = false;
   function startSmash() {
+    smashStarted = true; // once: after the failure loop, the brawl restarts without the opener
     state.clipboardOffered = false; // it's in his hands now
     newcomer.startClipboardSmash({
       clipboard: clipboardHandle,
@@ -372,6 +375,105 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     // Debug (?brawl): the newcomer walks in right away and starts it
     state.hadCoffee = true;
     A.clipboard.position.copy(clipHome);
+  }
+
+  // --- the player's health (brawl only; the radio war stays feel-only) ---
+  const B = config.brawl;
+  state.playerHealth = B.playerHealth;
+  let failing = false, restartTimer = null;
+  function hurtPlayer(damage, who) {
+    if (state.phase !== 'brawl' || failing || damage <= 0) return;
+    state.playerHealth = Math.max(0, state.playerHealth - damage);
+    ui.damageFlash(damage / 20);
+    if (state.playerHealth <= 0) fail();
+  }
+
+  /**
+   * Losing (proposal in the brief, fits the tone): the screen fades; the player wakes up seated in a
+   * waiting-room chair holding a new ticket with an even higher number. Everyone is back in their
+   * seats as if nothing happened, and a few seconds later it starts again.
+   */
+  async function fail() {
+    if (failing) return;
+    failing = true;
+    player.block('failure', true);
+    combat.drop(false);
+    sfx.bodyThud(camera.position, 1);
+    const F = B.failure;
+    await ui.fade(true, F.fadeOut);
+    await new Promise((r) => setTimeout(r, F.blackFor * 1000));
+    state.ticketNumber = Math.round((state.ticketNumber ?? config.ticket.number) * F.ticketMultiplier);
+    ui.setTicket(state.ticketNumber.toLocaleString('en-US'));
+    state.playerHealth = B.playerHealth;
+    state.knockdowns = 0;
+    state.retries = (state.retries ?? 0) + 1;
+    for (const n of npcs) n.resetToSeat();
+    brawl.reset?.();
+    // Wake up in a free chair
+    const seat = A.chairs.find((c) => canSit(c));
+    if (seat) {
+      if (player.seat) standHandler.onInteract();
+      seat.occupant = 'player';
+      player.sit(seat.object);
+      interaction.setOverride(standHandler);
+    }
+    await ui.fade(false, F.fadeIn);
+    player.block('failure', false);
+    failing = false;
+    onlookerTalk.runActions([{ do: 'wait', seconds: 1.2 }, { do: 'say', who: 'receptionist', text: `Number ${state.ticketNumber.toLocaleString('en-US')}. Please have a seat. We'll call you.` }]);
+    restartTimer = F.restartAfter;
+  }
+
+  // --- knockdowns: at config.brawl.knockdownsToOpen the accountant's door unlocks ---
+  for (const n of npcs) n.onKnockedDown = onKnockedDown;
+  function onKnockedDown() {
+    state.knockdowns++;
+    if (state.knockdowns >= B.knockdownsToOpen && state.phase === 'brawl') {
+      state.phase = 'doorOpen';
+      sfx.doorUnlock?.(A.accountantDoor.pivot.getWorldPosition(new THREE.Vector3()));
+      ui.toast('Click.', 1.5);
+    }
+  }
+
+  // --- the accountant's door ---
+  const accDoor = A.accountantDoor;
+  let accAngle = 0, accOpen = false, ended = false;
+  interaction.register(accDoor.pivot, {
+    prompt: () => {
+      if (accOpen) return null;
+      if (state.phase === 'doorOpen') return '[E] Open the door';
+      return state.phase === 'brawl' || state.called ? '[E] Try the door' : null;
+    },
+    onInteract: () => {
+      if (state.phase === 'doorOpen') {
+        accOpen = true;
+        physics.world.removeCollider(accDoor.collider, true);
+        sfx.doorOpen?.(accDoor.pivot.getWorldPosition(new THREE.Vector3()));
+      } else {
+        sfx.doorRattle?.(accDoor.pivot.getWorldPosition(new THREE.Vector3()));
+        ui.toast('Locked.', 1.2);
+      }
+    },
+  });
+  const doorPos = accDoor.pivot.getWorldPosition(new THREE.Vector3());
+
+  /** Through the door: the end card (Milestone 5). */
+  async function end() {
+    ended = true;
+    state.ended = true;
+    player.block('end', true);
+    brawl.reset(); // no more shouting
+    await ui.fade(true, 1.5);
+    const t = Math.floor(state.clockTime / 60) % 720, h = Math.floor(t / 60) || 12, m = String(t % 60).padStart(2, '0');
+    ui.showEndCard('To be continued.', [
+      `Ticket: ${(state.ticketNumber ?? config.ticket.number).toLocaleString('en-US')}`,
+      `Time on the clock: ${h}:${m}`,
+      `Appointment: 2:00`,
+      `Times woken up in a chair: ${state.retries ?? 0}`,
+      `Times the radio was turned off: ${state.radioOffCount}`,
+    ]);
+    ui.hideDialogue();
+    document.exitPointerLock?.();
   }
 
   const waitDuration = fastWait ? config.timings.waiting.fastDuration : config.timings.waiting.duration;
@@ -400,15 +502,28 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       // TEMPORARY brawl trigger (until the argument scene is written): a few seconds after
       // "Number 848!", once the newcomer is seated, he goes for the clipboard
       const nextCalled = state.nowServing === config.ticket.number + 1;
-      if ((nextCalled || brawlNow) && newcomer && !newcomer.brawling && !newcomer.walker.active && !director.active) {
+      if ((nextCalled || brawlNow) && !smashStarted && newcomer && !newcomer.brawling && !newcomer.walker.active && !director.active) {
         smashTimer = (smashTimer ?? (brawlNow ? 1 : config.brawl.placeholderDelay)) - dt;
         if (smashTimer <= 0) startSmash();
       }
       brawl.update(dt);
       // Fists up only while there's a fight on: the brawl, or the sitter coming at him (after her kick)
       const sitterNow = radioWho();
-      combat.enabled = state.canFightBack && (state.phase === 'brawl' || !!(sitterNow?.violent && !sitterNow.down));
+      combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
+      // Brawl HUD
+      const fighting = state.phase === 'brawl' || state.phase === 'doorOpen';
+      ui.setHealth(fighting ? state.playerHealth / B.playerHealth : null);
+      ui.setKnockdowns(fighting ? Math.min(state.knockdowns, B.knockdownsToOpen) : null, B.knockdownsToOpen);
+      ui.setHeld(combat.held?.def.label ?? null);
+      if (restartTimer != null && !failing) {
+        restartTimer -= dt;
+        if (restartTimer <= 0) { restartTimer = null; brawl.restart(); }
+      }
+      // The accountant's door swings open; walking through it ends the level
+      accAngle += ((accOpen ? -1.45 : 0) - accAngle) * (1 - Math.exp(-3 * dt));
+      accDoor.pivot.rotation.y = accAngle;
+      if (accOpen && !ended && camera.position.z < doorPos.z - 0.25 && Math.abs(camera.position.x - doorPos.x - 0.5) < 0.9) end();
       const sitter = radioWho();
       if (sitter?.down && !state.sitterDown) state.sitterDown = true;
       room.update(dt);

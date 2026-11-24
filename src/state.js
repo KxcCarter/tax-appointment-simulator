@@ -27,7 +27,11 @@ export const state = {
   clockTime:               // seconds since midnight (12h face)
     config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond,
 
+  retries: 0,              // times the player has woken up in a chair with a higher ticket
+  ended: false,            // walked through the accountant's door (end card)
+
   // runtime flags (not narrative)
+  hitStop: 0,              // seconds of hit-stop left
   started: false,
   paused: false,
 };

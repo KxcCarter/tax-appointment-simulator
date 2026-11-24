@@ -46,6 +46,7 @@ export class Npc {
     chair.occupant = def.id;
     const body = chair.object.userData.body;
     body?.setBodyType(RAPIER.RigidBodyType.Fixed, false);
+    this.chairHome = { pos: chair.object.position.clone(), quat: chair.object.quaternion.clone() };
     this._seat();
     this.walker = new Walker(this._walkerHost());
 
@@ -199,6 +200,10 @@ export class Npc {
 
   update(dt, camera) {
     this.time += dt;
+    if (this._flashT > 0) {
+      this._flashT -= dt;
+      if (this._flashT <= 0) for (const [o, m] of this._flashSaved) o.material = m;
+    }
     if (this.down) return this._updateDown(dt);
     if (this.walker.active) {
       this.walker.update(dt, camera);
@@ -550,13 +555,56 @@ export class Npc {
     ], { startPos: door.outside, startYaw: Math.PI });
   }
 
+  /** Flash white for a moment (being hit). */
+  flash(seconds = config.combat.flashTime) {
+    if (this._flashT > 0) { this._flashT = seconds; return; }
+    this._flashT = seconds;
+    this._flashSaved = [];
+    const white = theme.unlit('hitFlash');
+    this.rig.root.traverse((o) => { if (o.isMesh && o.visible) { this._flashSaved.push([o, o.material]); o.material = white; } });
+  }
+
+  /**
+   * Back in their own chair, unhurt, as if nothing happened (the player's failure loop).
+   * Their chair goes back where it was, too.
+   */
+  resetToSeat() {
+    if (this._flashT > 0) { this._flashT = 0; for (const [o, m] of this._flashSaved) o.material = m; }
+    if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
+    this.down = false;
+    this.health = config.brawl.health;
+    this.brawling = false;
+    this.violent = false;
+    this.attending = false;
+    this.action = null;
+    this.reaction = null;
+    this.carrying = null;
+    this.walker.steps = null;
+    this.walker.stun = 0;
+    this.flinch = 0;
+    const c = this.chair.object, body = c.userData.body;
+    c.position.copy(this.chairHome.pos);
+    c.quaternion.copy(this.chairHome.quat);
+    if (body) {
+      body.setEnabled(true);
+      body.setBodyType(RAPIER.RigidBodyType.Fixed, false);
+      body.setTranslation(c.position, false);
+      body.setRotation(c.quaternion, false);
+    }
+    c.userData.held = false;
+    this.chair.occupant = this.id;
+    this.rig.root.visible = true;
+    this._seat();
+  }
+
   /** Hit by the player (fist, weapon or something thrown). Flinch; at 0 health, go down and stay down. */
   takeHit(dir, { damage = config.combat.punchDamage, knock = 1 } = {}) {
     if (this.down) return;
     this.health = (this.health ?? config.brawl.health) - damage;
     this.walker.stun = 0.35;
     this.flinch = 0.35;
-    if (this.health <= 0) this._knockDown(dir, knock);
+    this.flash();
+    if (this.health <= 0) { this._knockDown(dir, knock); this.onKnockedDown?.(this); }
   }
 
   _knockDown(dir, knock = 1) {

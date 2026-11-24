@@ -88,7 +88,7 @@ export class Ragdoll {
         .setRestitution(R().restitution)
         .setCollisionGroups(kind === 'core' ? GROUP_CORE : GROUP_LIMB);
       const collider = this.world.createCollider(cd, body);
-      const part = { name, group, body, collider, lastSpeed: 0 };
+      const part = { name, group, body, collider, lastSpeed: 0, restPos: group.position.clone(), restQuat: group.quaternion.clone() };
       this.parts.push(part);
       this.byName[name] = part;
       if (parentName) this._joint(this.byName[parentName], part, jointOpts);
@@ -203,8 +203,13 @@ export class Ragdoll {
     return vec(this.byName.spine.body.translation());
   }
 
+  /** Remove the bodies and put the rig's joint groups back where they were. */
   dispose() {
-    for (const p of this.parts) this.world.removeRigidBody(p.body);
+    for (const p of this.parts) {
+      this.world.removeRigidBody(p.body);
+      p.group.position.copy(p.restPos);
+      p.group.quaternion.copy(p.restQuat);
+    }
     this.parts = [];
   }
 }
