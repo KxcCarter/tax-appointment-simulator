@@ -27,6 +27,10 @@ interface Person {
   greeting: string;
   appointment: string;
   waiting: string;
+  /** "What are you here for?" (PROPOSAL lines) */
+  reason?: string;
+  /** "Do you know how much longer it'll be?" (PROPOSAL lines) */
+  howLong?: string;
   /** Things they mutter (e.g. the sitter, each time the radio gets turned off again). */
   radioComplaints?: string[];
 }
@@ -37,18 +41,24 @@ export const people: Record<string, Person> = {
     greeting: 'Hello.',
     appointment: "I don't have an appointment.",
     waiting: 'Since yesterday.',
+    reason: "My wife's return. She passed in 1979. They still want it.",
+    howLong: 'Longer.',
   },
   watchChecker: {
     name: 'MAN WITH BRIEFCASE', pitch: 165,
     greeting: 'Hi.',
     appointment: 'My appointment is at 3:00.',
     waiting: 'Since 12:44.', // PROPOSAL: has an appointment; the brief didn't say. He'd know to the minute.
+    reason: 'Quarterly estimates. I like to be early.',
+    howLong: 'Seventeen minutes. Approximately.',
   },
   sitter: {
     name: 'WOMAN', pitch: 260,
     greeting: 'Hello.',
     appointment: "I don't have an appointment.",
     waiting: 'Since nine this morning.', // (8:58 on the check-in sheet)
+    reason: 'They sent me a letter. It said to come in.',
+    howLong: '...',
     // Said as she gets up to turn the radio back on, from the 2nd time it's turned off.
     // In order; after the last one, a random pick (never the same twice in a row).
     radioComplaints: ['Rude...', 'Seriously??', 'No way...', 'Really dude?', 'Oooh no, nuh-uh!', 'Son of a...'],
@@ -58,12 +68,16 @@ export const people: Record<string, Person> = {
     greeting: 'Hey.',
     appointment: 'My appointment is at 5:30.',
     waiting: 'Since lunch.', // PROPOSAL: has an appointment; the brief didn't say.
+    reason: "I don't know, man. My mom made the appointment.",
+    howLong: 'Dude, I have no idea.',
   },
   reader: {
     name: 'WOMAN WITH MAGAZINE', pitch: 285,
     greeting: 'Hi.',
     appointment: "I don't have an appointment.",
     waiting: 'About an hour.',
+    reason: 'I came in to ask a question. In April.',
+    howLong: 'They called twelve at eleven-thirty.',
   },
 };
 
@@ -121,10 +135,28 @@ function conversation(id: string, p: Person): Scene {
             goto: 'goodbye',
             actions: [pause, { do: 'say', who: id, text: p.waiting }],
           },
+          ...(p.reason ? [{
+            text: 'What are you here for?',
+            goto: 'goodbye',
+            actions: [pause, { do: 'say', who: id, text: p.reason as string }] as Action[],
+          }] : []),
         ],
       },
       {
         id: 'goodbye',
+        trigger: { type: 'interact', target: id },
+        autoOpen: true,
+        options: [
+          thanks,
+          ...(p.howLong ? [{
+            text: "Do you know how much longer it'll be?",
+            goto: 'last',
+            actions: [pause, { do: 'say', who: id, text: p.howLong }] as Action[],
+          }] : []),
+        ],
+      },
+      {
+        id: 'last',
         trigger: { type: 'interact', target: id },
         autoOpen: true,
         options: [thanks],
