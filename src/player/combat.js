@@ -247,6 +247,20 @@ export class Combat {
     o.quaternion.copy(rot).multiply(h.baseQuat);
   }
 
+  /** A held weapon that wears out (breaksAfter) falls apart after enough hits. */
+  _wear() {
+    const h = this.held;
+    if (!h?.def.breaksAfter) return;
+    h.hits = (h.hits ?? 0) + 1;
+    if (h.hits < h.def.breaksAfter) return;
+    this.held = null;
+    this.swing = null;
+    h.object.parent?.remove(h.object);
+    h.object.userData.held = false;
+    h.object.userData.broken = true;
+    this.onBreak?.(h.def.breakLine);
+  }
+
   /** Thrown things hurt whoever they fly into (once each), while they're moving fast. */
   _updateThrown(dt) {
     if (!this.thrown.length) return;
@@ -258,7 +272,7 @@ export class Combat {
       const p = t.body.translation();
       const at = new THREE.Vector3(p.x, p.y, p.z);
       for (const target of list) {
-        if (t.hit.has(target)) continue;
+        if (t.hit.has(target) || target.down) continue;
         const chest = target.rig.joints.spine.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.25, 0));
         if (chest.distanceTo(at) < WP().throwHitRadius) {
           t.hit.add(target);
@@ -289,7 +303,15 @@ export class Combat {
     if (!hit) { this.sfx.whoosh(); return; }
     const target = list.find((t) => t.rig.root === hit.object.userData.rigRoot);
     if (!target) return;
+    if (target.down) {
+      // Already down: no damage, but the body flops
+      target.ragdoll?.push(dir, WP().floorFlop * knock, 'spine');
+      this.sfx.bodyThud(hit.point, 0.6);
+      this._wear();
+      return;
+    }
     target.takeHit(dir, { damage, knock });
+    this._wear();
     this.sfx.hit(sound, hit.point);
     this.player.shake = Math.max(this.player.shake, 0.25 + 0.1 * knock);
     this.onHit(target);

@@ -166,7 +166,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
   const combat = new Combat({
     camera, player, sfx, physics, scene,
-    targets: () => npcs.filter((n) => !n.down),
+    targets: () => npcs, // the downed too: hitting them makes them flop (combat.js)
     onHit: (target) => {
       state.hitStop = config.combat.hitStop; // a tiny freeze on impact (main loop)
       // The first punch that lands on the sitter: everyone else is appalled, at the player
@@ -298,6 +298,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   });
 
   // --- the brawl ---
+  combat.onBreak = (line) => ui.toast(line, 2.5);
   const brawl = new Brawl({
     npcs: () => npcs,
     camera,

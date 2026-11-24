@@ -118,11 +118,14 @@ export const config = {
     throwLift: 1.5,            // m/s upwards
     throwDamage: 0.8,          // a thrown thing that hits someone does this share of its damage
     throwHitRadius: 0.55,      // metres from someone's chest
+    // breaksAfter / breakLine on a weapon: it falls apart after that many hits
+    floorFlop: 2.2,            // impulse (m/s) when you hit someone who's already down (no damage; physics)
     defaults: { damage: 30, reach: 1.4, swingTime: 0.6, knock: 1.2, sound: 'kick', style: 'swing',
       at: [0.26, -0.3, -0.55], out: [0, 1, 0], axis: [0, 1, 0] },
     chair:        { label: 'chair', damage: 60, reach: 1.9, swingTime: 0.95, knock: 1.8, sound: 'chair', style: 'thrust',
       grip: [0, 1.0, -0.22], axis: [0, -1, 0], out: [0, 0.08, -1], at: [0, -0.4, -0.3] }, // legs first, lion-tamer style
     magazine:     { label: 'magazine', damage: 6, reach: 1.3, swingTime: 0.3, knock: 0.6, sound: 'slap',
+      breaksAfter: 4, breakLine: 'The magazine comes apart.',
       grip: [0, 0, 0.12], axis: [0, 0, -1], out: [-0.2, 0.7, -0.6], at: [0.25, -0.28, -0.45] },
     radio:        { label: 'radio', damage: 45, reach: 1.3, swingTime: 0.7, knock: 1.4, sound: 'radioHit',
       grip: [0, 0.18, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.24, -0.2, -0.5] },
@@ -133,6 +136,7 @@ export const config = {
     keyboard:     { label: 'keyboard', damage: 30, reach: 1.5, swingTime: 0.5, knock: 1.2, sound: 'keyboard',
       grip: [0.21, 0, 0], axis: [-1, 0, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
     clipboard:    { label: 'clipboard', damage: 20, reach: 1.4, swingTime: 0.4, knock: 1.0, sound: 'clipboard',
+      breaksAfter: 6, breakLine: 'The check-in sheet tears free. Nobody will sign it now.',
       grip: [0, 0, -0.14], axis: [0, 0, 1], out: [-0.2, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
     plant:        { label: 'potted plant', damage: 50, reach: 1.4, swingTime: 0.9, knock: 1.6, sound: 'kick',
       grip: [0, 0, 0], axis: [0, 1, 0], out: [-0.3, 0.6, -0.75], at: [0.25, -0.45, -0.5] },
