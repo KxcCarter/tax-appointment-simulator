@@ -128,7 +128,15 @@ export class Director {
       .filter((o) => !o.showIf || o.showIf(this.state))
       .map((o) => ({ ...o, text: typeof o.text === 'function' ? o.text(this.state) : o.text }));
 
-    if (!options.length) return; // nothing appears. She keeps clicking.
+    if (!options.length) {
+      // Gated with nothing to say: she may still brush the player off (beat.lockedResponse)
+      if (locked && beat.lockedResponse?.length && !this.busy) {
+        this.busy = true;
+        this.runActions(beat.lockedResponse).finally(() => { this.busy = false; });
+        return true;
+      }
+      return; // nothing appears. She keeps clicking.
+    }
 
     // If a line is still on screen, keep it above the choices
     const ty = this.typing;

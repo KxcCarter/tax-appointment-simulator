@@ -10,7 +10,8 @@ export const state = {
   playerHealth: 100,
   heldWeapon: null,
   toldToTakeNumber: false, // receptionist said "Take a number..."
-  clipboardOffered: false, // on time: she slid the check-in sheet over
+  checkInAsked: false,     // on time: she asked "Did you check in already?" (the check-in runaround)
+  clipboardOffered: false, // she slid the check-in sheet over (after "Did you sign the check-in sheet?")
   needsPen: false,         // tried to sign the check-in sheet without a pen
   hadCoffee: false,        // the receptionist has been for her coffee
   penRefusals: 0,          // times she has said "No." to lending a pen

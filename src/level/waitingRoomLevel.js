@@ -419,14 +419,41 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   }
   // Behind the desk or in the back room, she notices (not during the brawl)
   let trespassCooldown = 0, trespassCount = 0;
-  function checkTrespass(dt) {
-    trespassCooldown -= dt;
-    const p = camera.position;
-    const behind = (p.z < -3.75 && p.x < -0.95) || p.z < -5.1;
-    if (!behind || !calm() || trespassCooldown > 0 || onlookerTalk.active || director.active) return;
-    if (receptionist.walker?.active) return; // she's off getting coffee
+  let shoveCooldown = 0, lookTimer = 0;
+  function sayTrespass() {
+    if (trespassCooldown > 0 || onlookerTalk.active || director.active) return;
     trespassCooldown = 18;
     onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: trespassLines[Math.min(trespassCount++, trespassLines.length - 1)] }]);
+  }
+  function checkTrespass(dt) {
+    trespassCooldown -= dt;
+    shoveCooldown -= dt;
+    const p = camera.position;
+    const behind = (p.z < -3.75 && p.x < -0.95) || p.z < -5.1;
+    const away = receptionist.walker?.active; // off getting coffee
+    // She looks up while shoving; back to the game once he has backed off
+    if (lookTimer > 0 && (lookTimer -= dt) <= 0 && !director.active) receptionist.play('resumeSolitaire');
+    if (!behind || !calm() || away) return;
+    sayTrespass();
+    // Her space: nobody gets closer than R to her chair (until the brawl)
+    const R = config.npc.receptionistSpace;
+    const her = receptionist.rig.root.position;
+    const out = new THREE.Vector3(p.x - her.x, 0, p.z - her.z);
+    const d = out.length();
+    if (d >= R.radius) return;
+    if (d < 1e-3) out.set(1, 0, 0); else out.divideScalar(d);
+    if (player.seat) return;
+    // Hold him out: faster than he can walk in
+    const along = player.knockVel.dot(out);
+    if (along < R.holdSpeed) player.knockVel.addScaledVector(out, R.holdSpeed - along);
+    // ...with an audible shove on the way in
+    if (shoveCooldown <= 0) {
+      shoveCooldown = R.shoveEvery;
+      player.knock(out, R.shoveSpeed, R.shake);
+      sfx.hit('shove', camera.position);
+      if (!director.active) receptionist.play('lookAtPlayer');
+      lookTimer = R.lookFor;
+    }
   }
 
   // --- improvised weapons: anything can be one (owner's decision) ---

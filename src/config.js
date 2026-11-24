@@ -201,6 +201,7 @@ export const config = {
       beat2IgnoreBeforeLine: 3.5,   // beat 2: clicks continue this long before "Sshhh..."
       beat3PauseBeforeLine: 1.2,    // beat 3: pause before "Take a number..."
       sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
+      newGameWait: 10,         // "You gotta sign the check-in sheet.": she starts a new game; the player can't go on for this long
       clipboardSlide: 2.0,          // on time: she slides the check-in sheet over (whole motion)
       coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
       coffeeSip: 2.2,               // one sip of coffee
@@ -246,7 +247,10 @@ export const config = {
       stopFor: 6,            // seconds he stops when asked (halved each time after)
       faster: 1.3,           // ...and then he starts again this much faster
     },
-    askTime: { after: 4, every: 45, max: 3 }, // the man with the watch asks the time: seconds seated beside him, gap, times
+    askTime: { after: 4, every: 45, max: 3 },
+    // Behind the desk, before the brawl, she shoves the player away: nobody gets closer than `radius`
+    // metres to her chair. From the brawl on, everyone moves freely.
+    receptionistSpace: { radius: 1.25, holdSpeed: 2.8, shoveSpeed: 3.4, shake: 0.3, shoveEvery: 0.8, lookFor: 1.5 }, // the man with the watch asks the time: seconds seated beside him, gap, times
     exhale: { every: [10, 18], duration: 2.2 },
     shift: { every: [15, 26], duration: 1.2 },
     calledLookDelay: [0.2, 0.9],

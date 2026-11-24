@@ -32,7 +32,13 @@ const late = (state: GameState): boolean => clockMinute(state) > apptMinute + AP
 const clockReadsTwo = (state: GameState): boolean => clockMinute(state) === apptMinute;
 const onTime = (state: GameState): boolean => !beforeAppointment(state) && !late(state);
 
-// On time (2:00-2:02): the check-in sheet. She doesn't look up.
+// On time (2:00-2:02), first the check-in runaround: "Did you check in already?" (beats checkin_already,
+// checkin_how, checkin_how_again, checkin_can_i). Only at the end does she ask about the sheet.
+const askCheckedIn: Action[] = [
+  { do: 'say', who: 'receptionist', text: 'Did you check in already?' },
+  { do: 'set', key: 'checkInAsked', value: true },
+];
+// "Did you sign the check-in sheet?": she slides the clipboard over without looking up.
 const checkInSheet: Action[] = [
   { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
   { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
@@ -61,7 +67,7 @@ export const waitingRoomBeats: Scene = {
       { do: 'notice', text: "You don't have a pen." },
       {
         do: 'if',
-        test: (state) => !state.needsPen,
+        test: (state: GameState) => !state.needsPen,
         then: [
           { do: 'set', key: 'needsPen', value: true },
           { do: 'goto', beat: 'pen_request' }, // now the player can ask her for one
@@ -86,9 +92,7 @@ export const waitingRoomBeats: Scene = {
       onOpen: [{ do: 'setPhase', phase: 'reception' }],
       options: [
         { text: "I'm here for my appointment.", advance: true },
-        { text: 'Hello?', response: silence },
         { text: 'Excuse me.', response: silence },
-        { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
       onAdvance: [
@@ -106,12 +110,11 @@ export const waitingRoomBeats: Scene = {
         { text: "I'm here for my appointment.", advance: true },
         { text: "Excuse me. I'm here for my appointment?", response: flat('Mmhmm.') },
         { text: 'Hello?', response: silence },
-        { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
       onAdvance: [
         { do: 'wait', seconds: T.beat2IgnoreBeforeLine }, // clicks continue
-        { do: 'say', who: 'receptionist', text: "Sshhh, momma's gotta play her game." },
+        { do: 'say', who: 'receptionist', text: "Shhh, momma's gotta play her game." },
       ],
       next: 'reception_3',
       nextUnlockAfter: T.gate,
@@ -120,10 +123,9 @@ export const waitingRoomBeats: Scene = {
       id: 'reception_3',
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
-        { text: "I'm here for my appointment.", response: silence },
+        { text: "I'm here for my appointment.", response: flat("Oooo, look at them cards go, yeah baby!") },
         { text: 'I have an appointment at 2:00 PM.', advance: true },
         { text: "I'm here for my 2:00 PM appointment.", response: flat("Mamma's playin' her game.") },
-        { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
       onAdvance: [
@@ -142,7 +144,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         {
-          text: 'But I have an appointment at 2.',
+          text: 'I already have an appointment at 2.',
           goto: 'what_time',
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
@@ -150,7 +152,7 @@ export const waitingRoomBeats: Scene = {
           ],
         },
         // Letting it go isn't final: she can be asked again later (protest_again)
-        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
+        { text: 'Okay.', silent: true, goto: 'protest_again' },
       ],
       lockedOptions: [],
     },
@@ -180,8 +182,8 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           // Read off the wall clock at the moment the choices appear
-          text: (state) => `It's ${clockReading(state)}.`,
-          showIf: (state) => !clockReadsTwo(state), // at exactly 2:00, "It's 2:00." below is the true answer
+          text: (state: GameState) => `It's ${clockReading(state)}.`,
+          showIf: (state: GameState) => !clockReadsTwo(state), // at exactly 2:00, "It's 2:00." below is the true answer
           goto: 'appointment_time',
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
@@ -189,9 +191,9 @@ export const waitingRoomBeats: Scene = {
           ],
         },
         {
-          text: "It's 2:00.",
+          text: "It's 2 o'clock.",
           // Untrue: she isn't having it and the question stands. True (clock reads 2:00): accepted.
-          goto: (state) => (clockReadsTwo(state) ? 'appointment_time' : 'what_time'),
+          goto: (state: GameState) => (clockReadsTwo(state) ? 'appointment_time' : 'what_time'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -217,10 +219,9 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'My appointment is at 2:00.',
-          // On time she asks about the check-in sheet (checkin_sheet); otherwise the exchange is over
-          // On time: the check-in sheet. Early ("not 2:00 yet"): she can be asked again later.
+          // On time: "Did you check in already?" (checkin_already). Early ("not 2:00 yet"): she can be asked again later.
           // Late: the exchange is over.
-          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : late(state) ? null : 'protest_again'),
+          goto: (state: GameState) => (state.checkInAsked ? 'checkin_already' : late(state) ? null : 'protest_again'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -229,9 +230,8 @@ export const waitingRoomBeats: Scene = {
               then: [
                 { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
                 { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
-                { 
-                  do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
-                ],
+                { do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
+              ],
               else: [
                 {
                   do: 'if',
@@ -243,7 +243,7 @@ export const waitingRoomBeats: Scene = {
                     { do: 'wait', seconds: T.sideOptionPause },
                     { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },
                   ],
-                  else: checkInSheet, // on time (2:00-2:02)
+                  else: askCheckedIn, // on time (2:00-2:02)
                 },
               ],
             },
@@ -253,21 +253,98 @@ export const waitingRoomBeats: Scene = {
           text: 'My appointment is right now.',
           // Unless it really is 2:00-2:02, she has no appointment at whatever time it is,
           // and the question stands. (On time it's the check-in sheet, as above.)
-          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : 'appointment_time'),
+          goto: (state: GameState) => (state.checkInAsked ? 'checkin_already' : 'appointment_time'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
               do: 'if',
               test: onTime,
-              then: checkInSheet,
+              then: askCheckedIn,
               else: [
-                { do: 'say', who: 'receptionist', text: (state) => `We don't have any appointments scheduled for ${clockReading(state)}.` },
+                {
+                  do: 'say',
+                  who: 'receptionist',
+                  text: (state: GameState) => `We don't have any appointments scheduled for ${clockReading(state)}.`,
+                },
               ],
             },
           ],
         },
       ],
       lockedOptions: [],
+    },
+    // ---- The check-in runaround (owner's design). On time, she asked "Did you check in already?" ----
+    {
+      id: 'checkin_already',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true, // she just asked a question: answer right away
+      options: [
+        {
+          text: 'No.',
+          goto: 'checkin_how', // the box closes; press E again
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, { do: 'say', who: 'receptionist', text: 'You gotta check in first.' }],
+        },
+        {
+          text: "That's what I'm trying to do right now.",
+          goto: 'checkin_how',
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, { do: 'say', who: 'receptionist', text: 'You gotta check in first.' }],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // Not autoOpen: the player has to walk up and press E again
+      id: 'checkin_how',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'How do I check in?',
+          goto: 'checkin_how_again',
+          actions: [{ do: 'wait', seconds: T.beat2IgnoreBeforeLine }, { do: 'say', who: 'receptionist', text: 'Ooo, look at them cards fly, hoo hoo!' }],
+        },
+        {
+          text: 'Can you check me in, please?',
+          goto: 'checkin_how_again',
+          actions: [{ do: 'wait', seconds: T.beat2IgnoreBeforeLine }, { do: 'say', who: 'receptionist', text: 'Ooo, look at them cards fly, hoo hoo!' }],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // She ignored that; the same two questions come straight back
+      id: 'checkin_how_again',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'How do I check in?',
+          goto: 'checkin_can_i',
+          unlockAfter: T.newGameWait, // she starts a new game: nothing for about 10 s
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, { do: 'say', who: 'receptionist', text: 'You gotta sign the check-in sheet.' }],
+        },
+        {
+          text: 'Can you check me in, please?',
+          goto: 'checkin_can_i',
+          unlockAfter: T.newGameWait,
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, { do: 'say', who: 'receptionist', text: 'You gotta sign the check-in sheet.' }],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // Locked for config.timings.reception.newGameWait; pressing E before then gets brushed off
+      id: 'checkin_can_i',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Can I check in for my appointment, please?',
+          goto: 'checkin_sheet',
+          // Only the question: she doesn't hand the sheet over yet
+          actions: [{ do: 'wait', seconds: T.beat3PauseBeforeLine }, { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' }],
+        },
+      ],
+      lockedOptions: [],
+      lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Hold up, momma gotta start a new game...' }],
     },
     {
       id: 'checkin_sheet',
@@ -276,18 +353,61 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'No.',
-          actions: [],
-          response: [
-            { do: 'say', who: 'receptionist', text: "Everybody gotta sign the check-in sheet. Did you sign it?" },
+          goto: 'checkin_okay',
+          actions: [
+            { do: 'wait', seconds: T.sideOptionPause },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: 0.6 }, // she turns and looks at him
+            { do: 'say', who: 'receptionist', text: "You can't go to your appointment until you check in." },
           ],
         },
-        { text: "I'm trying to check in now", advance: true, response: [
-          { do: 'say', who: 'receptionist', text: "You gotta sign the check-in sheet." }
-        ] },
       ],
       lockedOptions: [],
-      onAdvance: [],
-      nextUnlockAfter: 0,
+    },
+    {
+      id: 'checkin_okay',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'Okay, so can I check in now?',
+          goto: 'checkin_please', // the box closes; press E again
+          actions: [
+            { do: 'wait', seconds: T.sideOptionPause },
+            { do: 'say', who: 'receptionist', text: 'Gotta sign the sheet.' },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' }, // back to her game
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // Not autoOpen: the player has to walk up and press E again
+      id: 'checkin_please',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Please, can you just sign me in?',
+          goto: 'checkin_offered',
+          actions: [{ do: 'wait', seconds: T.beat3PauseBeforeLine }, ...checkInSheet], // "Did you sign the check-in sheet?" + the clipboard
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // The clipboard is on the counter now (sign it: sequences.signSheet -> the pen)
+      id: 'checkin_offered',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'No.',
+          actions: [],
+          response: [
+            { do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet. Did you sign it?' },
+          ],
+        },
+      ],
+      lockedOptions: [],
     },
 
     // ---- No pen. (Signing the sheet sends the exchange here; see sequences.signSheet.) ----
@@ -316,14 +436,14 @@ export const waitingRoomBeats: Scene = {
         {
           text: 'Do you have a pen I can borrow?',
           // The second "No." is followed by calling the next number: the exchange is over
-          goto: (state) => (state.penRefusals >= 2 ? null : 'how_check_in'),
+          goto: (state: GameState) => (state.penRefusals >= 2 ? null : 'how_check_in'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             { do: 'say', who: 'receptionist', text: 'No.' },
             { do: 'set', key: 'penRefusals', value: (state: GameState) => state.penRefusals + 1 },
             {
               do: 'if',
-              test: (state) => state.penRefusals === 2,
+              test: (state: GameState) => state.penRefusals === 2,
               then: [
                 { do: 'wait', seconds: T.sideOptionPause },
                 {
@@ -359,24 +479,40 @@ export const waitingRoomBeats: Scene = {
       id: 'online_time',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: ['2:00.', "It's supposed to be right now."].map((text) => ({
-        text,
-        // Back to asking for a pen: the loop can go round again
-        goto: 'pen_borrow',
-        actions: [
-          // The clock, the computer, a sip of coffee. Then the verdict.
-          { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
-          { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
-          { do: 'wait', seconds: 0.8 },
-          { do: 'anim', who: 'receptionist', name: 'sipCoffee', duration: T.coffeeSip },
-          { do: 'wait', seconds: 0.4 },
-          {
-            do: 'say',
-            who: 'receptionist',
-            text: "You're late for your appointment so the system won't let you sign in online, you're gonna have to fill in the check-in sheet.",
-          },
-        ] as Action[],
-      })),
+      options: [
+        {
+          text: '2:00.',
+          goto: 'pen_borrow',
+          actions: [
+            { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+            { do: 'wait', seconds: 0.8 },
+            { do: 'anim', who: 'receptionist', name: 'sipCoffee', duration: T.coffeeSip },
+            { do: 'wait', seconds: 0.4 },
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: "You're late for your appointment so the system won't let you sign in online, you're gonna have to fill in the check-in sheet.",
+            },
+          ],
+        },
+        {
+          text: "It's supposed to be right now.",
+          goto: 'pen_borrow',
+          actions: [
+            { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+            { do: 'wait', seconds: 0.8 },
+            { do: 'anim', who: 'receptionist', name: 'sipCoffee', duration: T.coffeeSip },
+            { do: 'wait', seconds: 0.4 },
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: "You're late for your appointment so the system won't let you sign in online, you're gonna have to fill in the check-in sheet.",
+            },
+          ],
+        },
+      ],
       lockedOptions: [],
     },
   ],

@@ -71,6 +71,8 @@ export interface Beat {
   options: Option[];
   /** Offered while the beat is still gated ([] = nothing appears). */
   lockedOptions?: Option[];
+  /** Pressing E while the beat is still gated, with no lockedOptions: these run instead (e.g. she brushes you off). */
+  lockedResponse?: Action[];
   onAdvance?: Action[];
   next?: string | null;
   nextUnlockAfter?: Seconds;

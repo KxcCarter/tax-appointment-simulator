@@ -1020,11 +1020,11 @@ function refreshHelpers() {
 
 /* ================= Writing the file back ================= */
 const ORDER = {
-  beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'onAdvance', 'next', 'nextUnlockAfter'],
-  option: ['text', 'silent', 'showIf', 'advance', 'goto', 'actions', 'response'],
+  beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'lockedResponse', 'onAdvance', 'next', 'nextUnlockAfter'],
+  option: ['text', 'silent', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
   action: ['do'],
 };
-const CHILD = { beats: 'beat', options: 'option', lockedOptions: 'option', onOpen: 'action', onAdvance: 'action', actions: 'action', response: 'action', then: 'action', else: 'action' };
+const CHILD = { beats: 'beat', options: 'option', lockedOptions: 'option', lockedResponse: 'action', onOpen: 'action', onAdvance: 'action', actions: 'action', response: 'action', then: 'action', else: 'action' };
 function q(s) {
   if (s.includes("'") && !s.includes('"')) return JSON.stringify(s);
   return "'" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + "'";
@@ -1317,7 +1317,7 @@ function beatForm(i) {
   </div>
   ${sec('When this beat opens', 'runs before the choices appear', actionList(p + '.onOpen', b.onOpen))}
   ${sec('Player options', 'near-identical lines are part of the joke', optionList(p + '.options', b.options))}
-  ${sec('While locked', 'what the player can say while the gate is running; empty means nothing appears', optionList(p + '.lockedOptions', b.lockedOptions))}
+  ${sec('While locked', 'what the player can say while the gate is running; empty means nothing appears', optionList(p + '.lockedOptions', b.lockedOptions) + `<div class="sub"><div class="lbl">If there's nothing to say: pressing E runs this instead (e.g. she brushes you off)</div>${actionList(p + '.lockedResponse', b.lockedResponse)}</div>`)}
   ${sec('When the story advances', 'runs after an “advance” option', actionList(p + '.onAdvance', b.onAdvance) + `<div class="row3"><label class="field"><span>Next beat</span>${nextHtml}</label><label class="field"><span>Next beat unlocks after (seconds)</span>${numx(p + '.nextUnlockAfter', b.nextUnlockAfter, 'e.g. T.gate or 12')}</label></div>`)}
   ${otherFields(p, b, ORDER.beat)}`;
 }
@@ -1713,6 +1713,8 @@ function ptTalk(target) {
   if (me.game < me.gateAt) {
     const lo = arr(b.lockedOptions);
     if (lo.length) return ptShow(b, lo);
+    const lr = arr(b.lockedResponse);
+    if (lr.length) { me.busy = true; ptRender(); ptRun(lr, me).catch(e => ptLine('err', e.message)).finally(() => { if (!me.dead) { me.busy = false; ptRender(); } }); return; }
     ptLine('sys', `(No options yet. Unlocks in ${Math.ceil(me.gateAt - me.game)} s.)`); return;
   }
   ptOpen(b);
