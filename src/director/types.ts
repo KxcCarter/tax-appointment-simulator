@@ -35,10 +35,11 @@ export type SoundName =
     vary 'order' (default): in the order written; once all have been said, a random one each time
                             (never the same twice in a row)
     vary 'random': random from the start (never the same twice in a row)
+    vary 'any':    truly random, every time (the same line can come up twice in a row)
     vary 'cycle':  round and round, in order
 */
 export type Action =
-  | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'cycle' }
+  | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'any' | 'cycle' }
   | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number; untilDone?: boolean }
   | { do: 'notice'; text: string; seconds?: number }
   | { do: 'wait'; seconds: Seconds }

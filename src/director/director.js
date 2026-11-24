@@ -206,13 +206,14 @@ export class Director {
     if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing && !this.pendingSequence) this.openChoices(next);
   }
 
-  /** Which of a `say` action's variations to say this time (a.vary: 'order' | 'random' | 'cycle'). */
+  /** Which of a `say` action's variations to say this time (a.vary: 'order' | 'random' | 'any' | 'cycle'). */
   variant(a) {
     const lines = a.text, n = lines.length;
     const v = this.variants.get(a) ?? { said: 0, last: -1 };
     this.variants.set(a, v);
     let k;
-    if (a.vary === 'cycle') k = v.said % n;
+    if (a.vary === 'any') k = Math.floor(Math.random() * n); // truly random: repeats allowed
+    else if (a.vary === 'cycle') k = v.said % n;
     else if (a.vary !== 'random' && v.said < n) k = v.said;
     else { do k = Math.floor(Math.random() * n); while (n > 1 && k === v.last); }
     v.said++;

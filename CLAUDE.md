@@ -47,7 +47,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 
 - Each beat also offers 1–2 other options (e.g. "Hello?", "Excuse me.", "(Say nothing)"). These get flat or no responses and don't advance the story. *(proposal: options that are nearly identical to each other are part of the joke.)*
 - **Said lines go away (owner's decision):** within a beat, a line the player picks that doesn't move the story on (a flat reply, silence, or a jump back to the same beat such as "It's 2:00." → "No it's not.") is not offered again on that visit. Exception: a beat where no option moves the story on is waiting for the player to do something in the world (e.g. sign the clipboard), so its options stay. An option can opt out with `repeatable: true` ("stays" in the Scene Desk). Coming back to a beat later offers everything again.
-- **Variations (owner's request):** any line can have several versions (`text: ['...', '...']` on a `say`; "+ variations" in the Scene Desk). Each time it runs one of them is said: in the order written, then at random once all have been used (`vary: 'random'` or `'cycle'` to change that). Useful for loops like `checkin_offered`.
+- **Variations (owner's request):** any line can have several versions (`text: ['...', '...']` on a `say`; "+ variations" in the Scene Desk). Each time it runs one of them is said: in the order written, then at random once all have been used (`vary: 'random'` = random, never twice in a row; `'any'` = truly random, repeats allowed; `'cycle'` = in order, round and round). Useful for loops like `checkin_offered`.
 - Timings must be in a config file so they're easy to tune.
 
 ### 2.3 Taking a number and waiting

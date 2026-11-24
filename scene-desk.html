@@ -1246,7 +1246,7 @@ function actionRow(p, a) {
   let f = '', below = '';
   if (t === 'say' && Array.isArray(a.text)) {
     // Variations: one of the lines is said each time
-    const vary = [['', 'in order, then at random'], ['random', 'at random'], ['cycle', 'round and round']];
+    const vary = [['', 'in order, then at random'], ['random', 'at random, no repeats'], ['any', 'at random (repeats allowed)'], ['cycle', 'round and round']];
     f = whoSel(p, a.who) + fld('says one of these,', `<select class="in" data-p="${p}.vary" data-k="strOpt">${vary.map(([v, l]) => `<option value="${v}"${(a.vary ?? '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`);
     below += `<div class="branch"><div class="blabel">variations</div>${a.text.map((x, k) => `<div class="lrow"><span class="f grow">${textField(`${p}.text.${k}`, x, 'line')}</span>${tools(`${p}.text.${k}`)}</div>`).join('')}<button class="chip" data-a="add-variation" data-p="${p}.text">+ variation</button></div>`;
   } else if (t === 'say') f = whoSel(p, a.who) + `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span><button class="btn tiny" data-a="make-variations" data-p="${p}.text">+ variations</button>`;
@@ -1694,7 +1694,8 @@ function ptVariant(me, a) {
   const v = me.variants.get(a) ?? { said: 0, last: -1 };
   me.variants.set(a, v);
   let k;
-  if (a.vary === 'cycle') k = v.said % n;
+  if (a.vary === 'any') k = Math.floor(Math.random() * n);
+  else if (a.vary === 'cycle') k = v.said % n;
   else if (a.vary !== 'random' && v.said < n) k = v.said;
   else { do k = Math.floor(Math.random() * n); while (n > 1 && k === v.last); }
   v.said++; v.last = k;
@@ -2217,7 +2218,7 @@ function tipFor(el) {
     beat: 'The beat to jump to; none means the exchange is over.',
     goto: 'The beat this option leads to.',
     expression: 'The facial expression to switch to.',
-    vary: 'Which variation is said: in the order written (then at random once all are used), at random, or round and round.',
+    vary: 'Which variation is said: in the order written (then at random once all are used); at random but never the same twice in a row; truly at random (the same line can come up again); or round and round in order.',
     name: el.tagName === 'SELECT' ? 'Which sound to play.' : 'Which animation to play.',
     key: 'Which value in the game state to change.',
     event: "The event's name; the game's code listens for it.",
