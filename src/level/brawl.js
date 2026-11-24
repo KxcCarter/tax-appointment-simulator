@@ -175,6 +175,14 @@ export class Brawl {
       }
     }
 
+    // ...and inside the room (knockback can shove them towards a wall)
+    const bd = B().bounds;
+    for (const n of standing) {
+      const p = n.walker.pos;
+      p.x = THREE.MathUtils.clamp(p.x, bd.minX - 0.3, bd.maxX + 0.3);
+      p.z = THREE.MathUtils.clamp(p.z, bd.minZ - 0.6, bd.maxZ + 0.4);
+    }
+
     // Shouting from the sidelines
     this.nextShout -= dt;
     if (this.nextShout <= 0) {

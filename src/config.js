@@ -59,6 +59,10 @@ export const config = {
     // Kick (right click or F): slower, longer reach, harder
     kick: { reach: 1.55, time: 0.55, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
     hitStop: 0.06,           // seconds the game freezes when a blow lands (game feel)
+    npcKnockback: 0.22,      // metres someone staggers back from a blow (x the blow's knock)
+    heavyStun: 0.7,          // seconds stunned by a heavy blow (knock >= 1.5); light ones 0.35
+    // Punch combo: punches thrown within `window` s of the last chain; every `every`-th is a harder hook
+    combo: { window: 0.5, every: 3, damage: 1.6, knock: 1.7 },
     flashTime: 0.07,         // seconds someone flashes white when hit
     knockbackDecay: 6,       // how quickly being shoved wears off
     shakeDecay: 5,

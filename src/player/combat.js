@@ -91,7 +91,12 @@ export class Combat {
       if (this.held) {
         this.swing = { t: 0, hitDone: false };
       } else {
-        this.punch = { t: 0, side: this.nextSide, hitDone: false };
+        // Chain: quick punches build a combo; every few, a harder hook
+        const now = performance.now() / 1000;
+        this.combo = now - (this.lastPunch ?? -9) < C().combo.window ? (this.combo ?? 0) + 1 : 1;
+        this.lastPunch = now;
+        const hook = this.combo % C().combo.every === 0;
+        this.punch = { t: 0, side: this.nextSide, hitDone: false, hook };
         this.nextSide = -this.nextSide;
       }
     });
@@ -175,7 +180,10 @@ export class Combat {
       jab[p.side] = Math.sin(Math.min(1, u) * Math.PI);
       if (!p.hitDone && u >= C().punchHitAt) {
         p.hitDone = true;
-        this._resolveHit({ reach: C().punchReach, damage: C().punchDamage, knock: 1, sound: 'punch' });
+        const K = C().combo;
+        this._resolveHit(p.hook
+          ? { reach: C().punchReach, damage: C().punchDamage * K.damage, knock: K.knock, sound: 'kick' }
+          : { reach: C().punchReach, damage: C().punchDamage, knock: 1, sound: 'punch' });
       }
       if (u >= 1) { this.punch = null; this.cooldown = C().punchCooldown; }
     }
@@ -187,7 +195,8 @@ export class Combat {
       g.visible = this.raise > 0.02 && !this.held;
       const j = jab[side];
       const drop = (1 - this.raise) * 0.35;
-      g.position.set(-side * (0.19 - 0.15 * j), -0.22 - drop + 0.1 * j, -0.4 - 0.3 * j);
+      const hookArc = this.punch?.hook && this.punch.side === side ? Math.sin(j * Math.PI) * 0.12 : 0;
+      g.position.set(-side * (0.19 - 0.15 * j + hookArc), -0.22 - drop + 0.1 * j, -0.4 - 0.3 * j);
       g.rotation.set(0.15 - 0.1 * j, side * 0.15 * (1 - j), 0);
     }
 

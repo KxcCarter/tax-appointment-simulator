@@ -601,8 +601,14 @@ export class Npc {
   takeHit(dir, { damage = config.combat.punchDamage, knock = 1 } = {}) {
     if (this.down) return;
     this.health = (this.health ?? config.brawl.health) - damage;
-    this.walker.stun = 0.35;
+    const heavy = knock >= 1.5;
+    this.walker.stun = heavy ? config.combat.heavyStun : 0.35;
     this.flinch = 0.35;
+    // Stagger back along the blow (standing only)
+    if (this.walker.active && this.walker.pos) {
+      const d = dir.clone().setY(0);
+      if (d.lengthSq() > 1e-6) this.walker.pos.addScaledVector(d.normalize(), config.combat.npcKnockback * knock);
+    }
     this.flash();
     if (this.health <= 0) { this._knockDown(dir, knock); this.onKnockedDown?.(this); }
   }
