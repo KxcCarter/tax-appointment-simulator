@@ -177,3 +177,5 @@ html, body {
   background: var(--fade); color: var(--phosphor); gap: 18px; text-align: center; }
 #endcard .title { font-size: 2rem; }
 #endcard .stats { color: var(--phosphor-dim); white-space: pre; font-size: 0.9rem; line-height: 1.6; }
+#fighthelp { position: absolute; right: 18px; bottom: 92px; white-space: pre; color: var(--phosphor-dim); background: var(--hud-bg);
+  padding: 6px 10px; font-size: 0.78rem; line-height: 1.5; opacity: 0.85; }

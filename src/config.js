@@ -57,8 +57,13 @@ export const config = {
     punchCooldown: 0.12,
     punchDamage: 25,         // people have config.brawl.health
     // Kick (right click or F): slower, longer reach, harder
-    kick: { reach: 1.55, time: 0.55, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
+    kick: { reach: 1.55, time: 0.44, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
     hitStop: 0.06,           // seconds the game freezes when a blow lands (game feel)
+    moveSpeedMul: 1.9,       // walking is this much faster while there's a fight on
+    swingTimeMul: 0.8,       // every weapon swing takes this share of its swingTime (snappier)
+    // Block: hold the right mouse button. Blows from the front do `damage` x their damage and knock you
+    // back less; the attacker staggers. Blows from the side or behind (beyond `arc`) get through.
+    block: { damage: 0.15, knock: 0.3, shake: 0.4, arc: 0.25, attackerStun: 0.45, raiseSpeed: 14 },
     npcKnockback: 0.22,      // metres someone staggers back from a blow (x the blow's knock)
     heavyStun: 0.7,          // seconds stunned by a heavy blow (knock >= 1.5); light ones 0.35
     // Punch combo: punches thrown within `window` s of the last chain; every `every`-th is a harder hook
@@ -110,7 +115,8 @@ export const config = {
 
   // ---- Improvised weapons (owner: anything can be a weapon). [E] picks up, left click swings, Q throws ----
   // damage: out of config.brawl.health. reach: metres from the eye. swingTime: seconds for the whole swing.
-  // knock: how hard a knockdown throws them (x config.ragdoll.hitImpulse). style: 'swing' (arc) or 'thrust' (jab).
+  // knock: how hard a knockdown throws them (x config.ragdoll.hitImpulse). style: 'swing' (horizontal arc),
+  // 'overhead' (raised and smashed down, for heavy things) or 'thrust' (a jab).
   // Held pose (camera space: x right, y up, -z forward): `grip` is the point in the object's own space that
   // goes in the hand at `at`; the object's `axis` (from the grip towards the business end) points along `out`.
   weapons: {
@@ -122,31 +128,31 @@ export const config = {
     floorFlop: 2.2,            // impulse (m/s) when you hit someone who's already down (no damage; physics)
     defaults: { damage: 30, reach: 1.4, swingTime: 0.6, knock: 1.2, sound: 'kick', style: 'swing',
       at: [0.26, -0.3, -0.55], out: [0, 1, 0], axis: [0, 1, 0] },
-    chair:        { label: 'chair', damage: 60, reach: 1.9, swingTime: 0.95, knock: 1.8, sound: 'chair', style: 'thrust',
+    chair:        { label: 'chair', damage: 60, reach: 1.9, swingTime: 0.95, knock: 1.8, sound: 'chair', style: 'overhead',
       grip: [0, 1.0, -0.22], axis: [0, -1, 0], out: [0, 0.08, -1], at: [0, -0.4, -0.3] }, // legs first, lion-tamer style
     magazine:     { label: 'magazine', damage: 6, reach: 1.3, swingTime: 0.3, knock: 0.6, sound: 'slap',
       breaksAfter: 4, breakLine: 'The magazine comes apart.',
       grip: [0, 0, 0.12], axis: [0, 0, -1], out: [-0.2, 0.7, -0.6], at: [0.25, -0.28, -0.45] },
-    radio:        { label: 'radio', damage: 45, reach: 1.3, swingTime: 0.7, knock: 1.4, sound: 'radioHit',
+    radio:        { label: 'radio', damage: 45, reach: 1.3, swingTime: 0.7, knock: 1.4, style: 'overhead', sound: 'radioHit',
       grip: [0, 0.18, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.24, -0.2, -0.5] },
-    briefcase:    { label: 'briefcase', damage: 40, reach: 1.4, swingTime: 0.7, knock: 1.5, sound: 'kick',
+    briefcase:    { label: 'briefcase', damage: 40, reach: 1.4, swingTime: 0.7, knock: 1.5, style: 'overhead', sound: 'kick',
       grip: [0, 0.18, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.28, -0.18, -0.5] },
-    umbrella:     { label: 'umbrella', damage: 20, reach: 2.0, swingTime: 0.45, knock: 0.9, sound: 'umbrella', style: 'thrust',
+    umbrella:     { label: 'umbrella', damage: 20, reach: 2.0, swingTime: 0.45, knock: 0.9, sound: 'umbrella', style: 'swing',
       grip: [0.05, 0.45, 0], axis: [0, -1, 0], out: [-0.1, 0.12, -1], at: [0.26, -0.3, -0.4] },
     keyboard:     { label: 'keyboard', damage: 30, reach: 1.5, swingTime: 0.5, knock: 1.2, sound: 'keyboard',
       grip: [0.21, 0, 0], axis: [-1, 0, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
     clipboard:    { label: 'clipboard', damage: 20, reach: 1.4, swingTime: 0.4, knock: 1.0, sound: 'clipboard',
       breaksAfter: 6, breakLine: 'The check-in sheet tears free. Nobody will sign it now.',
       grip: [0, 0, -0.14], axis: [0, 0, 1], out: [-0.2, 0.75, -0.6], at: [0.26, -0.3, -0.45] },
-    plant:        { label: 'potted plant', damage: 50, reach: 1.4, swingTime: 0.9, knock: 1.6, sound: 'kick',
+    plant:        { label: 'potted plant', damage: 50, reach: 1.4, swingTime: 0.9, knock: 1.6, style: 'overhead', sound: 'kick',
       grip: [0, 0, 0], axis: [0, 1, 0], out: [-0.3, 0.6, -0.75], at: [0.25, -0.45, -0.5] },
-    coolerBottle: { label: 'water bottle', damage: 40, reach: 1.3, swingTime: 0.8, knock: 1.4, sound: 'kick',
+    coolerBottle: { label: 'water bottle', damage: 40, reach: 1.3, swingTime: 0.8, knock: 1.4, style: 'overhead', sound: 'kick',
       grip: [0, 0, 0], axis: [0, 1, 0], out: [0, 1, 0], at: [0.22, -0.3, -0.6] },
     bat:          { label: 'baseball bat', damage: 55, reach: 1.8, swingTime: 0.55, knock: 2.0, sound: 'bat',
       grip: [0, 0.05, 0], axis: [0, 1, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.32, -0.42] },
-    mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'thrust',
+    mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'swing',
       grip: [0, -0.1, 0], axis: [0, -1, 0], out: [-0.1, 0.1, -1], at: [0.26, -0.3, -0.35] },
-    extinguisher: { label: 'fire extinguisher', damage: 65, reach: 1.3, swingTime: 0.9, knock: 1.8, sound: 'chair',
+    extinguisher: { label: 'fire extinguisher', damage: 65, reach: 1.3, swingTime: 0.9, knock: 1.8, style: 'overhead', sound: 'chair',
       grip: [0, 0.02, 0], axis: [0, -1, 0], out: [0, -0.3, -1], at: [0.25, -0.25, -0.4] },
   },
 

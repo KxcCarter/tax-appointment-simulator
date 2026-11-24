@@ -75,19 +75,23 @@ export class Combat {
     camera.add(this.leg);
     this.kick = null;      // { t, hitDone }
 
-    // Right click (or F) kicks
+    // F kicks; holding the right mouse button blocks (arms, or the weapon, raised in front)
     document.addEventListener('contextmenu', (e) => { if (this.enabled) e.preventDefault(); });
     const tryKick = () => {
-      if (!this.enabled || !this.player.canAct || this.player.seat) return;
+      if (!this.enabled || !this.player.canAct || this.player.seat || this.blocking) return;
       if (this.kick || this.swing || this.punch || this.cooldown > 0) return;
       this.kick = { t: 0, hitDone: false };
     };
-    document.addEventListener('mousedown', (e) => { if (e.button === 2) tryKick(); });
     document.addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat) tryKick(); });
+    this.blocking = false;
+    this.block = 0; // 0..1, how far the guard is up
+    document.addEventListener('mousedown', (e) => { if (e.button === 2) this.blocking = true; });
+    document.addEventListener('mouseup', (e) => { if (e.button === 2) this.blocking = false; });
+    window.addEventListener('blur', () => { this.blocking = false; });
 
     document.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !this.enabled || !this.player.canAct || this.player.seat) return;
-      if (this.punch || this.swing || this.kick || this.cooldown > 0) return;
+      if (this.punch || this.swing || this.kick || this.cooldown > 0 || this.block > 0.3) return;
       if (this.held) {
         this.swing = { t: 0, hitDone: false };
       } else {
@@ -171,6 +175,8 @@ export class Combat {
     this.raise += ((this.enabled && !this.player.seat ? 1 : 0) - this.raise) * (1 - Math.exp(-6 * dt));
     this.cooldown = Math.max(0, this.cooldown - dt);
     if (!this.enabled && this.held) this.drop(false);
+    const wantBlock = this.blocking && this.enabled && !this.player.seat && !this.punch && !this.swing && !this.kick;
+    this.block += ((wantBlock ? 1 : 0) - this.block) * (1 - Math.exp(-C().block.raiseSpeed * dt));
 
     const jab = { 1: 0, [-1]: 0 };
     if (this.punch) {
@@ -198,6 +204,13 @@ export class Combat {
       const hookArc = this.punch?.hook && this.punch.side === side ? Math.sin(j * Math.PI) * 0.12 : 0;
       g.position.set(-side * (0.19 - 0.15 * j + hookArc), -0.22 - drop + 0.1 * j, -0.4 - 0.3 * j);
       g.rotation.set(0.15 - 0.1 * j, side * 0.15 * (1 - j), 0);
+      // Block: both fists come up in front of the face
+      const b = this.block;
+      if (b > 0) {
+        g.position.lerp(new THREE.Vector3(-side * 0.09, -0.06, -0.3), b);
+        g.rotation.x += 0.9 * b;
+        g.rotation.z += side * 0.35 * b;
+      }
     }
 
     if (this.held) this._updateHeld(dt);
@@ -223,27 +236,52 @@ export class Combat {
     if (u >= 1) { this.kick = null; this.cooldown = K.cooldown; }
   }
 
-  /** Swing animation for the held weapon: wind up, strike through the crosshair, recover. */
+  /**
+   * Weapon animation. 'swing': a wide horizontal arc, wound up to the right, through the crosshair,
+   * following through to the left. 'overhead': raised high, smashed down. Blocking holds the
+   * weapon up across the view.
+   */
   _updateHeld(dt) {
     const h = this.held, def = h.def, o = h.object;
     const rot = new THREE.Quaternion();
-    let push = 0;
+    const shift = new THREE.Vector3();
     if (this.swing) {
       const s = this.swing;
       s.t += dt;
-      const u = s.t / def.swingTime;
+      const u = s.t / (def.swingTime * C().swingTimeMul);
       const ease = (x) => x * x * (3 - 2 * x);
-      // Profile: 0 -> wind up (-1) -> strike through (+1.2) -> back to 0
-      const k = u < 0.35 ? -ease(u / 0.35) : u < 0.55 ? -1 + 2.2 * ease((u - 0.35) / 0.2) : 1.2 * (1 - ease((u - 0.55) / 0.45));
-      if (def.style === 'thrust') push = k;
-      else rot.setFromEuler(new THREE.Euler(-0.9 * k, 0.5 * k, 0.6 * k));
-      if (!s.hitDone && u >= 0.5) { s.hitDone = true; this._resolveHit(def); }
-      if (u >= 1) { this.swing = null; this.cooldown = 0.08; }
+      // k: 0 -> -1 (wind up) -> +1 (follow through) -> 0
+      const k = u < 0.3 ? -ease(u / 0.3) : u < 0.62 ? -1 + 2 * ease((u - 0.3) / 0.32) : 1 - ease((u - 0.62) / 0.38);
+      if (def.style === 'overhead') {
+        // Raised high, then brought down (kept in view)
+        const kk = k < 0 ? k : k * 0.55;
+        rot.setFromEuler(new THREE.Euler(-1.1 * kk, 0.15 * kk, 0));
+        shift.set(-0.08 * Math.abs(kk), -0.12 * kk, -0.12 * Math.max(0, kk));
+      } else if (def.style === 'thrust') {
+        shift.copy(v3(def.out).normalize()).multiplyScalar(0.4 * k);
+      } else {
+        // Keyframes: rest -> wound up over the right shoulder -> flat across the crosshair (the hit)
+        // -> followed through to the left -> rest
+        const keys = SWING_KEYS;
+        const at = u < 0.3 ? [keys.rest, keys.wind, ease(u / 0.3)]
+          : u < 0.46 ? [keys.wind, keys.hit, ease((u - 0.3) / 0.16)]
+          : u < 0.62 ? [keys.hit, keys.follow, ease((u - 0.46) / 0.16)]
+          : [keys.follow, keys.rest, ease((u - 0.62) / 0.38)];
+        rot.copy(at[0].q).slerp(at[1].q, at[2]);
+        shift.copy(at[0].p).lerp(at[1].p, at[2]);
+      }
+      if (!s.hitDone && u >= 0.46) { s.hitDone = true; this._resolveHit(def); }
+      if (u >= 1) { this.swing = null; this.cooldown = 0.06; }
     }
-    // Rotate about the hand, or jab along the weapon's direction
+    // Block: the weapon comes up across the view
+    if (this.block > 0) {
+      const bq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5 * this.block, -0.9 * this.block, 1.1 * this.block));
+      rot.slerp(bq, this.block);
+      shift.lerp(new THREE.Vector3(-0.2, 0.15, 0.05), this.block);
+    }
+    // Rotate about the hand
     const at = v3(def.at);
-    o.position.copy(h.basePos).sub(at).applyQuaternion(rot).add(at)
-      .addScaledVector(v3(def.out).normalize(), 0.35 * push);
+    o.position.copy(h.basePos).sub(at).applyQuaternion(rot).add(at).add(shift);
     o.quaternion.copy(rot).multiply(h.baseQuat);
   }
 
@@ -317,6 +355,15 @@ export class Combat {
     this.onHit(target);
   }
 }
+
+// Horizontal swing keyframes (camera space): rotation about the hand, and a shift of the hand
+const key = (x, y, z, px, py, pz) => ({ q: new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z)), p: new THREE.Vector3(px, py, pz) });
+const SWING_KEYS = {
+  rest: key(0, 0, 0, 0, 0, 0),
+  wind: key(-0.1, -0.7, -0.6, 0.16, 0.04, 0.04),
+  hit: key(-0.2, 0.1, 1.35, -0.06, 0.27, -0.16),
+  follow: key(-0.6, 1.0, 1.1, -0.32, 0.0, -0.04),
+};
 
 /** The object's bounding box in its own space. */
 function localBox(o) {

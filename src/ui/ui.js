@@ -7,7 +7,8 @@ const CONTROLS = [
   'E ............ interact',
   'R ............ pick up (when there is a fight on)',
   'LEFT CLICK ... punch / swing',
-  'RIGHT CLICK, F  kick',
+  'F ............ kick',
+  'RIGHT CLICK .. block (hold)',
   'Q ............ throw what you hold',
   'ESC .......... pause',
 ].join('\n');
@@ -26,6 +27,7 @@ export class UI {
       <div id="health" class="hidden"><div id="health-fill"></div></div>
       <div id="knockdowns" class="hidden"></div>
       <div id="held" class="hidden"></div>
+      <div id="fighthelp" class="hidden"></div>
       <div id="damage"></div>
       <div id="fade"></div>
       <div id="endcard" class="hidden"></div>
@@ -199,6 +201,14 @@ export class UI {
     const el = this.$('held');
     el.classList.toggle('hidden', !name);
     if (name) el.textContent = name;
+  }
+
+  /** The fight options panel (lines), or null to hide it. */
+  setFightHelp(lines) {
+    const el = this.$('fighthelp');
+    const text = lines ? lines.join('\n') : '';
+    el.classList.toggle('hidden', !lines);
+    if (el.textContent !== text) el.textContent = text;
   }
 
   /** A red flash at the edges of the screen (strength 0..1). */

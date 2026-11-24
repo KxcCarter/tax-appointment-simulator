@@ -382,6 +382,10 @@ export class Sfx {
     } else if (kind === 'kick') {
       this._noise(t, 0.12, out, 'lowpass', 500, 1, 1, 0.002);
       this._tone(t, 0.16, out, 'sine', 80, 1, 0.002, 40);
+    } else if (kind === 'block') {
+      // a blow caught on the forearms: dull and short
+      this._noise(t, 0.06, out, 'lowpass', 450, 1, 0.8, 0.002);
+      this._tone(t, 0.07, out, 'sine', 70, 0.6, 0.002, 50);
     } else if (kind === 'bat') {
       // wooden CRACK
       this._noise(t, 0.05, out, 'highpass', 2200, 0.7, 1, 0.0005);

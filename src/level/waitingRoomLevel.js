@@ -234,6 +234,17 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (d <= config.npc.attacks.reach) {
       if (player.seat) standHandler.onInteract(); // knocked out of the chair
       const dir = new THREE.Vector3(camera.position.x - at.x, 0, camera.position.z - at.z);
+      // Blocking (right mouse, held): blows from the front mostly stop on the raised arms
+      const Bk = config.combat.block;
+      const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+      const fromFront = -dir.clone().normalize().dot(fwd) > Bk.arc;
+      if (combat.block > 0.6 && fromFront) {
+        player.knock(dir, def.knock * Bk.knock, def.shake * Bk.shake);
+        sfx.hit('block', camera.position);
+        hurtPlayer((def.damage ?? 0) * Bk.damage, who);
+        who.walker.stun = Bk.attackerStun; // the blow bounces off; they stagger
+        return true;
+      }
       player.knock(dir, def.knock, def.shake);
       sfx.hit(def.sound, camera.position);
       hurtPlayer(def.damage ?? 0, who);
@@ -631,6 +642,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
       checkTrespass(dt);
+      player.speedMul = combat.enabled ? config.combat.moveSpeedMul : 1; // quicker on your feet in a fight
+      // Fight options (only while the fists are up)
+      ui.setFightHelp(combat.enabled ? (combat.held
+        ? [`LEFT CLICK ...... swing the ${combat.held.def.label}`, 'F ............... kick', 'RIGHT CLICK ..... block (hold)', 'Q ............... throw it', 'R ............... pick up something else']
+        : ['LEFT CLICK ...... punch (quick 3rd: hook)', 'F ............... kick', 'RIGHT CLICK ..... block (hold)', 'R ............... pick something up']) : null);
       // Brawl HUD
       const fighting = state.phase === 'brawl' || state.phase === 'doorOpen';
       ui.setHealth(fighting ? state.playerHealth / B.playerHealth : null);

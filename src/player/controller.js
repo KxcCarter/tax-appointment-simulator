@@ -137,7 +137,7 @@ export class PlayerController {
     wish.applyAxisAngle(THREE.Object3D.DEFAULT_UP, this.yaw);
 
     const brisk = k.has('ShiftLeft') || k.has('ShiftRight');
-    const speed = brisk ? cfg.briskSpeed : cfg.walkSpeed;
+    const speed = (brisk ? cfg.briskSpeed : cfg.walkSpeed) * (this.speedMul ?? 1); // faster in a fight
     const target = wish.multiplyScalar(speed);
     const a = 1 - Math.exp(-cfg.acceleration * dt);
     this.velocity.lerp(target, a);
