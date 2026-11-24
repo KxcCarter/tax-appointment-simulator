@@ -71,6 +71,7 @@ export const config = {
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
     playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:
                                  // the radio war stays feel-only, as designed)
+    afterCalled: 4,              // seconds after his number is called before they get up (the 847 route)
     knockdownsToOpen: 4,         // knocked-down people (the sitter from the radio war counts) to unlock the door
     // Losing: the screen fades, the player wakes up in a chair with an even higher ticket, and it starts again
     failure: {

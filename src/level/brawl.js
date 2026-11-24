@@ -38,7 +38,7 @@ export class Brawl {
   }
 
   /** Everyone still standing joins in. `instigator` is already fighting. */
-  start(instigator) {
+  start(instigator, opening = this.shouts.opening) {
     if (this.started) return;
     this.started = true;
     this.fighters = this.npcs().filter((n) => !n.down);
@@ -51,7 +51,7 @@ export class Brawl {
     }
     // The opening cheers, one person each, in order
     const others = this.fighters.filter((n) => n !== instigator);
-    this.queue = this.shouts.opening.map((text, i) => ({ who: others[i % Math.max(1, others.length)]?.id, text }));
+    this.queue = opening.map((text, i) => ({ who: others[i % Math.max(1, others.length)]?.id, text }));
     this.nextShout = 0.8;
   }
 
@@ -70,10 +70,7 @@ export class Brawl {
     this.started = false;
     this.attackers.clear();
     for (const n of this.npcs()) { n.justAttacked = false; n.angle = undefined; }
-    const saved = this.shouts.opening;
-    this.shouts.opening = this.shouts.again ?? saved;
-    this.start(null);
-    this.shouts.opening = saved;
+    this.start(null, this.shouts.again ?? this.shouts.opening);
   }
 
   /** The player's head, as a target for approach/attack/look. */

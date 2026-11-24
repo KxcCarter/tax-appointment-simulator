@@ -19,6 +19,7 @@ import { waitingRoomCast } from '../data/waitingRoomCast.js';
 export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait = false, brawlNow = false }) {
   const room = buildWaitingRoom(scene, physics);
   const A = room.anchors;
+  let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
 
   const receptionist = new Receptionist(scene, A, sfx);
   const actors = { receptionist };
@@ -45,7 +46,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         room.nowServing.setNumber(state.nowServing);
         sfx.chime(A.nowServing.getWorldPosition(new THREE.Vector3()));
       }
-      if (type === 'set' && key === 'called') for (const n of npcs) n.onCalled();
+      if (type === 'set' && key === 'called') {
+        for (const n of npcs) n.onCalled();
+        calledBrawlTimer = config.brawl.afterCalled; // the brief: called -> indignant -> brawl
+      }
       updatePhase();
     },
   });
@@ -505,6 +509,16 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       if ((nextCalled || brawlNow) && !smashStarted && newcomer && !newcomer.brawling && !newcomer.walker.active && !director.active) {
         smashTimer = (smashTimer ?? (brawlNow ? 1 : config.brawl.placeholderDelay)) - dt;
         if (smashTimer <= 0) startSmash();
+      }
+      // Called (847) before anything else started a fight: indignation, then the brawl
+      if (calledBrawlTimer != null && !brawl.started && state.phase !== 'doorOpen') {
+        calledBrawlTimer -= dt;
+        if (calledBrawlTimer <= 0) {
+          calledBrawlTimer = null;
+          state.phase = 'brawl';
+          state.canFightBack = true;
+          brawl.start(null, brawlShouts.called);
+        }
       }
       brawl.update(dt);
       // Fists up only while there's a fight on: the brawl, or the sitter coming at him (after her kick)
