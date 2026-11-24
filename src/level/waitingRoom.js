@@ -170,6 +170,8 @@ export function buildWaitingRoom(scene, physics) {
     staticBox(bx - bw / 2, bh / 2, bz, 0.05, bh / 2, bd / 2);
     staticBox(bx + bw / 2, bh / 2, bz, 0.05, bh / 2, bd / 2);
     staticBox(bx, bh / 2, bz - bd / 2, bw / 2, bh / 2, 0.05);
+    // ...and a floor (from the doorway threshold to the back wall)
+    staticBox(bx, -0.05, (wallFace + bz - bd / 2) / 2, bw / 2, 0.05, (wallFace - (bz - bd / 2)) / 2);
 
     // Things to fight with, kept back here (owner: the bat lives in the back room, with some others).
     // Each group's origin is where you'd hold it.
@@ -304,12 +306,12 @@ export function buildWaitingRoom(scene, physics) {
     for (let x = x0 + 0.3; x < x1 - 0.1; x += 0.6) box(0.03, 1.0, 0.01, veneerDark, x, 0.55, -2.725);
     // Work surface behind
     box(dw, 0.04, 0.72, veneer, cx, 0.74, -3.3);
-    // Return along the east side
-    box(0.6, 0.04, 0.96, veneer, -1.3, 0.74, -4.12);
-    box(0.04, 0.72, 0.96, veneer, -1.02, 0.36, -4.12);
-    // Colliders: the whole enclosure (gap to the wall is too narrow for the player)
+    // Return along the east side: short, leaving a staff gap to the back wall (the way behind the desk,
+    // to the EMPLOYEES ONLY door and the back room)
+    box(0.6, 0.04, 0.5, veneer, -1.3, 0.74, -3.89);
+    box(0.04, 0.72, 0.5, veneer, -1.02, 0.36, -3.89);
     staticBox(cx, 0.6, -3.2, dw / 2, 0.6, 0.48);
-    staticBox(-1.3, 0.4, -4.12, 0.3, 0.4, 0.48);
+    staticBox(-1.3, 0.4, -3.89, 0.3, 0.4, 0.25);
 
     // Nameplate on the ledge
     const plateTex = theme.canvasTexture(128, 24, (c, w, h) => {
