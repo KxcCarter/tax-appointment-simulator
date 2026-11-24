@@ -174,20 +174,32 @@ summary{cursor:pointer;font-size:13px}
 @media (max-width:1150px){body{overflow:auto}.app{grid-template-columns:220px minmax(0,1fr);height:auto}.col,.drawer{height:auto;overflow:visible}.drawer{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.tab{overflow:visible}.index{max-height:none}}
 @media (max-width:700px){.app{grid-template-columns:minmax(0,1fr)}.index{border-right:0;border-bottom:1px solid var(--line)}.brand span,.status{display:none}.top{height:auto;flex-wrap:wrap;padding:8px 12px}.in,select{font-size:16px}.grid2,.sub,.others{margin-left:0}.btn{padding:8px 12px}}
 @media (prefers-reduced-motion:no-preference){.ptmenu button{transition:border-color .15s}}
+.top .tb{width:auto;flex:0 1 auto;max-width:210px;height:32px}
+#vocab,#status{font-size:11px;max-width:110px;line-height:1.2}
+#try-wrap{display:inline-flex;gap:4px;align-items:center}
+@media (max-width:1700px){.brand span{display:none}}
+.lrow{display:flex;gap:6px;align-items:center;margin:4px 0}
+.lrow .f.grow{flex:1;min-width:0}
+.lobj .sub{margin:8px 0}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand"><h1>Scene Desk</h1><span>Dialogue scripting · Income Tax Appointment Simulator</span></div>
   <span class="status" id="status"></span>
+  <span class="status" id="vocab"></span>
   <button class="btn" id="b-open">Open…</button>
   <button class="btn" id="b-paste">Paste</button>
+  <select class="in tb" id="b-project" title="Open one of the game's dialogue files (dev server)" hidden></select>
+  <select class="in tb" id="b-export" title="This file has several exports: pick which one to edit" hidden></select>
   <button class="btn" id="b-new">New scene</button>
   <button class="btn ghost" id="b-undo" title="Undo (Ctrl+Z)">Undo</button>
   <button class="btn ghost" id="b-redo" title="Redo (Ctrl+Shift+Z)">Redo</button>
-  <button class="btn" id="b-save" hidden>Save to file</button>
+  <button class="btn" id="b-save">Save</button>
   <button class="btn primary" id="b-copy">Copy .js</button>
-  <input type="file" id="f-open" accept=".js,.mjs,.txt" hidden>
+  <span id="try-wrap" hidden><button class="btn" id="b-try" title="Save, then open the game in a new tab">Try in game</button><select class="in tb" id="b-try-how" title="How to start the game">
+    <option value="?autostart">no title</option><option value="?autostart&amp;fastwait">short wait</option><option value="?autostart&amp;brawl">brawl</option><option value="">title screen</option></select></span>
+  <input type="file" id="f-open" accept=".ts,.js,.mjs,.txt" hidden>
 </header>
 <main class="app">
   <nav class="col index" id="index" aria-label="Beats"></nav>
@@ -218,7 +230,7 @@ summary{cursor:pointer;font-size:13px}
         <textarea class="in code" id="pt-config" rows="12" spellcheck="false"></textarea>
         <div class="ptbar" style="margin-top:6px">
           <button class="btn tiny" id="pt-config-apply">Apply &amp; restart</button>
-          <label class="btn tiny" style="color:inherit">Load config.js<input type="file" id="pt-config-file" accept=".js,.mjs,.json" hidden></label>
+          <label class="btn tiny" style="color:inherit" title="Use a config.js file from your computer for the play test's numbers">Load config.js<input type="file" id="pt-config-file" accept=".js,.mjs,.json" hidden></label>
           <button class="btn tiny" id="pt-config-reset">Reset to guesses</button>
         </div>
       </details>
@@ -239,19 +251,21 @@ summary{cursor:pointer;font-size:13px}
 <div class="modal" id="m-paste" role="dialog" aria-modal="true" aria-labelledby="m-paste-h">
   <div class="box">
     <h2 id="m-paste-h">Paste a beats file</h2>
-    <p class="hint">Paste the whole file, e.g. <code>waitingRoomBeats.js</code>. It replaces the scene you're editing (Undo brings it back).</p>
+    <p class="hint">Paste the whole file, e.g. <code>src/data/waitingRoomBeats.ts</code>. It replaces the scene you're editing (Undo brings it back).</p>
     <textarea class="in code" id="m-paste-t" rows="16" spellcheck="false"></textarea>
     <p class="hint" id="m-paste-err"></p>
     <div class="row"><button class="btn" id="m-paste-x">Cancel</button><button class="btn primary" id="m-paste-ok">Import</button></div>
   </div>
 </div>
 <div class="toast" id="toast"><span id="toast-t"></span><button id="toast-b" hidden>Undo</button></div>
-<datalist id="dl-refs"></datalist><datalist id="dl-anims"></datalist><datalist id="dl-phases"></datalist><datalist id="dl-targets"></datalist><datalist id="dl-trig"><option value="interact"></option></datalist>
+<datalist id="dl-refs"></datalist><datalist id="dl-anims"></datalist><datalist id="dl-anims-r"></datalist><datalist id="dl-anims-n"></datalist><datalist id="dl-state"></datalist><datalist id="dl-speakers"><option value="receptionist"></option><option value="player"></option><option value="voice"></option><option value="newcomer"></option></datalist><datalist id="dl-phases"></datalist><datalist id="dl-targets"></datalist><datalist id="dl-trig"><option value="interact"></option></datalist>
 <script type="text/plain" id="sample">import { config } from '../config.js';
+import type { Action, GameState, Scene } from '../director/types.ts';
 
 /*
   The Waiting Room, as data. Edit lines and order here; edit timings in config.js.
-  See src/director/director.js for every field and action this supports.
+  See src/director/types.ts for every field and action this supports
+  (`npm run typecheck` checks this file against it).
 
   lockedOptions: what the player can say while the receptionist is still ignoring
   them (the 10–15 s gate). Empty = no options appear at all (owner's decision).
@@ -261,10 +275,10 @@ summary{cursor:pointer;font-size:13px}
 const T = config.timings.reception;
 
 // Non-advancing options get silence or a flat reply. Near-duplicates are the joke.
-const silence = [];
+const silence: Action[] = [];
 
 // The time on the wall clock, as the player would read it: "1:57"
-const clockReading = (state) => {
+const clockReading = (state: GameState): string => {
   const t = Math.floor(state.clockTime / 60) % 720;
   const h = Math.floor(t / 60) || 12;
   return `${h}:${String(t % 60).padStart(2, '0')}`;
@@ -272,17 +286,25 @@ const clockReading = (state) => {
 // The appointment, in clock minutes (config.appointment). The player reads whole minutes,
 // so "on time" means the clock READS between 2:00 and 2:02.
 const AP = config.appointment;
-const clockMinute = (state) => Math.floor(state.clockTime / 60) % 720;
+const clockMinute = (state: GameState): number => Math.floor(state.clockTime / 60) % 720;
 const apptMinute = (AP.hour % 12) * 60 + AP.minute;
-const beforeAppointment = (state) => clockMinute(state) < apptMinute;
-const late = (state) => clockMinute(state) > apptMinute + AP.onTimeMinutes;
-const clockReadsTwo = (state) => clockMinute(state) === apptMinute;
-const flat = (text) => [
+const beforeAppointment = (state: GameState): boolean => clockMinute(state) < apptMinute;
+const late = (state: GameState): boolean => clockMinute(state) > apptMinute + AP.onTimeMinutes;
+const clockReadsTwo = (state: GameState): boolean => clockMinute(state) === apptMinute;
+const onTime = (state: GameState): boolean => !beforeAppointment(state) && !late(state);
+
+// On time (2:00-2:02): the check-in sheet. She doesn't look up.
+const checkInSheet: Action[] = [
+  { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
+  { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
+  { do: 'set', key: 'clipboardOffered', value: true },
+];
+const flat = (text: string): Action[] => [
   { do: 'wait', seconds: T.sideOptionPause },
   { do: 'say', who: 'receptionist', text },
 ];
 
-export const waitingRoomBeats = {
+export const waitingRoomBeats: Scene = {
   start: 'reception_1',
 
   // Anything the director answers for, even once the beats are used up
@@ -291,6 +313,31 @@ export const waitingRoomBeats = {
   speakers: {
     player: { name: 'YOU', pitch: config.characters.playerVoicePitch },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
+  },
+
+  // Sequences the game starts itself (director.play(name)).
+  sequences: {
+    // The player tries to sign the check-in sheet on the counter
+    signSheet: [
+      { do: 'notice', text: "You don't have a pen." },
+      {
+        do: 'if',
+        test: (state) => !state.needsPen,
+        then: [
+          { do: 'set', key: 'needsPen', value: true },
+          { do: 'goto', beat: 'pen_request' }, // now the player can ask her for one
+        ],
+      },
+    ],
+    // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
+    // Proposal from the brief; the wording is easy to change.
+    call: [
+      { do: 'goto', beat: null }, // whatever stage the reception exchange reached, it's over
+      { do: 'wait', seconds: config.timings.call.pauseBeforeLine },
+      { do: 'say', who: 'receptionist', text: "Eight hundred forty-seven. He'll see you now." },
+      { do: 'set', key: 'nowServing', value: config.ticket.number }, // display jumps, chimes
+      { do: 'set', key: 'called', value: true }, // every head turns to the player
+    ],
   },
 
   beats: [
@@ -318,14 +365,14 @@ export const waitingRoomBeats = {
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
         { text: "I'm here for my appointment.", advance: true },
-        { text: "Excuse me. I'm here for my appointment?", response: flat('Mm.') },
+        { text: "Excuse me. I'm here for my appointment?", response: flat('Mmhmm.') },
         { text: 'Hello?', response: silence },
         { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
       onAdvance: [
         { do: 'wait', seconds: T.beat2IgnoreBeforeLine }, // clicks continue
-        { do: 'say', who: 'receptionist', text: "Sshhh, momma's got to play her game." },
+        { do: 'say', who: 'receptionist', text: "Sshhh, momma's gotta play her game." },
       ],
       next: 'reception_3',
       nextUnlockAfter: T.gate,
@@ -335,8 +382,8 @@ export const waitingRoomBeats = {
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
         { text: "I'm here for my appointment.", response: silence },
-        { text: "I'm here for my appointment at 2:00 PM.", advance: true },
-        { text: "I'm here for my 2:00 PM appointment.", response: silence },
+        { text: 'I have an appointment at 2:00 PM.', advance: true },
+        { text: "I'm here for my 2:00 PM appointment.", response: flat("Mamma's playin' her game.") },
         { text: '(Say nothing)', silent: true, response: silence },
       ],
       lockedOptions: [],
@@ -363,7 +410,27 @@ export const waitingRoomBeats = {
             { do: 'say', who: 'receptionist', text: 'What time is it now?' },
           ],
         },
-        { text: '(Say nothing)', silent: true, goto: null },
+        // Letting it go isn't final: she can be asked again later (protest_again)
+        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // The same objection, raised again later by walking up and pressing E (no auto-open).
+      // Reached after "(Say nothing)" or "...Take a seat and wait.", so the player can come
+      // back once the clock reads 2:00.
+      id: 'protest_again',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'But I have an appointment at 2.',
+          goto: 'what_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'What time is it now?' },
+          ],
+        },
+        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
       ],
       lockedOptions: [],
     },
@@ -392,7 +459,12 @@ export const waitingRoomBeats = {
               do: 'if',
               test: clockReadsTwo,
               then: [{ do: 'say', who: 'receptionist', text: 'And what time is your appointment?' }],
-              else: [{ do: 'say', who: 'receptionist', text: "No it's not." }],
+              // Untrue: a glance over her shoulder at the wall clock first
+              else: [
+                { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+                { do: 'say', who: 'receptionist', text: "No it's not." },
+              ],
             },
           ],
         },
@@ -406,36 +478,166 @@ export const waitingRoomBeats = {
       options: [
         {
           text: 'My appointment is at 2:00.',
-          goto: null, // end of the exchange
+          // On time she asks about the check-in sheet (checkin_sheet); otherwise the exchange is over
+          // On time: the check-in sheet. Early ("not 2:00 yet"): she can be asked again later.
+          // Late: the exchange is over.
+          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : late(state) ? null : 'protest_again'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
               do: 'if',
               test: late, // the clock runs in real time; 2:03 or later is late
               then: [
-                { do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
-              ],
+                { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+                { 
+                  do: 'say', who: 'receptionist', text: "You're late. You'll have to take a number and have a seat." },
+                ],
               else: [
                 {
                   do: 'if',
                   test: beforeAppointment,
                   then: [
+                    { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+                    { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
                     { do: 'say', who: 'receptionist', text: "Well it's not 2:00 yet, is it?" },
                     { do: 'wait', seconds: T.sideOptionPause },
                     { do: 'say', who: 'receptionist', text: 'Take a seat and wait.' },
                   ],
-                  // On time (2:00-2:02): the check-in sheet. She doesn't look up.
-                  else: [
-                    { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
-                    { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
-                    { do: 'set', key: 'clipboardOffered', value: true },
-                  ],
+                  else: checkInSheet, // on time (2:00-2:02)
                 },
               ],
             },
           ],
         },
+        {
+          text: 'My appointment is right now.',
+          // Unless it really is 2:00-2:02, she has no appointment at whatever time it is,
+          // and the question stands. (On time it's the check-in sheet, as above.)
+          goto: (state) => (state.clipboardOffered ? 'checkin_sheet' : 'appointment_time'),
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            {
+              do: 'if',
+              test: onTime,
+              then: checkInSheet,
+              else: [
+                { do: 'say', who: 'receptionist', text: (state) => `We don't have any appointments scheduled for ${clockReading(state)}.` },
+              ],
+            },
+          ],
+        },
       ],
+      lockedOptions: [],
+    },
+    {
+      id: 'checkin_sheet',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true, // she just asked a question: answer right away
+      options: [
+        {
+          text: 'No.',
+          actions: [],
+          response: [
+            { do: 'say', who: 'receptionist', text: "Everybody gotta sign the check-in sheet. Did you sign it?" },
+          ],
+        },
+        { text: "I'm trying to check in now", advance: true, response: [
+          { do: 'say', who: 'receptionist', text: "You gotta sign the check-in sheet." }
+        ] },
+      ],
+      lockedOptions: [],
+      onAdvance: [],
+      nextUnlockAfter: 0,
+    },
+
+    // ---- No pen. (Signing the sheet sends the exchange here; see sequences.signSheet.) ----
+    {
+      id: 'pen_request',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Do you have a pen?',
+          goto: 'pen_borrow',
+          actions: [
+            // She ignores the question entirely
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'Mamma gotta get her some coffee...' },
+            { do: 'anim', who: 'receptionist', name: 'coffeeBreak', untilDone: true }, // ~30 s away
+            { do: 'set', key: 'hadCoffee', value: true },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'pen_borrow',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: 'Do you have a pen I can borrow?',
+          // The second "No." is followed by calling the next number: the exchange is over
+          goto: (state) => (state.penRefusals >= 2 ? null : 'how_check_in'),
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'No.' },
+            { do: 'set', key: 'penRefusals', value: (state: GameState) => state.penRefusals + 1 },
+            {
+              do: 'if',
+              test: (state) => state.penRefusals === 2,
+              then: [
+                { do: 'wait', seconds: T.sideOptionPause },
+                {
+                  do: 'say',
+                  who: 'receptionist',
+                  text: `Number ${config.ticket.number + 1}! Our 2:00 was a no-show so you can go on ahead.`,
+                },
+                { do: 'set', key: 'nowServing', value: config.ticket.number + 1 }, // display chimes, jumps
+              ],
+            },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'how_check_in',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'How am I supposed to check in for my appointment then?',
+          goto: 'online_time',
+          actions: [
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'You can check-in online. What time is your appointment?' },
+          ],
+        },
+      ],
+      lockedOptions: [],
+    },
+    {
+      id: 'online_time',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: ['2:00.', "It's supposed to be right now."].map((text) => ({
+        text,
+        // Back to asking for a pen: the loop can go round again
+        goto: 'pen_borrow',
+        actions: [
+          // The clock, the computer, a sip of coffee. Then the verdict.
+          { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
+          { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          { do: 'wait', seconds: 0.8 },
+          { do: 'anim', who: 'receptionist', name: 'sipCoffee', duration: T.coffeeSip },
+          { do: 'wait', seconds: 0.4 },
+          {
+            do: 'say',
+            who: 'receptionist',
+            text: "You're late for your appointment so the system won't let you sign in online, you're gonna have to fill in the check-in sheet.",
+          },
+        ] as Action[],
+      })),
       lockedOptions: [],
     },
   ],
@@ -541,10 +743,17 @@ function parseContainer(s, i) {
   return { end: i, node };
 }
 const HELPER_CALL = /^([A-Za-z_$][\w$]*)\s*\([\s\S]*\)$/;
+// A value written as an expression on imports (e.g. `config.ticket.number + 1`) can't be evaluated
+// with stand-ins for the imports, so it stays code, exactly as written.
+const LITERAL_SRC = /^(?:(['"])[\s\S]*\1|-?[\d.][\d_.eE+-]*|true|false|null|undefined)$/;
+const PATH_SRC = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/;
+const FN_SRC = /=>|^(?:async\s+)?function\b/;
 function keepCalls(v, cn) {
   for (const k in cn.src) {
-    const m = HELPER_CALL.exec(cn.src[k]);
-    if (m && helperFns.includes(m[1]) && v[k] !== undefined && typeof v[k] === 'object' && !isJs(v[k])) v[k] = { $js: cn.src[k] };
+    const src = cn.src[k];
+    const m = HELPER_CALL.exec(src);
+    if (m && helperFns.includes(m[1]) && v[k] !== undefined && typeof v[k] === 'object' && !isJs(v[k])) v[k] = { $js: src };
+    else if (v[k] !== undefined && (v[k] === null || typeof v[k] !== 'object') && !LITERAL_SRC.test(src) && !PATH_SRC.test(src) && !FN_SRC.test(src)) v[k] = { $js: src };
   }
 }
 function attachNotes(v, cn) {
@@ -599,11 +808,101 @@ function analyzePre(pre) {
   const names = [...body.matchAll(/^(?:const|let|var|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]);
   return { imports: [...new Set(imports)], body, names: [...new Set(names)] };
 }
-function runModule(pre, expr, provide) {
+/*
+  TypeScript support: beats files can be .ts (src/data/*.ts). To evaluate them here, type syntax is
+  stripped first (only for running them; the file's own text is kept as it is): import type,
+  interfaces, type aliases, annotations on variables, parameters and return values, and
+  `as` / `satisfies` casts. Strings, templates and comments are masked so they are never touched.
+*/
+function stripTypes(src) {
+  const masks = [];
+  const mask = t => { masks.push(t); return '\u0000' + (masks.length - 1) + '\u0000'; };
+  let out = '', i = 0;
+  while (i < src.length) {
+    const c = src[i], n = src[i + 1];
+    if (c === '/' && n === '/') { const j = src.indexOf('\n', i); const e = j < 0 ? src.length : j; out += mask(src.slice(i, e)); i = e; continue; }
+    if (c === '/' && n === '*') { const j = src.indexOf('*/', i + 2); const e = j < 0 ? src.length : j + 2; out += mask(src.slice(i, e)); i = e; continue; }
+    if (c === "'" || c === '"') { let j = i + 1; while (j < src.length && src[j] !== c && src[j] !== '\n') { if (src[j] === '\\') j++; j++; } out += mask(src.slice(i, j + 1)); i = j + 1; continue; }
+    if (c === '`') {
+      let j = i + 1, depth = 0;
+      while (j < src.length) {
+        if (src[j] === '\\') { j += 2; continue; }
+        if (depth === 0 && src[j] === '`') break;
+        if (src[j] === '$' && src[j + 1] === '{') { depth++; j += 2; continue; }
+        if (src[j] === '}' && depth > 0) depth--;
+        j++;
+      }
+      out += mask(src.slice(i, j + 1)); i = j + 1; continue;
+    }
+    out += c; i++;
+  }
+  const ID = '[A-Za-z_$][\\w$]*';
+  // imports: drop `import type ...`, and `type X` names inside `import { ... }`
+  out = out.replace(/^[ \t]*import\s+type\b[^;\n]*;?[ \t]*$/gm, '');
+  out = out.replace(/(^[ \t]*import\s*\{)([^}]*)(\})/gm, (m, a, b, c) => a + b.split(',').filter(x => !/^\s*type\s/.test(x)).join(',') + c);
+  // interface blocks and type aliases
+  const cutBlock = re => {
+    for (let m; (m = re.exec(out));) {
+      let k = out.indexOf('{', m.index + m[0].length - 1), depth = 0;
+      for (; k < out.length; k++) { if (out[k] === '{') depth++; else if (out[k] === '}' && --depth === 0) break; }
+      out = out.slice(0, m.index) + out.slice(k + 1);
+      re.lastIndex = m.index;
+    }
+  };
+  cutBlock(new RegExp('^[ \\t]*(?:export\\s+)?interface\\s+' + ID + '[^{]*\\{', 'gm'));
+  out = out.replace(new RegExp('^[ \\t]*(?:export\\s+)?type\\s+' + ID + '\\s*(?:<[^>]*>)?\\s*=[\\s\\S]*?;[ \\t]*$', 'gm'), '');
+  // Top-level split of a parameter list, dropping `?` and `: Type` from each parameter
+  const stripParams = list => {
+    const parts = []; let depth = 0, cur = '';
+    for (const ch of list) {
+      if ('([{<'.includes(ch)) depth++; else if (')]}>'.includes(ch)) depth--;
+      if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
+    }
+    parts.push(cur);
+    return parts.map(p => {
+      let d = 0, colon = -1, eq = -1;
+      for (let k = 0; k < p.length; k++) {
+        const ch = p[k];
+        if ('([{<'.includes(ch)) d++; else if (')]}>'.includes(ch)) d--;
+        else if (d === 0 && ch === ':' && colon < 0) colon = k;
+        else if (d === 0 && ch === '=' && p[k + 1] !== '>' && eq < 0) eq = k;
+      }
+      if (colon < 0 || (eq >= 0 && eq < colon)) return p.replace(/\?(\s*)$/, '$1');
+      return p.slice(0, colon).replace(/\?\s*$/, '') + (eq > colon ? ' ' + p.slice(eq) : '');
+    }).join(',');
+  };
+  // Arrow functions: `(a: T, b?: U): R =>`
+  out = out.replace(/\)\s*:\s*(?:[^=;{}()]|=(?!>)|\([^()]*\))+?(?=\s*=>)/g, ')');
+  for (let at = out.indexOf('=>'); at >= 0; at = out.indexOf('=>', at + 2)) {
+    let k = at - 1; while (k >= 0 && /\s/.test(out[k])) k--;
+    if (out[k] !== ')') continue;
+    let depth = 0, open = k;
+    for (; open >= 0; open--) { if (out[open] === ')') depth++; else if (out[open] === '(' && --depth === 0) break; }
+    if (open < 0) continue;
+    const params = stripParams(out.slice(open + 1, k));
+    out = out.slice(0, open + 1) + params + out.slice(k);
+    at = open + 1 + params.length + (at - k);
+  }
+  // function declarations / expressions: `function f(a: T): R {`
+  out = out.replace(/\bfunction\b(\s*\*?\s*[A-Za-z_$][\w$]*)?\s*\(([^()]*)\)\s*(?::\s*[^{=;]+)?\s*\{/g, (m, name, params) => 'function' + (name || '') + '(' + stripParams(params) + ') {');
+  // variables: `const x: T = `
+  out = out.replace(new RegExp('\\b(const|let|var)\\s+(' + ID + ')\\s*:\\s*[^=;]+?=(?![=>])', 'g'), '$1 $2 =');
+  // casts (not in import lines, where `as` renames)
+  out = out.split('\n').map(line => (/^\s*import\b/.test(line) ? line : line
+    .replace(/\s+as\s+const\b/g, '')
+    .replace(/\s+(?:as|satisfies)\s+[A-Za-z_$][\w$.]*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*/g, ''))).join('\n');
+  return out.replace(/\u0000(\d+)\u0000/g, (m, k) => masks[+k]);
+}
+const isTsText = t => /^\s*import\s+type\b/m.test(t) || /\bexport\s+const\s+[\w$]+\s*:/.test(t);
+
+function runModule(pre, expr, provide, extra = {}) {
+  pre = stripTypes(pre);
+  expr = stripTypes(expr);
   const a = analyzePre(pre);
   const names = a.names.filter(n => !a.imports.includes(n));
-  const f = new Function(...a.imports, `${a.body}\n;return { value: (${expr}\n), helpers: { ${names.join(', ')} } };`);
-  return { ...f(...a.imports.map(provide)), imports: a.imports, names };
+  const xs = Object.keys(extra);
+  const f = new Function(...a.imports, ...xs, `${a.body}\n;return { value: (${expr}\n), helpers: { ${names.join(', ')} } };`);
+  return { ...f(...a.imports.map(provide), ...xs.map(k => extra[k])), imports: a.imports, names };
 }
 let helperFns = [], helperVals = [], aliases = [];
 function learnHelpers(helpers) {
@@ -627,31 +926,92 @@ function fnSource(f) {
   if (/^(async\s+)?(function\b|\(|[A-Za-z_$][\w$]*\s*=>|class\b)/.test(s)) return s;
   return 'function ' + s.replace(/^async\s+/, '');
 }
+/** Replace template literals that have ${...} with __tpl(n) calls; their source goes in `out`. */
+function keepTemplates(code, out) {
+  let res = '', i = 0;
+  while (i < code.length) {
+    const c = code[i], n = code[i + 1];
+    if (c === '/' && (n === '/' || n === '*')) {
+      const e = n === '/' ? code.indexOf('\n', i) : code.indexOf('*/', i + 2) + 2;
+      const end = e <= 0 || e < i ? code.length : e;
+      res += code.slice(i, end); i = end; continue;
+    }
+    if (c === "'" || c === '"') { let j = i + 1; while (j < code.length && code[j] !== c && code[j] !== '\n') { if (code[j] === '\\') j++; j++; } res += code.slice(i, j + 1); i = j + 1; continue; }
+    if (c === '`') {
+      let j = i + 1, depth = 0, subst = false;
+      while (j < code.length) {
+        if (code[j] === '\\') { j += 2; continue; }
+        if (depth === 0 && code[j] === '`') break;
+        if (code[j] === '$' && code[j + 1] === '{') { depth++; subst = true; j += 2; continue; }
+        if (code[j] === '}' && depth > 0) depth--;
+        j++;
+      }
+      const src = code.slice(i, j + 1);
+      if (subst) { out.push(src); res += '__tpl(' + (out.length - 1) + ')'; } else res += src;
+      i = j + 1; continue;
+    }
+    res += c; i++;
+  }
+  return res;
+}
+let currentTpls = [];
+const restoreTpls = src => src.replace(/__tpl\((\d+)\)/g, (m, k) => currentTpls[+k] ?? m);
 function toModel(v, helpers) {
+  if (v && typeof v === 'object' && typeof v.__tplSrc === 'string') return { $js: v.__tplSrc };
   if (tokPath.has(v)) return { $js: shortPath(tokPath.get(v)) };
   if (v && (typeof v === 'object' || typeof v === 'function')) {
     for (const n in helpers) if (helpers[n] === v) return { $js: n };
   }
-  if (typeof v === 'function') return { $js: fnSource(v) };
+  if (typeof v === 'function') return { $js: restoreTpls(fnSource(v)) };
   if (Array.isArray(v)) return v.map(x => toModel(x, helpers));
   if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = toModel(v[k], helpers); return o; }
   if (v === undefined) return { $js: 'undefined' };
   return v;
 }
-function importText(text) {
-  const m = /export\s+const\s+([A-Za-z_$][\w$]*)\s*=\s*(?=\{)/.exec(text);
-  if (!m) throw new Error('Couldn\'t find "export const name = {" in this file.');
-  const start = m.index + m[0].length;
+/** Every `export const name(: Type) = {` in a file, in order. */
+function findExports(text) {
+  const re = /export\s+const\s+([A-Za-z_$][\w$]*)\s*(?::\s*([^=]+?)\s*)?=\s*(?=\{)/g, out = [];
+  for (let m; (m = re.exec(text));) out.push({ name: m[1], type: m[2] ? m[2].trim() : '', index: m.index, len: m[0].length });
+  return out;
+}
+/**
+ * Read one export of a file (`want` = its name; default: the first scene). Scenes (objects with `beats`)
+ * open in the beat editor; anything else (small talk, shouts, easter eggs) in the lists editor.
+ * Everything else in the file is kept as written: the code before it (`preamble`) and after it (`tail`).
+ */
+function importText(text, want) {
+  const exps = findExports(text);
+  if (!exps.length) throw new Error('Couldn\'t find "export const name = {" in this file.');
+  const looksScene = e => {
+    if (/\bScene\b/.test(e.type)) return true;
+    if (e.type) return false;
+    const st = e.index + e.len;
+    return /^\s*\{[\s\S]*\bbeats\s*:/.test(text.slice(st, parseContainer(text, st).end));
+  };
+  const m = (want && exps.find(e => e.name === want)) || exps.find(looksScene) || exps[0];
+  const start = m.index + m.len;
   const r = parseContainer(text, start);
   let end = r.end; while (/[ \t]/.test(text[end] || '')) end++; if (text[end] === ';') end++;
   const pre = text.slice(0, m.index);
-  const res = runModule(pre, text.slice(start, r.end), tok);
+  // Template literals with ${...} stay code (their values depend on imports like config)
+  const tpls = currentTpls = [];
+  const exprText = keepTemplates(text.slice(start, r.end), tpls);
+  const res = runModule(pre, exprText, tok, { __tpl: k => ({ __tplSrc: tpls[k] }) });
   learnHelpers(res.helpers);
   const scene = toModel(res.value, res.helpers);
   attachNotes(scene, r.node);
   if (!isObj(scene)) throw new Error('The exported value is not an object.');
-  scene.beats = arr(scene.beats);
-  return { preamble: pre, tail: text.slice(end), exportName: m[1], scene };
+  const mode = Array.isArray(scene.beats) ? 'scene' : 'lists';
+  if (mode === 'scene') scene.beats = arr(scene.beats);
+  return { preamble: pre, tail: text.slice(end), exportName: m.name, exportType: m.type, ts: isTsText(text), mode, exports: exps.map(e => e.name), scene };
+}
+const isLists = () => P && P.mode === 'lists';
+const sectionKeys = () => Object.keys(P.scene).filter(k => !k.startsWith('$'));
+/** Switch to another export of the same file (edits so far are kept in the file text). */
+function switchExport(name) {
+  const p = importText(exportText(), name);
+  p.projectFile = P.projectFile;
+  loadProject(p, `Editing ${name}.`);
 }
 function refreshHelpers() {
   try { const r = runModule(P.preamble, 'null', tok); learnHelpers(r.helpers); $('#c-pre-err').textContent = ''; }
@@ -678,8 +1038,12 @@ function orderKeys(o, ctx) {
   const rank = k => { const r = ord.indexOf(k); return r < 0 ? 999 : r; };
   return ks.map((k, n) => [k, n]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
 }
+let TS_OUT = false; // writing a .ts file: callbacks get their `state: GameState` annotation back
+const tsFn = src => src
+  .replace(/^(async\s+)?\(\s*state\s*\)\s*=>/, '$1(state: GameState) =>')
+  .replace(/^(async\s+)?state\s*=>/, '$1(state: GameState) =>');
 function lit(v, ind = '', ctx = '', arrCtx = '', pre = 0) {
-  if (isJs(v)) return v.$js;
+  if (isJs(v)) return TS_OUT ? tsFn(v.$js) : v.$js;
   if (v === null) return 'null';
   if (v === undefined) return 'undefined';
   if (typeof v === 'string') return q(v);
@@ -702,16 +1066,26 @@ function lit(v, ind = '', ctx = '', arrCtx = '', pre = 0) {
   if (ctx !== 'beat' && ctx !== 'root' && !keys.some(k => kn[k] || kt[k]) && !one.includes('\n') && ind.length + pre + one.length + 1 <= 120) return one;
   return '{\n' + ents.map(([k, s], n) => (ctx === 'root' && n ? '\n' : '') + comment(kn[k], inner) + inner + keyStr(k) + ': ' + s + ',' + tcomment(kt[k]) + '\n').join('') + ind + '}';
 }
-const exportText = () => P.preamble + 'export const ' + P.exportName + ' = ' + lit(P.scene, '', 'root') + ';' + P.tail;
+const isTs = () => !!(P.ts || P.exportType);
+const fileExt = () => (isTs() ? '.ts' : '.js');
+function exportText() {
+  TS_OUT = isTs() && /\bGameState\b/.test(P.preamble);
+  try {
+    return P.preamble + 'export const ' + P.exportName + (P.exportType ? ': ' + P.exportType : '') + ' = ' + lit(P.scene, '', 'root') + ';' + P.tail;
+  } finally { TS_OUT = false; }
+}
 
 /* ================= Project state, undo, saving ================= */
 const STORE = 'sceneDesk.v1';
 const BLANK = {
-  preamble: "import { config } from '../config.js';\n\nconst T = config.timings.reception;\n\n",
-  tail: '\n', exportName: 'newSceneBeats',
+  preamble: "import { config } from '../config.js';\nimport type { GameState, Scene } from '../director/types.ts';\n\nconst T = config.timings.reception;\n\n",
+  tail: '\n', exportName: 'newSceneBeats', exportType: 'Scene', ts: true,
   scene: {
     start: 'beat_1', targets: ['receptionist'],
-    speakers: { player: { name: 'YOU' }, receptionist: { name: 'RECEPTIONIST', actor: 'receptionist' } },
+    speakers: {
+      player: { name: 'YOU', pitch: { $js: 'config.characters.playerVoicePitch' } },
+      receptionist: { name: 'RECEPTIONIST', pitch: { $js: 'config.characters.receptionist.voicePitch' }, actor: 'receptionist' },
+    },
     beats: [{ id: 'beat_1', trigger: { type: 'interact', target: 'receptionist' }, options: [{ text: 'Hello.', advance: true }], lockedOptions: [], onAdvance: [{ do: 'say', who: 'receptionist', text: 'Mm.' }], nextUnlockAfter: 0 }],
   },
 };
@@ -739,11 +1113,15 @@ function persist() {
   catch { $('#status').textContent = ''; }
 }
 function loadProject(p, msg) {
-  P = p; sel = P.scene.beats.length ? { kind: 'beat', i: 0 } : { kind: 'scene' };
+  P = p;
+  sel = isLists() ? { kind: 'section', key: sectionKeys()[0] } : P.scene.beats.length ? { kind: 'beat', i: 0 } : { kind: 'scene' };
   refreshHelpers(); commit(true); renderAll(); persist();
   if (msg) toast(msg, hist.length > 1);
 }
-function clampSel() { if (sel.kind === 'beat' && !P.scene.beats[sel.i]) sel = P.scene.beats.length ? { kind: 'beat', i: Math.max(0, P.scene.beats.length - 1) } : { kind: 'scene' }; }
+function clampSel() {
+  if (isLists()) { if (sel.kind !== 'section' || !(sel.key in P.scene)) sel = { kind: 'section', key: sectionKeys()[0] }; return; }
+  if (sel.kind === 'section') sel = { kind: 'scene' };
+  if (sel.kind === 'beat' && !P.scene.beats[sel.i]) sel = P.scene.beats.length ? { kind: 'beat', i: Math.max(0, P.scene.beats.length - 1) } : { kind: 'scene' }; }
 
 /* ================= Paths ================= */
 const getPath = (o, p) => (p === '' ? o : p.split('.').reduce((a, k) => (a == null ? a : a[k]), o));
@@ -772,9 +1150,65 @@ const shown = v => (isJs(v) ? v.$js : v === undefined ? '' : typeof v === 'objec
 const rawShown = v => (isJs(v) ? v.$js : v === undefined ? '' : lit(v));
 const rows = s => Math.min(14, Math.max(1, String(s).split('\n').length));
 
+/* ================= The game's vocabulary ================= */
+// What the director understands, and the names it knows. Served by the dev server (npm run dev, then
+// /scene-desk.html), these are read from the game itself; opened as a plain file, this built-in copy is used.
+const VOCAB = {
+  source: 'built-in lists',
+  actions: {
+    say: ['who', 'text'], wait: ['seconds'], anim: ['who', 'name', 'duration', 'untilDone'], face: ['who', 'expression'],
+    sound: ['name', 'who'], set: ['key', 'value'], setPhase: ['phase'], emit: ['event'], goto: ['beat'],
+    notice: ['text', 'seconds'], if: ['test', 'then', 'else'],
+  },
+  anims: {
+    receptionist: ['lookAtPlayer', 'glanceAtClock', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee'],
+    npc: ['attend', 'resume'],
+  },
+  expressions: ['neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled'],
+  sounds: ['clockTick', 'mouseClick', 'blip', 'footstep', 'chairCreak', 'ticketTear', 'paperSlide', 'cough', 'sigh', 'pageTurn', 'chairShift', 'watchTick', 'chime'],
+  phases: ['arrival', 'reception', 'waiting', 'brawl', 'doorOpen'],
+  stateKeys: ['phase', 'ticketNumber', 'nowServing', 'timesIgnored', 'knockdowns', 'playerHealth', 'heldWeapon', 'toldToTakeNumber',
+    'clipboardOffered', 'needsPen', 'hadCoffee', 'penRefusals', 'newcomerArrived', 'waitElapsed', 'called', 'playTime', 'radioOn',
+    'radioOffCount', 'sitterAttacks', 'canFightBack', 'foughtBack', 'sitterDown', 'jiggleAsks', 'timeAsks', 'retries', 'clockTime'],
+  config: null, // the real config.js, when served by the dev server (the play test uses its numbers)
+};
+const SERVED = /^https?:$/.test(location.protocol);
+async function loadVocab() {
+  if (!SERVED) return;
+  try {
+    const types = (await import('/src/director/types.ts?raw')).default;
+    const union = name => {
+      const i = types.indexOf('export type ' + name + ' ='); if (i < 0) return null;
+      const body = types.slice(i, types.indexOf(';', i));
+      const xs = [...body.matchAll(/'([^']+)'/g)].map(m => m[1]);
+      return xs.length ? xs : null;
+    };
+    VOCAB.anims.receptionist = union('ReceptionistAnim') || VOCAB.anims.receptionist;
+    VOCAB.anims.npc = union('NpcAnim') || VOCAB.anims.npc;
+    VOCAB.expressions = union('Expression') || VOCAB.expressions;
+    VOCAB.sounds = union('SoundName') || VOCAB.sounds;
+    VOCAB.phases = union('Phase') || VOCAB.phases;
+    const a0 = types.indexOf('export type Action =');
+    if (a0 >= 0) {
+      const body = types.slice(a0, types.indexOf('\n\n', a0));
+      const acts = {};
+      for (const m of body.matchAll(/\{\s*do:\s*'(\w+)';([^\n]*)\}/g)) {
+        acts[m[1]] = m[2].split(';').map(seg => (/^\s*(\w+)\??\s*:/.exec(seg) || [])[1]).filter(Boolean);
+      }
+      if (Object.keys(acts).length > 5) VOCAB.actions = acts;
+    }
+    const st = (await import('/src/state.js')).state;
+    VOCAB.stateKeys = Object.keys(st).filter(k => !['started', 'paused', 'hitStop', 'ended'].includes(k));
+    VOCAB.config = (await import('/src/config.js')).config;
+    VOCAB.source = 'the game';
+  } catch (e) { console.warn('Scene Desk: using the built-in lists', e); }
+}
+const animsFor = who => (who === 'receptionist' ? VOCAB.anims.receptionist : who === 'player' ? [] : VOCAB.anims.npc);
+const allAnims = () => [...VOCAB.anims.receptionist, ...VOCAB.anims.npc];
+
 /* ================= Editor widgets ================= */
 const speakerIds = () => Object.keys(isObj(P.scene.speakers) ? P.scene.speakers : {}).filter(k => !k.startsWith('$'));
-const beatIds = () => P.scene.beats.map(b => b && b.id).filter(Boolean);
+const beatIds = () => arr(P.scene.beats).map(b => b && b.id).filter(Boolean);
 const optList = (ids, cur, extra = '') => extra + ids.map(id => `<option value="${esc(id)}"${id === cur ? ' selected' : ''}>${esc(id)}</option>`).join('') + (cur && typeof cur === 'string' && !ids.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)} (missing)</option>` : '');
 const tools = (p, noteable) => `<span class="tools">${noteable ? `<button class="btn tiny" data-a="note" data-p="${p}" title="Add a comment">//</button>` : ''}<button class="btn tiny" data-a="up" data-p="${p}" aria-label="Move up">↑</button><button class="btn tiny" data-a="down" data-p="${p}" aria-label="Move down">↓</button><button class="btn tiny" data-a="dup" data-p="${p}" aria-label="Duplicate">⧉</button><button class="btn tiny" data-a="del" data-p="${p}" aria-label="Remove">×</button></span>`;
 const codeField = (p, v) => `<textarea class="in code" data-p="${p}" data-k="js" rows="${rows(shown(v))}" spellcheck="false">${esc(shown(v))}</textarea>`;
@@ -800,30 +1234,35 @@ const isCustomCond = v => v !== undefined && !(isJs(v) && helperFns.includes(v.$
 function actionList(p, v) {
   if (isJs(v)) return `<div class="jsval">${codeField(p, v)}<button class="btn tiny" data-a="to-list" data-p="${p}" title="Replace with a list of actions">List</button></div>`;
   const a = arr(v);
-  return `<div class="acts">${a.map((x, k) => actionRow(`${p}.${k}`, x)).join('')}</div><div class="qa"><span>Add</span>${['say', 'wait', 'anim', 'set', 'setPhase', 'if'].map(t => `<button class="chip" data-a="add-action" data-t="${t}" data-p="${p}">${t}</button>`).join('')}</div>`;
+  return `<div class="acts">${a.map((x, k) => actionRow(`${p}.${k}`, x)).join('')}</div><div class="qa"><span>Add</span>${Object.keys(VOCAB.actions).map(t => `<button class="chip" data-a="add-action" data-t="${t}" data-p="${p}">${t}</button>`).join('')}</div>`;
 }
-const KNOWN = { say: ['who', 'text'], wait: ['seconds'], anim: ['who', 'name', 'duration'], set: ['key', 'value'], setPhase: ['phase'], if: ['test', 'then', 'else'] };
+const menu = (p, list, cur, kind = 'str', none = '') => `<select class="in" data-p="${p}" data-k="${kind}">${none ? `<option value=""${cur === undefined || cur === null || cur === '' ? ' selected' : ''}>${none}</option>` : ''}${optList(list, cur)}</select>`;
 const whoSel = (p, v) => `<select class="in" data-p="${p}.who" data-k="str">${optList(speakerIds(), v, v === undefined ? '<option value="" selected>—</option>' : '')}</select>`;
 const fld = (label, html, cls = '') => `<span class="f ${cls}">${label}${html}</span>`;
 function actionRow(p, a) {
   if (!isObj(a)) return `<div class="act">${raw(p, a)}${tools(p)}</div>`;
   const t = a.do;
-  const type = KNOWN[t] ? t : 'other';
+  const type = VOCAB.actions[t] ? t : 'other';
   let f = '', below = '';
   if (t === 'say') f = whoSel(p, a.who) + `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span>`;
   else if (t === 'wait') f = fld('', numx(p + '.seconds', a.seconds, 'seconds')) + '<span class="f">seconds</span>';
-  else if (t === 'anim') f = whoSel(p, a.who) + `<span class="f grow"><input class="in" list="dl-anims" data-p="${p}.name" data-k="str" value="${esc(a.name ?? '')}" placeholder="animation"></span>` + fld('for', numx(p + '.duration', a.duration, 'duration'));
-  else if (t === 'set') f = `<span class="f"><input class="in mono" style="width:150px" data-p="${p}.key" data-k="str" value="${esc(a.key ?? '')}" placeholder="key"></span>` + `<span class="f grow">=${raw(p + '.value', a.value)}</span>`;
-  else if (t === 'setPhase') f = `<span class="f grow"><input class="in mono" list="dl-phases" data-p="${p}.phase" data-k="str" value="${esc(a.phase ?? '')}" placeholder="phase"></span>`;
+  else if (t === 'anim') f = whoSel(p, a.who) + `<span class="f grow"><input class="in" list="${a.who === 'receptionist' ? 'dl-anims-r' : 'dl-anims-n'}" data-p="${p}.name" data-k="str" data-r="1" value="${esc(a.name ?? '')}" placeholder="animation"></span>` + fld('for', numx(p + '.duration', a.duration, 'duration')) + `<label class="check sm" title="Wait until it has finished (e.g. a walk)"><input type="checkbox" data-p="${p}.untilDone" data-k="flag"${a.untilDone ? ' checked' : ''}> until done</label>`;
+  else if (t === 'face') f = whoSel(p, a.who) + fld('looks', menu(p + '.expression', VOCAB.expressions, a.expression));
+  else if (t === 'sound') f = fld('', menu(p + '.name', VOCAB.sounds, a.name)) + fld('at', menu(p + '.who', speakerIds(), a.who, 'strOpt', '(the room)'));
+  else if (t === 'emit') f = `<span class="f grow"><input class="in mono" data-p="${p}.event" data-k="str" value="${esc(a.event ?? '')}" placeholder="event name (the game listens for it)"></span>`;
+  else if (t === 'goto') f = fld('to beat', menu(p + '.beat', beatIds(), a.beat, 'nullable', '(none: the exchange is over)'));
+  else if (t === 'notice') f = `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span>` + fld('for', numx(p + '.seconds', a.seconds, 'seconds'));
+  else if (t === 'set') f = `<span class="f"><input class="in mono" style="width:170px" list="dl-state" data-p="${p}.key" data-k="str" value="${esc(a.key ?? '')}" placeholder="state key"></span>` + `<span class="f grow">=${raw(p + '.value', a.value)}</span>`;
+  else if (t === 'setPhase') f = fld('', menu(p + '.phase', VOCAB.phases, a.phase));
   else if (t === 'if') {
     f = condSelect(p + '.test', a.test, false);
     if (isCustomCond(a.test)) below += `<div class="branch">${codeField(p + '.test', a.test)}</div>`;
     below += `<div class="branch"><div class="blabel">then</div>${actionList(p + '.then', a.then)}</div><div class="branch"><div class="blabel">else</div>${actionList(p + '.else', a.else)}</div>`;
   } else f = `<span class="f grow"><input class="in mono" data-p="${p}.do" data-k="str" data-r="1" value="${esc(t ?? '')}" placeholder="action name"></span>`;
-  const extra = Object.keys(a).filter(k => k !== 'do' && !k.startsWith('$') && !(KNOWN[t] || []).includes(k));
+  const extra = Object.keys(a).filter(k => k !== 'do' && !k.startsWith('$') && !(VOCAB.actions[t] || []).includes(k));
   const extraHtml = extra.map(k => `<div class="kv" style="flex-basis:100%"><span class="k mono">${esc(k)}</span>${raw(`${p}.${k}`, a[k])}<button class="btn tiny" data-a="del-key" data-p="${p}.${k}" aria-label="Remove field">×</button></div>`).join('');
   const addKey = type === 'other' ? `<div class="kv" style="flex-basis:100%"><input class="in mono" placeholder="new field" data-addkey style="max-width:160px"><button class="btn tiny" data-a="add-key" data-p="${p}">+ field</button></div>` : '';
-  const sel = `<select class="atype" data-p="${p}" data-k="atype">${Object.keys(KNOWN).map(k => `<option${k === type ? ' selected' : ''}>${k}</option>`).join('')}<option value="other"${type === 'other' ? ' selected' : ''}>other…</option></select>`;
+  const sel = `<select class="atype" data-p="${p}" data-k="atype">${Object.keys(VOCAB.actions).map(k => `<option${k === type ? ' selected' : ''}>${k}</option>`).join('')}<option value="other"${type === 'other' ? ' selected' : ''}>other…</option></select>`;
   return `<div class="act t-${type}">${sel}${f}${tools(p, !noteKey(a))}${noteKey(a) ? `<span class="f" style="flex-basis:100%">${noteField(p, a)}</span>` : ''}${below}${extraHtml}${addKey}</div>`;
 }
 const outcomeOf = o => (o.advance ? 'advance' : 'goto' in o ? (o.goto === null ? 'end' : isJs(o.goto) ? 'cond' : 'goto') : 'respond');
@@ -902,12 +1341,69 @@ function sceneForm() {
     <label class="field"><span>Targets <small>(comma-separated)</small></span><input class="in mono" data-p="targets" data-k="csv" value="${esc(arr(S.targets).join(', '))}"></label>
   </div>
   ${sec('Speakers', 'who can talk, as shown in the dialogue box', spRows + `<button class="btn" data-a="add-speaker">+ Add speaker</button>`)}
-  ${otherFields('', S, ['start', 'targets', 'speakers', 'beats'])}`;
+  ${sec('Sequences', 'action lists the game starts itself (e.g. the call, an outburst)', (isObj(S.sequences) ? Object.keys(S.sequences).filter(k => !k.startsWith('$')) : []).map(name => `<div class="card"><div class="cardhead"><b class="mono">${esc(name)}</b><span class="sp"></span><button class="btn tiny danger" data-a="del-sequence" data-name="${esc(name)}">Remove</button></div>${actionList('sequences.' + name, S.sequences[name])}</div>`).join('') + `<div class="kv"><input class="in mono" placeholder="new sequence name" data-addseq style="max-width:220px"><button class="btn tiny" data-a="add-sequence">+ sequence</button></div>`)}
+  ${otherFields('', S, ['start', 'targets', 'speakers', 'beats', 'sequences'])}`;
+}
+
+/* ================= Lists editor (small talk, shouts, easter eggs) ================= */
+const isSpoken = x => isObj(x) && 'who' in x && 'text' in x;
+function listsForm(key) {
+  if (key === undefined) return '<div class="empty">Nothing to edit in this export.</div>';
+  const S = P.scene, note = (S.$keyNotes || {})[key] || (S.$keyTNotes || {})[key];
+  return `<div class="formhead"><div><span class="idfield"><span>${esc(P.exportName)}</span></span><div style="font:600 22px var(--mono)">${esc(key)}</div></div></div>
+    ${note ? `<p class="hint">${esc(note)}</p>` : ''}${listNode(key, S[key])}`;
+}
+function listNode(p, v) {
+  if (isJs(v)) return codeField(p, v);
+  if (typeof v === 'string') return textField(p, v, 'line');
+  if (v === undefined || v === null || typeof v !== 'object') return raw(p, v);
+  if (Array.isArray(v)) {
+    const spoken = v.some(isSpoken);
+    const rowsHtml = v.map((x, k) => {
+      const q = `${p}.${k}`;
+      const body = isSpoken(x)
+        ? `<input class="in mono" style="width:130px" list="dl-speakers" data-p="${q}.who" data-k="str" value="${esc(x.who ?? '')}" placeholder="who"><span class="f grow">${textField(q + '.text', x.text, 'line')}</span>`
+        : `<span class="f grow">${listNode(q, x)}</span>`;
+      return `<div class="lrow">${body}${tools(q)}</div>${isObj(x) && x.$tnote ? `<div class="hint mono">// ${esc(x.$tnote)}</div>` : ''}`;
+    }).join('');
+    return `<div class="lst">${rowsHtml}</div><div class="qa"><button class="chip" data-a="add-item" data-t="str" data-p="${p}">+ line</button>${spoken ? `<button class="chip" data-a="add-item" data-t="spoken" data-p="${p}">+ spoken line</button>` : ''}</div>`;
+  }
+  const notes = { ...(v.$keyNotes || {}), ...(v.$keyTNotes || {}) };
+  return `<div class="lobj">${Object.keys(v).filter(k => !k.startsWith('$')).map(k => `<div class="sub"><div class="lbl">${esc(k)}${notes[k] ? ` <small class="hint">// ${esc(String(notes[k]).replace(/\n/g, ' '))}</small>` : ''}</div>${listNode(`${p}.${k}`, v[k])}</div>`).join('')}</div>`;
+}
+function listChecks() {
+  const out = [], keys = sectionKeys();
+  const Wn = (m, i) => out.push({ lv: 'warn', m, i });
+  keys.forEach((key, i) => {
+    const walk = (v, path) => {
+      if (typeof v === 'string') { if (!v.trim()) Wn(`${path} is empty.`, i); return; }
+      if (Array.isArray(v)) {
+        const seen = new Set();
+        v.forEach((x, k) => {
+          const t = typeof x === 'string' ? x : isSpoken(x) && typeof x.text === 'string' ? x.who + ': ' + x.text : null;
+          if (t && seen.has(t)) Wn(`${path} has the same line twice: “${trunc(t, 40)}”.`, i);
+          if (t) seen.add(t);
+          if (isSpoken(x) && !x.who) Wn(`${path}.${k} is a spoken line with nobody saying it.`, i);
+          walk(x, `${path}.${k}`);
+        });
+        return;
+      }
+      if (isObj(v) && !isJs(v)) for (const k of Object.keys(v)) if (!k.startsWith('$')) walk(v[k], `${path}.${k}`);
+    };
+    walk(P.scene[key], key);
+  });
+  return out;
 }
 
 /* ================= Rendering ================= */
 function renderIndex() {
   const S = P.scene;
+  if (isLists()) {
+    const count = v => (Array.isArray(v) ? v.length + ' lines' : isObj(v) ? Object.keys(v).filter(k => !k.startsWith('$')).length + ' fields' : typeof v === 'string' ? '“' + trunc(v, 28) + '”' : '');
+    $('#index').innerHTML = `<div class="idxhead">${esc(P.exportName)}: sections</div>` + sectionKeys().map(k =>
+      `<button class="li${sel.kind === 'section' && sel.key === k ? ' on' : ''}" data-a="sel-section" data-key="${esc(k)}"><span class="lid">${esc(k)}</span><small>${esc(count(S[k]))}</small></button>`).join('');
+    return;
+  }
   const summary = b => {
     if (!isObj(b)) return '';
     const o = arr(b.options).find(x => isObj(x) && x.advance) || arr(b.options)[0];
@@ -922,31 +1418,43 @@ function renderIndex() {
 }
 function renderEditor() {
   const ed = $('#editor'), st = ed.scrollTop;
-  ed.innerHTML = sel.kind === 'scene' ? sceneForm() : (P.scene.beats[sel.i] ? beatForm(sel.i) : '<div class="empty">No beats yet. Add one from the list.</div>');
+  ed.innerHTML = isLists() ? listsForm(sel.key) : sel.kind === 'scene' ? sceneForm() : (P.scene.beats[sel.i] ? beatForm(sel.i) : '<div class="empty">No beats yet. Add one from the list.</div>');
   ed.scrollTop = st;
   renderLists();
 }
 function collect(v, fn) { if (Array.isArray(v)) v.forEach(x => collect(x, fn)); else if (isObj(v)) { fn(v); for (const k in v) if (!k.startsWith('$')) collect(v[k], fn); } }
 function renderLists() {
-  const anims = new Set(['lookAtPlayer', 'resumeSolitaire']), phases = new Set(['arrival', 'reception', 'waiting', 'brawl', 'doorOpen']), trig = new Set(['interact']);
+  const anims = new Set(allAnims()), phases = new Set(VOCAB.phases), trig = new Set(['interact']);
   collect(P.scene, o => { if (o.do === 'anim' && typeof o.name === 'string') anims.add(o.name); if (o.do === 'setPhase' && typeof o.phase === 'string') phases.add(o.phase); });
-  P.scene.beats.forEach(b => { if (isObj(b) && isObj(b.trigger) && typeof b.trigger.type === 'string') trig.add(b.trigger.type); });
+  arr(P.scene.beats).forEach(b => { if (isObj(b) && isObj(b.trigger) && typeof b.trigger.type === 'string') trig.add(b.trigger.type); });
   const refs = new Set([...accessed].filter(x => !x.includes('(')).map(shortPath).concat(helperVals));
   const fill = (id, set) => { $('#' + id).innerHTML = [...set].map(x => `<option value="${esc(x)}"></option>`).join(''); };
   fill('dl-anims', anims); fill('dl-phases', phases); fill('dl-trig', trig); fill('dl-refs', refs);
   fill('dl-targets', new Set([...arr(P.scene.targets), ...speakerIds()]));
+  fill('dl-anims-r', new Set(VOCAB.anims.receptionist)); fill('dl-anims-n', new Set(VOCAB.anims.npc)); fill('dl-state', new Set(VOCAB.stateKeys));
 }
 let sideTimer = null;
 function refreshSide(now) {
   clearTimeout(sideTimer);
-  const go = () => { renderIndex(); renderChecks(); if (tab === 'flow') renderFlow(); if (tab === 'code') renderCode(); };
+  const go = () => { renderIndex(); renderChecks(); if (tab === 'flow' && !isLists()) renderFlow(); if (tab === 'code') renderCode(); };
   if (now) go(); else sideTimer = setTimeout(go, 180);
 }
-function renderAll() { renderIndex(); renderEditor(); renderChecks(); renderTab(); }
+function renderExports() {
+  $('#b-copy').textContent = 'Copy ' + fileExt();
+  // Save goes back to where the scene came from: the project file, the opened file, or (neither) asks
+  const sv = $('#b-save');
+  sv.textContent = P.projectFile || fileHandle ? 'Save' : 'Save as…';
+  sv.title = P.projectFile ? `Save to src/data/${P.projectFile} (the game reloads by itself)` : fileHandle ? `Save to ${fileHandle.name}` : 'Choose where to save this file';
+  $('#try-wrap').hidden = !SERVED;
+  const el = $('#b-export'), list = arr(P.exports);
+  el.hidden = list.length < 2;
+  el.innerHTML = list.map(n => `<option value="${esc(n)}"${n === P.exportName ? ' selected' : ''}>${esc(n)}</option>`).join('');
+}
+function renderAll() { renderExports(); renderIndex(); renderEditor(); renderChecks(); renderTab(); }
 
 /* ================= Flow map ================= */
 function graph() {
-  const beats = P.scene.beats, ids = beats.map(b => (isObj(b) ? b.id : undefined));
+  const beats = arr(P.scene.beats), ids = beats.map(b => (isObj(b) ? b.id : undefined));
   const edges = [];
   const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const label = t => (typeof t === 'string' ? '“' + trunc(t, 24) + '”' : 'ƒx line');
@@ -960,8 +1468,16 @@ function graph() {
       else if (isJs(o.goto)) ids.filter(id => id && new RegExp(`(['"\`])${reEsc(id)}\\1`).test(o.goto.$js)).forEach(id => edges.push({ a: b.id, b: id, kind: 'cond', label: label(o.text) }));
     });
     if (arr(b.options).some(o => isObj(o) && o.advance) && b.next === undefined) edges.push({ a: b.id, b: '(end)', kind: 'end', label: 'advance' });
+    // `goto` actions inside the beat jump too
+    collect(b, o => { if (o.do === 'goto' && typeof o.beat === 'string') edges.push({ a: b.id, b: o.beat, kind: 'goto', label: 'goto' }); });
   });
-  return { ids, edges };
+  // Sequences the game starts itself (e.g. signSheet) can jump into beats: those beats are reachable
+  const roots = [];
+  if (isObj(P.scene.sequences)) for (const [name, list] of Object.entries(P.scene.sequences)) {
+    if (name.startsWith('$')) continue;
+    collect(list, o => { if (o.do === 'goto' && typeof o.beat === 'string') { roots.push(o.beat); edges.push({ a: '(' + name + ')', b: o.beat, kind: 'goto', label: 'sequence' }); } });
+  }
+  return { ids, edges, roots };
 }
 function renderFlow() {
   const el = $('#tab-flow');
@@ -1030,12 +1546,14 @@ function renderFlow() {
 
 /* ================= Checks ================= */
 function checks() {
+  if (isLists()) return listChecks();
   const out = [], S = P.scene, beats = S.beats, ids = beatIds();
   const E = (m, i) => out.push({ lv: 'error', m, i }), Wn = (m, i) => out.push({ lv: 'warn', m, i });
-  if (!beats.length) Wn('There are no beats yet.');
+  const seqOnly = !beats.length && isObj(S.sequences) && Object.keys(S.sequences).some(k => !k.startsWith('$'));
+  if (!beats.length && !seqOnly) Wn('There are no beats yet.');
   const seen = new Set();
   beats.forEach((b, k) => { if (!isObj(b)) return; if (!b.id) E(`Beat ${k + 1} has no id.`, k); else if (seen.has(b.id)) E(`Two beats share the id “${b.id}”.`, k); seen.add(b.id); });
-  if (!S.start) Wn('No start beat is set (Scene settings).'); else if (!ids.includes(S.start)) E(`The start beat “${S.start}” doesn't exist.`);
+  if (!S.start) { if (!seqOnly) Wn('No start beat is set (Scene settings).'); } else if (!ids.includes(S.start)) E(`The start beat “${S.start}” doesn't exist.`);
   const spk = speakerIds(), targets = arr(S.targets);
   beats.forEach((b, k) => {
     if (!isObj(b)) return;
@@ -1049,13 +1567,40 @@ function checks() {
       if (!isObj(o)) return;
       if (typeof o.goto === 'string' && !ids.includes(o.goto)) E(`An option in “${id}” goes to “${o.goto}”, which doesn't exist.`, k);
       if (o.text === '' || o.text === undefined) Wn(`Option ${n + 1} in “${id}” has no text.`, k);
+      if (!o.advance && !('goto' in o) && o.actions === undefined && o.response === undefined) Wn(`Option ${n + 1} in “${id}” does nothing when picked (no response, actions or next beat).`, k);
     });
     if (isObj(b.trigger) && b.trigger.target && targets.length && !targets.includes(b.trigger.target)) Wn(`“${id}” is triggered by “${b.trigger.target}”, which isn't in the scene's targets.`, k);
-    collect(b, o => { if ((o.do === 'say' || o.do === 'anim') && o.who && !spk.includes(o.who)) Wn(`“${id}” has a ${o.do} by “${o.who}”, who isn't a speaker.`, k); if (o.do === 'say' && !o.text) Wn(`“${id}” has an empty say line.`, k); });
+    collect(b, o => {
+      if (typeof o.do !== 'string') return;
+      if (!(o.do in VOCAB.actions)) Wn(`“${id}” uses an action the game doesn't know: “${o.do}”.`, k);
+      if (typeof o.who === 'string' && o.who && !spk.includes(o.who)) Wn(`“${id}” has a ${o.do} by “${o.who}”, who isn't a speaker.`, k);
+      if (o.do === 'say' && !o.text) Wn(`“${id}” has an empty say line.`, k);
+      if (o.do === 'notice' && !o.text) Wn(`“${id}” has an empty notice.`, k);
+      if (o.do === 'anim' && typeof o.name === 'string') {
+        const ok = typeof o.who === 'string' ? animsFor(o.who) : allAnims();
+        if (!o.name) Wn(`“${id}” has an animation with no name.`, k);
+        else if (!ok.includes(o.name)) Wn(`“${id}”: ${o.who || 'nobody'} doesn't know the animation “${o.name}”.`, k);
+      }
+      if (o.do === 'face' && typeof o.expression === 'string' && !VOCAB.expressions.includes(o.expression)) Wn(`“${id}”: there's no expression called “${o.expression}”.`, k);
+      if (o.do === 'sound' && typeof o.name === 'string' && !VOCAB.sounds.includes(o.name)) Wn(`“${id}”: there's no sound called “${o.name}”.`, k);
+      if (o.do === 'setPhase' && typeof o.phase === 'string' && !VOCAB.phases.includes(o.phase)) E(`“${id}”: there's no phase called “${o.phase}”.`, k);
+      if (o.do === 'set' && typeof o.key === 'string' && !VOCAB.stateKeys.includes(o.key)) Wn(`“${id}” sets “${o.key || '(no key)'}”, which isn't in the game state.`, k);
+      if (o.do === 'emit' && !o.event) Wn(`“${id}” emits an event with no name.`, k);
+      if (o.do === 'goto' && typeof o.beat === 'string' && !ids.includes(o.beat)) E(`“${id}” jumps to “${o.beat}”, which doesn't exist.`, k);
+    });
   });
-  const { edges } = graph();
+  if (isObj(S.sequences)) for (const [name, list] of Object.entries(S.sequences)) {
+    if (name.startsWith('$')) continue;
+    collect(list, o => {
+      if (typeof o.do !== 'string') return;
+      if (!(o.do in VOCAB.actions)) Wn(`Sequence “${name}” uses an action the game doesn't know: “${o.do}”.`);
+      if (typeof o.who === 'string' && o.who && !spk.includes(o.who)) Wn(`Sequence “${name}” has a ${o.do} by “${o.who}”, who isn't a speaker.`);
+      if (o.do === 'goto' && typeof o.beat === 'string' && !ids.includes(o.beat)) E(`Sequence “${name}” jumps to “${o.beat}”, which doesn't exist.`);
+    });
+  }
+  const { edges, roots } = graph();
   if (ids.includes(S.start)) {
-    const reach = new Set([S.start]), qu = [S.start];
+    const reach = new Set([S.start, ...roots]), qu = [S.start, ...roots];
     while (qu.length) { const id = qu.shift(); edges.filter(e => e.a === id).forEach(e => { if (!reach.has(e.b)) { reach.add(e.b); qu.push(e.b); } }); }
     beats.forEach((b, k) => { if (isObj(b) && b.id && !reach.has(b.id)) Wn(`Nothing leads to “${b.id}” from the start beat.`, k); });
   }
@@ -1080,6 +1625,10 @@ function renderCode() {
 /* ================= Tabs ================= */
 let tab = 'flow';
 function renderTab() {
+  // Lists have no flow or play test
+  const listMode = isLists();
+  $$('.tabs button').forEach(b => { b.hidden = listMode && (b.dataset.tab === 'flow' || b.dataset.tab === 'play'); });
+  if (listMode && (tab === 'flow' || tab === 'play')) tab = 'code';
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + tab));
   if (tab === 'flow') renderFlow(); if (tab === 'code') renderCode(); if (tab === 'checks') renderChecks(); if (tab === 'play') { if (!PT) ptStart(); ptRender(); }
@@ -1096,7 +1645,9 @@ function guessConfig() {
     const ks = p.split('.'); let cur = obj;
     ks.slice(0, -1).forEach(k => { if (typeof cur[k] !== 'object' || cur[k] === null) cur[k] = {}; cur = cur[k]; });
     const last = ks[ks.length - 1];
-    cur[last] = last in GUESS ? GUESS[last] : /pitch/i.test(last) ? 1 : 1;
+    const real = VOCAB.config && ks[0] === 'config' ? ks.slice(1).reduce((o, k) => (o == null ? o : o[k]), VOCAB.config) : undefined;
+    cur[last] = typeof real === 'number' || typeof real === 'string' || typeof real === 'boolean' ? real
+      : last in GUESS ? GUESS[last] : 1;
   }
   return JSON.stringify(obj, null, 2);
 }
@@ -1234,6 +1785,7 @@ function readVal(el) {
   switch (el.dataset.k) {
     case 'str': case 'note': return v;
     case 'strOpt': return v === '' ? undefined : v;
+    case 'nullable': return v === '' ? null : v;
     case 'flag': return v ? true : undefined;
     case 'numx': return parseNumx(v);
     case 'raw': return parseLiteral(v);
@@ -1242,7 +1794,7 @@ function readVal(el) {
   }
   return undefined;
 }
-const SIMPLE = new Set(['str', 'note', 'strOpt', 'flag', 'numx', 'raw', 'js', 'csv']);
+const SIMPLE = new Set(['str', 'note', 'strOpt', 'nullable', 'flag', 'numx', 'raw', 'js', 'csv']);
 const editor = $('#editor');
 editor.addEventListener('input', e => {
   const el = e.target;
@@ -1312,7 +1864,12 @@ function newAction(t, who) {
     case 'wait': return { do: 'wait', seconds: 1 };
     case 'anim': return { do: 'anim', who, name: '' };
     case 'set': return { do: 'set', key: '', value: true };
-    case 'setPhase': return { do: 'setPhase', phase: '' };
+    case 'setPhase': return { do: 'setPhase', phase: VOCAB.phases[0] };
+    case 'face': return { do: 'face', who, expression: 'annoyed' };
+    case 'sound': return { do: 'sound', name: VOCAB.sounds[0] };
+    case 'emit': return { do: 'emit', event: '' };
+    case 'goto': return { do: 'goto', beat: beatIds()[0] ?? null };
+    case 'notice': return { do: 'notice', text: '', seconds: 2 };
     case 'if': return { do: 'if', test: { $js: helperFns[0] || '(state) => true' }, then: [], else: [] };
     default: return { do: t };
   }
@@ -1343,6 +1900,8 @@ document.addEventListener('click', e => {
       const who = speakerIds().find(x => x !== 'player') || speakerIds()[0];
       getPath(S, p).push(newAction(t.dataset.t, who)); done(); return;
     }
+    case 'sel-section': sel = { kind: 'section', key: t.dataset.key }; editor.scrollTop = 0; renderIndex(); renderEditor(); return;
+    case 'add-item': { const l = getPath(S, p); l.push(t.dataset.t === 'spoken' ? { who: 'receptionist', text: '' } : ''); done(); return; }
     case 'del': { const [lp, i] = parentOf(p); getPath(S, lp).splice(i, 1); done(); return; }
     case 'dup': { const [lp, i] = parentOf(p); const l = getPath(S, lp); l.splice(i + 1, 0, JSON.parse(JSON.stringify(l[i]))); done(); return; }
     case 'up': case 'down': { const [lp, i] = parentOf(p); const l = getPath(S, lp), j = a === 'up' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; done(); return; }
@@ -1356,13 +1915,15 @@ document.addEventListener('click', e => {
       if (!k || !IDENT.test(k)) { inp && inp.focus(); return; }
       const obj = p === '' ? S : getPath(S, p); if (k in obj) return; obj[k] = ''; done(); return;
     }
+    case 'add-sequence': { const inp = t.parentElement.querySelector('[data-addseq]'), name = inp.value.trim(); if (!IDENT.test(name)) { toast('A sequence name is letters and digits, e.g. outburst'); return; } if (!isObj(S.sequences)) S.sequences = {}; if (!(name in S.sequences)) S.sequences[name] = []; done(); return; }
+    case 'del-sequence': { delete S.sequences[t.dataset.name]; done(); return; }
     case 'add-speaker': { if (!isObj(S.speakers)) S.speakers = {}; let n = 1, id = 'speaker'; while (id in S.speakers) id = 'speaker' + ++n; S.speakers[id] = { name: id.toUpperCase() }; done(); return; }
     case 'del-speaker': delete S.speakers[t.dataset.id]; done(); return;
   }
 });
 $('#tab-flow').addEventListener('click', e => { const g = e.target.closest('.node[data-i]'); if (!g) return; sel = { kind: 'beat', i: +g.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); renderFlow(); });
 $('#tab-flow').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.node[data-i]')) { e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
-$('#checks').addEventListener('click', e => { const li = e.target.closest('li[data-i]'); if (!li || li.dataset.i === '') return; sel = { kind: 'beat', i: +li.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); });
+$('#checks').addEventListener('click', e => { const li = e.target.closest('li[data-i]'); if (!li || li.dataset.i === '') return; sel = isLists() ? { kind: 'section', key: sectionKeys()[+li.dataset.i] } : { kind: 'beat', i: +li.dataset.i }; editor.scrollTop = 0; renderIndex(); renderEditor(); });
 $$('.tabs button').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; renderTab(); }));
 
 /* ================= Events: play test ================= */
@@ -1400,6 +1961,33 @@ $('#c-tail').addEventListener('change', () => refreshSide(true));
 $('#c-name').addEventListener('change', e => { const v = e.target.value.trim(); if (IDENT.test(v)) { P.exportName = v; commit(true); refreshSide(true); } else e.target.value = P.exportName; });
 
 /* ================= Toolbar: open, paste, copy, save ================= */
+// ---- The game's dialogue files, through the dev server (vite.config.js: scene-desk-files) ----
+async function listProjectFiles() {
+  if (!SERVED) return;
+  try {
+    const files = await (await fetch('/__scene-desk/files')).json();
+    const el = $('#b-project');
+    el.innerHTML = `<option value="">Project file…</option>` + files.map(f => `<option value="${esc(f)}">src/data/${esc(f)}</option>`).join('');
+    el.hidden = !files.length;
+  } catch {}
+}
+$('#b-project').addEventListener('change', async e => {
+  const name = e.target.value; e.target.value = '';
+  if (!name) return;
+  try { await openProjectFile(name); } catch (err) { toast('Could not open ' + name + ': ' + err.message); }
+});
+async function saveToProject() {
+  const r = await fetch('/__scene-desk/file?name=' + encodeURIComponent(P.projectFile), { method: 'POST', body: exportText() });
+  if (!r.ok) throw new Error(await r.text());
+}
+$('#b-try').addEventListener('click', async () => {
+  try {
+    if (P.projectFile) { await saveToProject(); toast(`Saved src/data/${P.projectFile}; opening the game.`); }
+    else toast('This scene isn\'t a project file, so the game runs the saved version. Open it with "Project file…" to try edits.');
+    window.open('/' + $('#b-try-how').value, 'income-tax-game');
+  } catch (err) { toast('Could not save: ' + err.message); }
+});
+$('#b-export').addEventListener('change', e => { try { switchExport(e.target.value); } catch (err) { toast('Could not open that export: ' + err.message); renderExports(); } });
 let toastTimer = null;
 function toast(msg, undo) {
   $('#toast-t').textContent = msg; $('#toast-b').hidden = !undo; $('#toast').classList.add('on');
@@ -1408,16 +1996,17 @@ function toast(msg, undo) {
 $('#toast-b').addEventListener('click', () => { travel(-1); $('#toast').classList.remove('on'); });
 function doImport(text, name, handle) {
   const p = importText(text);
-  fileHandle = handle || null; $('#b-save').hidden = !fileHandle;
-  if (fileHandle) $('#b-save').textContent = 'Save to ' + fileHandle.name;
-  loadProject(p, `Opened ${name || p.exportName}: ${p.scene.beats.length} beats.`);
-  if (PT) ptStart();
+  p.projectFile = null;
+  fileHandle = handle || null;
+  loadProject(p, `Opened ${name || p.exportName}: ` + (p.mode === 'lists' ? `${p.exportName}, ${Object.keys(p.scene).filter(k => !k.startsWith('$')).length} sections.` : `${p.scene.beats.length} beats.`) + (p.exports.length > 1 ? ` ${p.exports.length} exports in this file: pick one at the top.` : ''));
+  if (PT && !isLists()) ptStart();
+  if (!handle) setTimeout(linkProjectFile, 0);
 }
 const topLevel = (() => { try { return window.self === window.top; } catch { return false; } })();
 $('#b-open').addEventListener('click', async () => {
   if (topLevel && window.showOpenFilePicker) {
     try {
-      const [h] = await window.showOpenFilePicker({ types: [{ description: 'JavaScript', accept: { 'text/javascript': ['.js', '.mjs'] } }] });
+      const [h] = await window.showOpenFilePicker({ types: [{ description: 'Beats file (TypeScript or JavaScript)', accept: { 'text/plain': ['.ts'], 'text/javascript': ['.js', '.mjs'] } }] });
       const f = await h.getFile(); doImport(await f.text(), f.name, h); return;
     } catch (e) { if (e.name === 'AbortError') return; if (e.message && !/picker|security|cross-origin/i.test(e.message)) { toast('Could not open: ' + e.message); return; } }
   }
@@ -1427,24 +2016,61 @@ $('#f-open').addEventListener('change', async e => { const f = e.target.files[0]
 $('#b-paste').addEventListener('click', () => { $('#m-paste-err').textContent = ''; $('#m-paste').classList.add('on'); $('#m-paste-t').focus(); });
 $('#m-paste-x').addEventListener('click', () => $('#m-paste').classList.remove('on'));
 $('#m-paste-ok').addEventListener('click', () => { try { doImport($('#m-paste-t').value, 'pasted file'); $('#m-paste').classList.remove('on'); $('#m-paste-t').value = ''; } catch (err) { $('#m-paste-err').textContent = 'Could not read it: ' + err.message; } });
-$('#b-new').addEventListener('click', () => { fileHandle = null; $('#b-save').hidden = true; loadProject(JSON.parse(JSON.stringify(BLANK)), 'Started a new scene.'); if (PT) ptStart(); });
+$('#b-new').addEventListener('click', () => { fileHandle = null; loadProject(JSON.parse(JSON.stringify(BLANK)), 'Started a new scene.'); if (PT) ptStart(); });
 $('#b-undo').addEventListener('click', () => travel(-1));
 $('#b-redo').addEventListener('click', () => travel(1));
 async function copyOut() {
-  try { await navigator.clipboard.writeText(exportText()); toast(`Copied ${P.exportName}.js. Paste it over the file in VS Code.`); }
+  try { await navigator.clipboard.writeText(exportText()); toast(`Copied ${P.exportName}${fileExt()}. Paste it over the file in VS Code` + (SERVED ? ', or use "Project file…" to save straight into the project.' : '.')); }
   catch { tab = 'code'; renderTab(); const r = document.createRange(); r.selectNodeContents($('#c-out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Copy was blocked. The code is selected in the Code tab; press Ctrl+C.'); }
 }
 $('#b-copy').addEventListener('click', copyOut);
 $('#c-copy').addEventListener('click', copyOut);
 if (topLevel) {
   $('#c-dl').hidden = false;
-  $('#c-dl').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportText()], { type: 'text/javascript' })); a.download = P.exportName + '.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+  $('#c-dl').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportText()], { type: 'text/javascript' })); a.download = P.exportName + fileExt(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
 }
 $('#b-save').addEventListener('click', async () => {
-  if (!fileHandle) return;
+  if (P.projectFile && SERVED) {
+    try { await saveToProject(); toast('Saved to src/data/' + P.projectFile + '. The game reloads by itself.'); } catch (e) { toast('Could not save: ' + e.message); }
+    return;
+  }
+  if (!fileHandle) {
+    // Nowhere yet: ask (Chrome/Edge), or download the file
+    if (topLevel && window.showSaveFilePicker) {
+      try { fileHandle = await window.showSaveFilePicker({ suggestedName: P.exportName + fileExt(), types: [{ description: 'Beats file', accept: { 'text/plain': ['.ts', '.js'] } }] }); }
+      catch (e) { if (e.name !== 'AbortError') toast('Could not save: ' + e.message); return; }
+      renderExports();
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([exportText()], { type: 'text/plain' })); a.download = P.exportName + fileExt(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      toast('Downloaded ' + a.download + '. Move it over the file in src/data/.'); return;
+    }
+  }
   try { const w = await fileHandle.createWritable(); await w.write(exportText()); await w.close(); toast('Saved to ' + fileHandle.name + '.'); }
   catch (e) { toast('Could not save: ' + e.message); }
 });
+/**
+ * Through the dev server, a scene that wasn't opened from the project (pasted, or a draft kept in the
+ * browser) is linked to the project file that exports the same name, so Save writes it back there.
+ */
+async function linkProjectFile() {
+  if (!SERVED || !P || P.projectFile || fileHandle) return;
+  try {
+    const files = await (await fetch('/__scene-desk/files')).json();
+    for (const f of files) {
+      const text = await (await fetch('/__scene-desk/file?name=' + encodeURIComponent(f))).text();
+      if (findExports(text).some(e => e.name === P.exportName)) {
+        P.projectFile = f; persist(); renderExports();
+        toast(`Linked to src/data/${f}: Save writes it back there.`);
+        return;
+      }
+    }
+  } catch {}
+}
+async function openProjectFile(name) {
+  const text = await (await fetch('/__scene-desk/file?name=' + encodeURIComponent(name))).text();
+  doImport(text, 'src/data/' + name);
+  P.projectFile = name; commit(true); renderExports();
+}
 document.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); document.body.classList.add('drop'); } });
 document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop'); });
 document.addEventListener('drop', async e => {
@@ -1454,18 +2080,150 @@ document.addEventListener('drop', async e => {
 });
 
 /* ================= Start ================= */
-window.SceneDesk = { importText, exportText: () => exportText(), get project() { return P; } };
-(function boot() {
+window.SceneDesk = {
+  importText, exportText: () => exportText(), get project() { return P; },
+  /** Read one export of a file and write the file back, without touching the editor (for tests). */
+  roundTrip(text, name) { const keep = P; try { P = importText(text, name); return exportText(); } finally { P = keep; } },
+  exportsOf: text => findExports(text).map(e => e.name),
+};
+/* ================= Tooltips ================= */
+// Hover text for every button, menu and checkbox. Elements are rebuilt all the time, so an observer
+// fills these in whenever new ones appear. A tooltip already set by the code (e.g. Save's destination) wins.
+const TIP_ID = {
+  'b-open': 'Open a beats file from your computer (.ts or .js). Save then writes back to that file.',
+  'b-paste': "Paste the text of a beats file to edit it. It replaces the scene you're editing (Undo brings it back).",
+  'b-new': 'Start a new, empty scene. The current one stays in Undo.',
+  'b-undo': 'Undo the last change (Ctrl+Z)',
+  'b-redo': 'Redo what was undone (Ctrl+Shift+Z)',
+  'b-copy': 'Copy the whole file, with your changes, to the clipboard, to paste over the file in VS Code.',
+  'b-try': 'Save, then open the game in a new tab, started the way the menu beside it says.',
+  'b-try-how': 'How the game starts: skip the title, a short wait before your number is called, straight to the brawl, or the title screen.',
+  'b-project': "Open one of the game's dialogue files (src/data/). Save then writes straight back to it.",
+  'b-export': 'This file has more than one scene or list. Pick which one to edit; the others are kept as they are.',
+  'pt-restart': 'Start the play test again from the start beat, using the script as it is now.',
+  'pt-speed': 'How fast time runs in the play test (waits, gates and the clock).',
+  'pt-start': 'The time on the wall clock when the play test starts, e.g. 1:55.',
+  'pt-m': "Move the play test's clock back one minute.",
+  'pt-p': "Move the play test's clock forward one minute (e.g. to reach 2:00).",
+  'pt-config-apply': 'Use the numbers in the box for the play test, and restart it.',
+  'pt-config-reset': 'Forget your edits to the numbers: use the values from config.js (or guesses).',
+  'pt-config': 'Numbers the play test uses for things the script reads from config.js (timings, the appointment time...).',
+  'c-copy': 'Copy the generated file to the clipboard.',
+  'c-dl': 'Download the generated file.',
+  'c-pre': 'Imports and helper functions above the scene. Helper functions appear in the condition menus.',
+  'c-name': 'The name the scene is exported as (the game imports it by this name).',
+  'm-paste-x': 'Close without importing anything.',
+  'm-paste-ok': 'Read the pasted file and edit it here.',
+  'toast-b': 'Undo what just happened.',
+};
+const TIP_TAB = {
+  flow: 'A map of how the beats connect: player options, next beats and jumps.',
+  play: 'Try the scene right here: talk to people, pick options, watch the clock and the gates.',
+  code: 'The setup code above the scene, and the file exactly as it will be saved.',
+  checks: 'Anything that would not work in the game. Click one to jump to it.',
+};
+const TIP_A = {
+  'sel-scene': 'Settings for the whole scene: start beat, targets, speakers and sequences.',
+  'sel-beat': 'Edit this beat.',
+  'sel-section': 'Edit this section.',
+  'add-beat': 'Add a new beat at the end of the list.',
+  'make-start': 'Make this the beat the conversation starts at.',
+  'beat-up': 'Move this beat up in the file (the order in the file does not change what happens).',
+  'beat-down': 'Move this beat down in the file (the order in the file does not change what happens).',
+  'dup-beat': 'Make a copy of this beat, with a new id.',
+  'del-beat': 'Delete this beat (Undo brings it back).',
+  'add-option': 'Add a player option: a line the player can choose to say.',
+  'add-actions': 'Add actions that run when the player picks this option.',
+  up: 'Move up',
+  down: 'Move down',
+  dup: 'Duplicate',
+  del: 'Remove',
+  'del-key': 'Remove this field.',
+  'add-key': 'Add a field, with the name typed beside it.',
+  'add-speaker': 'Add someone who can talk in this scene.',
+  'del-speaker': 'Remove this speaker from the scene.',
+  'add-sequence': 'Add a sequence (actions the game starts by itself, e.g. the call) with the name typed beside it.',
+  'del-sequence': 'Remove this sequence.',
+};
+const TIP_ACTION = {
+  say: 'Someone says a line in the dialogue box.',
+  wait: 'Pause for a number of seconds before the next action.',
+  anim: 'Play an animation, e.g. the receptionist looks at the player.',
+  face: "Change someone's facial expression (annoyed, surprised...).",
+  sound: 'Play a sound, in the room or from someone.',
+  set: 'Change a value in the game state, e.g. clipboardOffered = true.',
+  setPhase: 'Move the game to another phase (arrival, reception, waiting, brawl, doorOpen).',
+  emit: "Send a named event that the game's code listens for.",
+  goto: 'Jump to another beat, or end the exchange.',
+  notice: 'Show a short message at the bottom of the screen.',
+  if: 'Do one thing or another, depending on the game state.',
+};
+function tipFor(el) {
+  if (el.id && TIP_ID[el.id]) return TIP_ID[el.id];
+  const d = el.dataset || {};
+  if (d.tab) return TIP_TAB[d.tab];
+  if (d.a === 'add-action') return TIP_ACTION[d.t] ? 'Add: ' + TIP_ACTION[d.t] : 'Add this action.';
+  if (d.a === 'add-item') return d.t === 'spoken' ? 'Add a line someone says (who + what they say).' : 'Add a line to this list.';
+  if (d.a && TIP_A[d.a]) return TIP_A[d.a];
+  if ('ptTalk' in d) return 'Walk up to them and press E, as in the game.';
+  if ('ptFire' in d) return "Set off this beat's trigger.";
+  if ('ptOpt' in d) return 'Say this (or press its number).';
+  if ('ptClose' in d) return 'Walk away from the conversation, as with E in the game.';
+  if (d.k === 'atype') return 'The kind of action. Changing it replaces this action with a new one.';
+  if (d.k === 'outcome') return 'What happens after the player says this line.';
+  if (d.k === 'cond') return 'The condition: a helper from the setup code, or your own code.';
+  if (d.k === 'flag' && /\.silent$/.test(d.p || '')) return 'The player says nothing out loud for this option, e.g. “(Say nothing)”.';
+  if (d.k === 'flag' && /\.autoOpen$/.test(d.p || '')) return 'The choices appear by themselves, without the player talking first.';
+  if (d.k === 'flag' && /\.untilDone$/.test(d.p || '')) return 'Wait for the animation to finish (e.g. a walk) before the next action.';
+  // Menus and fields, by what they edit
+  const field = (d.p || '').split('.').pop();
+  if (d.p === 'start') return 'The beat the conversation starts at.';
+  const BY_FIELD = {
+    who: "Who does this: one of the scene's speakers.",
+    phase: 'The game phase to move to.',
+    next: 'The beat the story moves on to after an “advance” option.',
+    beat: 'The beat to jump to; none means the exchange is over.',
+    goto: 'The beat this option leads to.',
+    expression: 'The facial expression to switch to.',
+    name: el.tagName === 'SELECT' ? 'Which sound to play.' : 'Which animation to play.',
+    key: 'Which value in the game state to change.',
+    event: "The event's name; the game's code listens for it.",
+    seconds: 'How many seconds (a number, or a value from config such as T.gate).',
+    duration: 'How long the animation runs, in seconds (empty: its own length).',
+  };
+  return BY_FIELD[field] ?? null;
+}
+let tipQueued = false;
+function applyTips() {
+  tipQueued = false;
+  document.querySelectorAll('button, select, input[type=checkbox], textarea[id], input[id]').forEach(el => {
+    if (el.title) return;
+    const t = tipFor(el);
+    if (t) el.title = t;
+  });
+}
+new MutationObserver(() => { if (!tipQueued) { tipQueued = true; requestAnimationFrame(applyTips); } }).observe(document.body, { childList: true, subtree: true });
+
+(async function boot() {
+  await loadVocab();
+  $('#vocab').textContent = 'Names from ' + VOCAB.source;
+  listProjectFiles();
+  $('#vocab').title = VOCAB.source === 'the game' ? 'Animations, expressions, sounds, phases and state keys were read from src/ (dev server).' : 'Open this page through the dev server (npm run dev, then /scene-desk.html) to read them from the game.';
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch {}
   if (saved && saved.P && saved.P.scene) {
-    P = saved.P; P.scene.beats = arr(P.scene.beats); sel = saved.sel || sel;
+    P = saved.P; if (P.mode !== 'lists') P.scene.beats = arr(P.scene.beats); sel = saved.sel || sel;
     if (saved.pt) { ptConfigText = saved.pt; ptConfigCustom = true; }
     // re-learn config paths from the saved script
     try { runModule(P.preamble, lit(P.scene, '', 'root'), tok); } catch {}
     refreshHelpers(); clampSel(); commit(true); renderAll(); persist();
+    linkProjectFile();
+  } else if (SERVED) {
+    // Fresh start through the dev server: the real file from the project (not the built-in copy)
+    try { await openProjectFile('waitingRoomBeats.ts'); }
+    catch (e) { doImport($('#sample').textContent, 'waitingRoomBeats.ts'); }
   } else {
-    try { doImport($('#sample').textContent, 'waitingRoomBeats.js'); $('#toast').classList.remove('on'); }
+    try { doImport($('#sample').textContent, 'waitingRoomBeats.ts'); $('#toast').classList.remove('on'); }
     catch (e) { loadProject(JSON.parse(JSON.stringify(BLANK))); toast('Sample failed to load: ' + e.message); }
   }
 })();
