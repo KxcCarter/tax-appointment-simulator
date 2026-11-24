@@ -90,7 +90,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 - **Character style (chosen by the owner): `figure`.** Smooth toy figures: capsule limbs, rounded torso and head, ears, mitten hands, fitted hair. Not cartoonish. Set by `theme.look.characterStyle`; the other styles (`blocky`, `rounded`, `capsule`, `soft`) remain available for comparison via `?charstyle=` in the URL.
 - **Faces can show expression** (`figure` style): eyeballs with gaze, blinking eyelids, independent eyebrows, and a mouth that can frown, smirk, smile, open, and move while talking. Expressions are named presets in `config.characters.expressions`; beat data can switch them with `{ do: 'face', who, expression }`.
 - **Fixed early (expensive to change later):** characters are built from **separate primitive body parts** (the toy-like look), because animation, hit detection and ragdolls depend on that construction. Body proportions (chunky, slightly big-headed figures) and room scale are defined as constants in `config.js` so they can still be re-tuned.
-- Room contents: rows of chairs along the walls, a small side table with magazines, a potted plant, a water cooler, an umbrella stand, the Now Serving display, the clock, the ticket dispenser, the front desk with CRT computer, keyboard and mouse, a door marked **"ACCOUNTANT – PRIVATE"**, and an **"EMPLOYEES ONLY"** door behind the reception desk leading to a small back room.
+- Room contents: a printed notice on the wall behind the receptionist, **"Please be sure to arrive at least 5 minutes before your scheduled appointment."** (owner's request; readable from the counter: "You were here at 1:55."), rows of chairs along the walls, a small side table with magazines, a potted plant, a water cooler, an umbrella stand, the Now Serving display, the clock, the ticket dispenser, the front desk with CRT computer, keyboard and mouse, a door marked **"ACCOUNTANT – PRIVATE"**, and an **"EMPLOYEES ONLY"** door behind the reception desk leading to a small back room.
 
 ### 3.3 Player controller (first person)
 - Pointer-lock mouse look, WASD movement, Shift to walk slightly faster *(proposal: the player can never truly run; office decorum)*, E to interact.
@@ -205,7 +205,7 @@ income-tax-sim/
 2. **Opening sequence:** clock, receptionist, director and beat system, dialogue UI, the three-attempt exchange with timed gates, ticket dispenser, Now Serving display, sitting, ambient audio.
 3. **Waiting phase:** 5 seated NPCs with randomized looks and idle fidgets; the configurable wait; the receptionist calling the player's number.
 4. **Brawl:** NPC aggression and combat AI, player punch and kick, weapon pickups (bat, umbrella, keyboard), health, hit feel, **Rapier ragdoll knockdowns**, knockdown counter, the door unlocking at 4, player-failure loop.
-5. **Polish pass:** synthesized sound effects for everything, tuned timings, ragdoll tuning for comedy, a "To be continued" end card.
+5. **Polish pass** *(built: the end card; props landing or hitting things are heard: chairs clatter, paper slaps, everything else thuds by weight, `config.physics.impact`)*: synthesized sound effects for everything, tuned timings, ragdoll tuning for comedy, a "To be continued" end card.
 
 ### Done when
 - The full sequence plays from the title screen to the door without errors in a desktop Chrome or Firefox browser at 60 fps.

@@ -417,6 +417,27 @@ export class Sfx {
     }
   }
 
+  /**
+   * A prop landing or hitting something. kind: 'metal' (chairs), 'paper' (magazines, clipboard),
+   * anything else a thud, deeper for heavier things. strength 0..1.
+   */
+  propHit(position, strength = 0.5, kind = 'thud', mass = 2) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.15 + 0.6 * strength, position, A.hits);
+    if (kind === 'metal') {
+      this._tone(t, 0.25, out, 'square', rand(520, 680), 0.18, 0.001, rand(480, 560));
+      this._tone(t + 0.03, 0.2, out, 'square', rand(780, 900), 0.1, 0.001, 760);
+      this._noise(t, 0.08, out, 'bandpass', 2200, 2, 0.6, 0.001);
+    } else if (kind === 'paper') {
+      this._noise(t, 0.06, out, 'highpass', 1500, 0.7, 0.7, 0.002);
+    } else {
+      const low = Math.max(45, 140 - Math.min(10, mass) * 9); // heavier: deeper
+      this._noise(t, 0.12, out, 'lowpass', 500, 1, 0.8, 0.002);
+      this._tone(t, 0.14, out, 'sine', low * 1.5, 0.7, 0.002, low);
+    }
+  }
+
   /** The accountant's door unlocking: a deadbolt clunk. */
   doorUnlock(position = null) {
     if (!this.ctx) return;

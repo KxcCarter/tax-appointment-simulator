@@ -22,10 +22,24 @@ export class Physics {
     this.world.step();
   }
 
-  /** Copy dynamic body transforms onto their meshes. */
+  /**
+   * Copy dynamic body transforms onto their meshes. Also notices impacts: a prop that suddenly
+   * loses speed (landed, hit a wall or someone) calls onImpact(position, strength 0..1, object3d, mass).
+   */
   sync() {
-    for (const { body, object3d } of this.synced) {
-      if (object3d.userData.held || body.isSleeping()) continue; // held = in the player's hands
+    const I = config.physics.impact;
+    for (const e of this.synced) {
+      const { body, object3d } = e;
+      if (object3d.userData.held || body.isSleeping()) { e.lastSpeed = 0; continue; } // held = in the player's hands
+      const v = body.linvel(), speed = Math.hypot(v.x, v.y, v.z);
+      const drop = (e.lastSpeed ?? 0) - speed;
+      e.lastSpeed = speed;
+      e.quiet = Math.max(0, (e.quiet ?? 0) - 1);
+      if (drop > I.speedDrop && !e.quiet && this.onImpact) {
+        e.quiet = I.gapFrames;
+        const t = body.translation();
+        this.onImpact({ x: t.x, y: t.y, z: t.z }, Math.min(1, drop / I.loudAt), object3d, body.mass());
+      }
       const t = body.translation();
       const r = body.rotation();
       object3d.position.set(t.x, t.y, t.z);

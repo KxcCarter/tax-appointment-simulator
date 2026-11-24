@@ -23,6 +23,14 @@ export const roomRemarks: Record<string, RemarkSet> = {
       'Patience.',
     ],
   },
+  arrivalSign: {
+    prompt: '[E] Read the sign',
+    lines: [
+      '"Please be sure to arrive at least 5 minutes before your scheduled appointment."',
+      'You were here at 1:55.',
+      'It does not say what happens then.',
+    ],
+  },
   certificate: {
     prompt: '[E] Read the certificate',
     lines: [

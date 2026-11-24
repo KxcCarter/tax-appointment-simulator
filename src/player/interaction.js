@@ -8,6 +8,7 @@ import { config } from '../config.js';
 
   register(object, {
     prompt: () => '[E] Talk' | null,   // null = not interactable right now
+    range: 3.5,                         // optional: reach in metres (default config.interaction.maxDistance)
     onInteract: () => {},
     // optional second action on another key, shown beside the first:
     alt: { prompt: () => '[R] Pick up chair' | null, onInteract: () => {} },
@@ -20,7 +21,9 @@ export class Interaction {
     this.ui = ui;
     this.player = player;
     this.raycaster = new THREE.Raycaster();
-    this.raycaster.far = config.interaction.maxDistance;
+    // Long enough for the farthest-reaching thing (e.g. a sign read from across the counter); each
+    // interactable is then checked against its own `range` (default config.interaction.maxDistance)
+    this.raycaster.far = Math.max(config.interaction.maxDistance, config.interaction.readDistance ?? 0);
     this.current = null;
     this.override = null; // e.g. seated: always "[E] Stand"
 
@@ -60,7 +63,7 @@ export class Interaction {
       if (!hit.object.visible || hit.object.isLight || hit.object.userData.heldMesh) continue; // not what's in your hands
       let o = hit.object;
       while (o && !o.userData.interactable) o = o.parent;
-      if (o) found = o.userData.interactable;
+      if (o && hit.distance <= (o.userData.interactable.range ?? config.interaction.maxDistance)) found = o.userData.interactable;
       break; // first solid thing blocks anything behind it
     }
     const text = found ? [found.prompt(), found.alt?.prompt()].filter(Boolean).join('     ') || null : null;

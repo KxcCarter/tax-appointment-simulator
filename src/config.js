@@ -14,6 +14,8 @@ export const config = {
     gravity: -9.81,
     fixedStep: 1 / 60,
     maxSubSteps: 4,
+    // Props landing / hitting things make a sound (physics.js onImpact; sounds in sfx.propHit)
+    impact: { speedDrop: 1.2, loudAt: 5, gapFrames: 8 },
   },
 
   player: {
@@ -302,6 +304,7 @@ export const config = {
 
   interaction: {
     maxDistance: 2.6,               // metres from the eye
+    readDistance: 3.6,              // things you only read (signs) can be read from this far
   },
 
   seated: {

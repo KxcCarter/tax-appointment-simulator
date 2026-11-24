@@ -19,6 +19,8 @@ import { waitingRoomCast } from '../data/waitingRoomCast.js';
  */
 export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait = false, brawlNow = false }) {
   const room = buildWaitingRoom(scene, physics);
+  // Props landing and hitting things are heard (Milestone 5: sound for everything)
+  physics.onImpact = (pos, strength, object, mass) => sfx.propHit(pos, strength, object.userData.impactSound, mass);
   const A = room.anchors;
   let receptionistQuip = 12, quipIndex = 0; // her remarks during the brawl
   let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
@@ -390,16 +392,18 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       onlookerTalk.runActions([{ do: 'say', who: line.who, text: line.text }]);
     }
   }
-  function lookable(object, key, when = () => true, then = null) {
+  function lookable(object, key, when = () => true, then = null, range) {
     if (!object) return;
     interaction.register(object, {
+      range,
       prompt: () => (when() ? roomRemarks[key].prompt : null),
       onInteract: () => { if (!when()) return; then?.(); remark(key); },
     });
   }
   const calm = () => state.phase !== 'brawl' && state.phase !== 'doorOpen';
-  lookable(A.poster, 'poster');
-  lookable(A.certificate, 'certificate');
+  lookable(A.poster, 'poster', undefined, null, config.interaction.readDistance);
+  lookable(A.certificate, 'certificate', undefined, null, config.interaction.readDistance);
+  lookable(A.arrivalSign, 'arrivalSign', undefined, null, config.interaction.readDistance); // readable from the counter
   lookable(A.plants?.[0], 'plantWest');
   lookable(A.plants?.[1], 'plantEast');
   for (const c of A.cabinets ?? []) lookable(c, 'cabinets', calm);

@@ -419,6 +419,7 @@ export function buildWaitingRoom(scene, physics) {
       box(0.1, 0.02, 0.04, mat('clipboardClip'), 0, 0.012, -0.135, clip);
       // Path: on the work surface by her left hand -> up onto the counter -> shoved to its front edge
       anchors.clipboard = clip;
+      clip.userData.impactSound = 'paper';
       anchors.clipboardPath = {
         start: new THREE.Vector3(-2.2, 0.766, -3.42),
         lift: new THREE.Vector3(-2.3, 1.152, -3.02),
@@ -525,6 +526,7 @@ export function buildWaitingRoom(scene, physics) {
       { type: 'box', half: { x: 0.25, y: 0.24, z: 0.03 }, offset: { x: 0, y: 0.78, z: -0.22 } },
       { type: 'box', half: { x: 0.23, y: 0.2, z: 0.21 }, offset: { x: 0, y: 0.21, z: 0 }, density: 60 },
     ], { density: 200, angularDamping: 1.0, linearDamping: 0.6 });
+    g.userData.impactSound = 'metal';
     anchors.chairs.push({ object: g, occupant: null });
     return g;
   };
@@ -564,6 +566,7 @@ export function buildWaitingRoom(scene, physics) {
       // Cover faces up (+y is material index 2)
       mg.add(page);
       physics.addDynamic(mg, [{ type: 'box', half: { x: 0.105, y: 0.005, z: 0.14 } }], { density: 700 });
+      mg.userData.impactSound = 'paper';
       (anchors.magazines ??= []).push(mg);
     });
 
@@ -718,6 +721,21 @@ export function buildWaitingRoom(scene, physics) {
     box(0.02, 0.4, 0.52, mat('woodDark'), hw - 0.015, 1.7, -1.1);
     (anchors.certificate = box(0.01, 0.34, 0.46, mat('woodDark'), hw - 0.03, 1.7, -1.1)).material = [
       mat('woodDark'), theme.textured(certTex), mat('woodDark'), mat('woodDark'), mat('woodDark'), mat('woodDark'),
+    ];
+
+    // A printed notice on the north wall, behind the receptionist (owner's request)
+    const signTex = theme.canvasTexture(256, 112, (c, w, h) => {
+      c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+      c.strokeStyle = theme.css('inkBlack'); c.lineWidth = 2; c.strokeRect(5, 5, w - 10, h - 10);
+      c.fillStyle = theme.css('inkBlack'); c.textAlign = 'center';
+      c.font = 'bold 14px monospace';
+      ['PLEASE BE SURE TO ARRIVE', 'AT LEAST 5 MINUTES BEFORE', 'YOUR SCHEDULED APPOINTMENT.'].forEach((l, i) => c.fillText(l, w / 2, 30 + i * 19));
+      c.fillStyle = theme.css('inkRed'); c.font = '9px monospace';
+      c.fillText('Thank you. - The Management', w / 2, h - 14);
+    });
+    // North wall faces +z: BoxGeometry face 4 (+z) carries the sign
+    (anchors.arrivalSign = box(0.72, 0.32, 0.01, mat('paperWhite'), -1.85, 1.75, -hd + 0.012)).material = [
+      mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), mat('paperWhite'), theme.textured(signTex), mat('paperWhite'),
     ];
   }
 
