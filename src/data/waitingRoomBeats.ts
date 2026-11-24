@@ -95,10 +95,19 @@ export const waitingRoomBeats: Scene = {
         { text: 'Excuse me.', response: silence },
       ],
       lockedOptions: [],
+      lockedResponse: [
+        { do: 'face', who: 'receptionist', expression: 'unimpressed' },
+        { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+        { do: 'face', who: 'receptionist', expression: 'annoyed' },
+        { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+      ],
       onAdvance: [
+        // She looks at you. Two seconds. Nothing. Back to the cards.
+        { do: 'face', who: 'receptionist', expression: 'annoyed' },
         // She looks at you. Two seconds. Nothing. Back to the cards.
         { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
         { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+        { do: 'face', who: 'receptionist', expression: 'neutral' },
       ],
       next: 'reception_2',
       nextUnlockAfter: T.gate,
@@ -177,7 +186,16 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: ['What time is it now?', 'Mmm? And what time is it?'] },
           ],
         },
-        { text: '(Say nothing)', silent: true, goto: 'protest_again' },
+        {
+          text: "I'm ready for my appointment.",
+          goto: 'protest_again',
+          actions: [
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+            { do: 'say', who: 'receptionist', text: 'Mmhmm.' },
+            { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.glanceDuration },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          ],
+        },
       ],
       lockedOptions: [],
     },
