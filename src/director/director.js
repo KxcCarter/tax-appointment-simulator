@@ -62,6 +62,17 @@ export class Director {
     this.time = 0;
     this.timers = [];
     this.typing = null;
+    // Options picked in the current beat that didn't move the story on: not offered again (see choose)
+    this.used = new Set();
+    this.variants = new Map(); // say action -> { said, last }: which variation comes next
+  }
+
+  /**
+   * A beat where no option moves the story on is waiting for the player to do something in the world
+   * (take a number, try to sign the sheet...): its options stay, so there's always something to say.
+   */
+  static waitsForPlayer(beat) {
+    return !(beat.options ?? []).some((o) => o.advance || 'goto' in o);
   }
 
   get current() {
@@ -122,11 +133,15 @@ export class Director {
   /** Show the beat's choices (or nothing, if it's gated and has no lockedOptions). */
   openChoices(beat) {
     const locked = this.time < this.lockedUntil;
-    const source = locked ? beat.lockedOptions ?? [] : beat.options;
+    const all = locked ? beat.lockedOptions ?? [] : beat.options;
+    // Already-said lines that got nowhere are gone (unless the beat is waiting for the player to act)
+    const keepAll = Director.waitsForPlayer(beat);
+    let source = all.filter((o) => keepAll || !this.used.has(o));
+    if (!source.length) source = all;
     // Resolve live text now, so what's shown is what gets said
     const options = source
       .filter((o) => !o.showIf || o.showIf(this.state))
-      .map((o) => ({ ...o, text: typeof o.text === 'function' ? o.text(this.state) : o.text }));
+      .map((o) => ({ ...o, src: o, text: typeof o.text === 'function' ? o.text(this.state) : o.text }));
 
     if (!options.length) {
       // Gated with nothing to say: she may still brush the player off (beat.lockedResponse)
@@ -184,9 +199,25 @@ export class Director {
     } finally {
       this.busy = false;
     }
+    // Picked, and the story didn't move on (still this beat): don't offer it again on this visit
+    if (!option.advance && !option.repeatable && this.currentId === beat.id && option.src) this.used.add(option.src);
     const next = this.current;
     // A pending sequence (e.g. the call) takes priority over the next auto-opened choices
     if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing && !this.pendingSequence) this.openChoices(next);
+  }
+
+  /** Which of a `say` action's variations to say this time (a.vary: 'order' | 'random' | 'cycle'). */
+  variant(a) {
+    const lines = a.text, n = lines.length;
+    const v = this.variants.get(a) ?? { said: 0, last: -1 };
+    this.variants.set(a, v);
+    let k;
+    if (a.vary === 'cycle') k = v.said % n;
+    else if (a.vary !== 'random' && v.said < n) k = v.said;
+    else { do k = Math.floor(Math.random() * n); while (n > 1 && k === v.last); }
+    v.said++;
+    v.last = k;
+    return lines[k];
   }
 
   /** Run a named sequence's actions right now, without waiting for the dialogue to be free. */
@@ -210,6 +241,7 @@ export class Director {
   }
 
   moveTo(id, unlockAfter) {
+    if (id !== this.currentId) this.used.clear(); // a new beat (or coming back to one): every option again
     this.currentId = id;
     this.lockedUntil = this.time + pick(unlockAfter);
   }
@@ -220,9 +252,12 @@ export class Director {
 
   async runAction(a) {
     switch (a.do) {
-      case 'say':
+      case 'say': {
+        // A list of lines: one of them each time (variations; see types.ts)
+        const text = Array.isArray(a.text) ? this.variant(a) : a.text;
         // text may be (state) => string for live values, e.g. the time on the clock
-        return this.say(a.who, typeof a.text === 'function' ? a.text(this.state) : a.text);
+        return this.say(a.who, typeof text === 'function' ? text(this.state) : text);
+      }
       case 'anim': {
         const done = this.actors[a.who]?.play(a.name);
         if (a.untilDone && done?.then) await done; // e.g. a walk that takes as long as it takes

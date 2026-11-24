@@ -1021,7 +1021,7 @@ function refreshHelpers() {
 /* ================= Writing the file back ================= */
 const ORDER = {
   beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'lockedResponse', 'onAdvance', 'next', 'nextUnlockAfter'],
-  option: ['text', 'silent', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
+  option: ['text', 'silent', 'repeatable', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
   action: ['do'],
 };
 const CHILD = { beats: 'beat', options: 'option', lockedOptions: 'option', lockedResponse: 'action', onOpen: 'action', onAdvance: 'action', actions: 'action', response: 'action', then: 'action', else: 'action' };
@@ -1156,7 +1156,7 @@ const rows = s => Math.min(14, Math.max(1, String(s).split('\n').length));
 const VOCAB = {
   source: 'built-in lists',
   actions: {
-    say: ['who', 'text'], wait: ['seconds'], anim: ['who', 'name', 'duration', 'untilDone'], face: ['who', 'expression'],
+    say: ['who', 'text', 'vary'], wait: ['seconds'], anim: ['who', 'name', 'duration', 'untilDone'], face: ['who', 'expression'],
     sound: ['name', 'who'], set: ['key', 'value'], setPhase: ['phase'], emit: ['event'], goto: ['beat'],
     notice: ['text', 'seconds'], if: ['test', 'then', 'else'],
   },
@@ -1244,7 +1244,12 @@ function actionRow(p, a) {
   const t = a.do;
   const type = VOCAB.actions[t] ? t : 'other';
   let f = '', below = '';
-  if (t === 'say') f = whoSel(p, a.who) + `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span>`;
+  if (t === 'say' && Array.isArray(a.text)) {
+    // Variations: one of the lines is said each time
+    const vary = [['', 'in order, then at random'], ['random', 'at random'], ['cycle', 'round and round']];
+    f = whoSel(p, a.who) + fld('says one of these,', `<select class="in" data-p="${p}.vary" data-k="strOpt">${vary.map(([v, l]) => `<option value="${v}"${(a.vary ?? '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`);
+    below += `<div class="branch"><div class="blabel">variations</div>${a.text.map((x, k) => `<div class="lrow"><span class="f grow">${textField(`${p}.text.${k}`, x, 'line')}</span>${tools(`${p}.text.${k}`)}</div>`).join('')}<button class="chip" data-a="add-variation" data-p="${p}.text">+ variation</button></div>`;
+  } else if (t === 'say') f = whoSel(p, a.who) + `<span class="f grow">${textField(p + '.text', a.text, 'line')}</span><button class="btn tiny" data-a="make-variations" data-p="${p}.text">+ variations</button>`;
   else if (t === 'wait') f = fld('', numx(p + '.seconds', a.seconds, 'seconds')) + '<span class="f">seconds</span>';
   else if (t === 'anim') f = whoSel(p, a.who) + `<span class="f grow"><input class="in" list="${a.who === 'receptionist' ? 'dl-anims-r' : 'dl-anims-n'}" data-p="${p}.name" data-k="str" data-r="1" value="${esc(a.name ?? '')}" placeholder="animation"></span>` + fld('for', numx(p + '.duration', a.duration, 'duration')) + `<label class="check sm" title="Wait until it has finished (e.g. a walk)"><input type="checkbox" data-p="${p}.untilDone" data-k="flag"${a.untilDone ? ' checked' : ''}> until done</label>`;
   else if (t === 'face') f = whoSel(p, a.who) + fld('looks', menu(p + '.expression', VOCAB.expressions, a.expression));
@@ -1270,7 +1275,7 @@ function optionCard(p, o, k) {
   if (!isObj(o)) return `<div class="card opt">${raw(p, o)}${tools(p)}</div>`;
   const mode = outcomeOf(o);
   const outs = [['advance', 'Advance the story (next beat)'], ['respond', 'Get a response, stay here'], ['goto', 'Go to a beat'], ['cond', 'Go to a beat, decided by code'], ['end', 'End the conversation']];
-  let h = `<div class="card opt"><div class="cardhead"><span class="num">${k + 1}</span>${textField(p + '.text', o.text, 'line')}<label class="check sm"><input type="checkbox" data-p="${p}.silent" data-k="flag"${o.silent ? ' checked' : ''}> silent</label>${tools(p, !noteKey(o))}</div>`;
+  let h = `<div class="card opt"><div class="cardhead"><span class="num">${k + 1}</span>${textField(p + '.text', o.text, 'line')}<label class="check sm"><input type="checkbox" data-p="${p}.silent" data-k="flag"${o.silent ? ' checked' : ''}> silent</label><label class="check sm"><input type="checkbox" data-p="${p}.repeatable" data-k="flag"${o.repeatable ? ' checked' : ''}> stays</label>${tools(p, !noteKey(o))}</div>`;
   if (noteKey(o)) h += `<div class="sub">${noteField(p, o)}</div>`;
   h += keyNotes(o);
   h += `<div class="grid2"><label class="field"><span>Then</span><select class="in" data-p="${p}" data-k="outcome">${outs.map(([v, l]) => `<option value="${v}"${v === mode ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
@@ -1561,7 +1566,7 @@ function checks() {
     if (typeof b.next === 'string' && !ids.includes(b.next)) E(`“${id}” advances to “${b.next}”, which doesn't exist.`, k);
     const opts = arr(b.options);
     if (!opts.length && !isJs(b.options)) Wn(`“${id}” has no player options.`, k);
-    if (opts.length && !opts.some(o => isObj(o) && (o.advance || 'goto' in o))) Wn(`No option in “${id}” moves the story on, so the player is stuck here.`, k);
+    if (opts.length && !opts.some(o => isObj(o) && (o.advance || 'goto' in o))) Wn(`No option in “${id}” moves the story on: the player has to do something in the room to continue (e.g. sign the clipboard), and all its lines stay. If that's not intended, the player is stuck here.`, k);
     if (opts.some(o => isObj(o) && o.advance) && b.next === undefined) Wn(`“${id}” has an advancing option but no next beat, so the conversation ends there.`, k);
     [...opts, ...arr(b.lockedOptions)].forEach((o, n) => {
       if (!isObj(o)) return;
@@ -1574,7 +1579,7 @@ function checks() {
       if (typeof o.do !== 'string') return;
       if (!(o.do in VOCAB.actions)) Wn(`“${id}” uses an action the game doesn't know: “${o.do}”.`, k);
       if (typeof o.who === 'string' && o.who && !spk.includes(o.who)) Wn(`“${id}” has a ${o.do} by “${o.who}”, who isn't a speaker.`, k);
-      if (o.do === 'say' && !o.text) Wn(`“${id}” has an empty say line.`, k);
+      if (o.do === 'say' && (Array.isArray(o.text) ? !o.text.length || o.text.some(x => x === '') : !o.text)) Wn(`“${id}” has an empty say line${Array.isArray(o.text) ? ' (a variation is blank)' : ''}.`, k);
       if (o.do === 'notice' && !o.text) Wn(`“${id}” has an empty notice.`, k);
       if (o.do === 'anim' && typeof o.name === 'string') {
         const ok = typeof o.who === 'string' ? animsFor(o.who) : allAnims();
@@ -1682,6 +1687,19 @@ function ptStart() {
   ptRender();
 }
 const ptSleep = (me, s) => new Promise(res => { if (!(s > 0)) return res(); me.sleepers.push({ at: me.game + s, res }); });
+/** Same rule as director.js variant(): which variation of a `say` comes next. */
+function ptVariant(me, a) {
+  const lines = a.text, n = lines.length;
+  me.variants ||= new Map();
+  const v = me.variants.get(a) ?? { said: 0, last: -1 };
+  me.variants.set(a, v);
+  let k;
+  if (a.vary === 'cycle') k = v.said % n;
+  else if (a.vary !== 'random' && v.said < n) k = v.said;
+  else { do k = Math.floor(Math.random() * n); while (n > 1 && k === v.last); }
+  v.said++; v.last = k;
+  return lines[k];
+}
 const ptText = (me, t) => (typeof t === 'function' ? String(t(me.state)) : String(t ?? ''));
 const nameOf = (me, who) => (me.scene.speakers && me.scene.speakers[who] && me.scene.speakers[who].name) || who || '?';
 async function ptRun(list, me) {
@@ -1690,7 +1708,7 @@ async function ptRun(list, me) {
     if (me.dead) return;
     if (!a || typeof a !== 'object') continue;
     switch (a.do) {
-      case 'say': { const t = ptText(me, a.text); ptLine(a.who === 'player' ? 'player' : 'npc', t, nameOf(me, a.who)); await ptSleep(me, 0.6 + t.length * 0.045); break; }
+      case 'say': { const t = ptText(me, Array.isArray(a.text) ? ptVariant(me, a) : a.text); ptLine(a.who === 'player' ? 'player' : 'npc', t, nameOf(me, a.who)); await ptSleep(me, 0.6 + t.length * 0.045); break; }
       case 'wait': { const s = +a.seconds || 0; if (s >= 1) ptLine('sys', `(${Math.round(s * 10) / 10} s pass)`); await ptSleep(me, s); break; }
       case 'anim': ptLine('sys', `[${a.who} · ${a.name}${a.duration ? ' · ' + (Math.round(a.duration * 10) / 10) + ' s' : ''}]`); if (+a.duration > 0) await ptSleep(me, +a.duration); break;
       case 'set': me.state[a.key] = a.value; ptLine('sys', `set ${a.key} = ${JSON.stringify(a.value)}`); break;
@@ -1724,9 +1742,14 @@ async function ptOpen(b) {
   if (!me.ranOpen) { me.ranOpen = true; me.busy = true; ptRender(); try { await ptRun(b.onOpen, me); } catch (e) { ptLine('err', e.message); } if (me.dead) return; me.busy = false; }
   ptShow(b, b.options);
 }
+const ptWaitsForPlayer = b => !arr(b.options).some(o => isObj(o) && (o.advance || 'goto' in o));
 function ptShow(b, list) {
   const me = PT;
-  const opts = arr(list).filter(o => { try { return !o.showIf || (typeof o.showIf === 'function' ? o.showIf(me.state) : o.showIf); } catch (e) { ptLine('err', 'showIf: ' + e.message); return false; } });
+  // Lines already said that got nowhere are gone (as in director.js), unless the beat waits for the player to act
+  me.used ||= new Set();
+  let pool = arr(list).filter(o => ptWaitsForPlayer(b) || !me.used.has(o));
+  if (!pool.length) pool = arr(list);
+  const opts = pool.filter(o => { try { return !o.showIf || (typeof o.showIf === 'function' ? o.showIf(me.state) : o.showIf); } catch (e) { ptLine('err', 'showIf: ' + e.message); return false; } });
   let shown = [];
   try { shown = opts.map(o => ({ o, text: ptText(me, o.text) })); } catch (e) { ptLine('err', 'text: ' + e.message); }
   me.menu = { b, list, opts: shown };
@@ -1740,13 +1763,15 @@ async function ptChoose(k) {
     if (!o.silent) ptLine('player', text, nameOf(me, 'player'));
     await ptRun(o.actions, me);
     if (o.advance) { await ptRun(b.onAdvance, me); ptGo(me, b.next, b.nextUnlockAfter); }
-    else if ('goto' in o) ptGo(me, typeof o.goto === 'function' ? o.goto(me.state) : o.goto, 0);
+    else if ('goto' in o) ptGo(me, typeof o.goto === 'function' ? o.goto(me.state) : o.goto, o.unlockAfter ?? 0);
     else { await ptRun(o.response, me); if (!arr(o.response).length && !o.silent) ptLine('sys', '(No reply.)'); }
+    if (!o.advance && !o.repeatable && me.current === b.id) (me.used ||= new Set()).add(o);
   } catch (e) { ptLine('err', e.message); }
   if (me.dead) return;
   me.busy = false; ptRender();
 }
 function ptGo(me, id, gate) {
+  if (id !== me.current) me.used = new Set();
   me.current = id ?? null; me.gateAt = me.game + (+gate || 0); me.opened = false; me.ranOpen = false;
   if (id == null) ptLine('sys', '(Conversation over.)');
   else if (+gate > 0) ptLine('sys', `(Next beat “${id}” unlocks in ${Math.round(+gate * 10) / 10} s.)`);
@@ -1910,6 +1935,8 @@ document.addEventListener('click', e => {
     case 'note': { const o = getPath(S, p), k = 'do' in o ? '$tnote' : '$note'; o[k] = ''; done(false); setTimeout(() => { const n = editor.querySelector(`[data-p="${CSS.escape(p + '.' + k)}"]`); n && n.focus(); }); return; }
     case 'to-js': { const v = getPath(S, p) || ''; setPath(S, p, { $js: '(state) => `' + String(v).replace(/[`\\$]/g, '\\$&') + '`' }); done(); return; }
     case 'to-plain': setPath(S, p, ''); done(); return;
+    case 'make-variations': { const v = getPath(S, p); setPath(S, p, [v ?? '', '']); done(); return; }
+    case 'add-variation': { getPath(S, p).push(''); done(); return; }
     case 'to-list': setPath(S, p, []); done(); return;
     case 'del-key': setPath(S, p, undefined); done(); return;
     case 'add-key': {
@@ -2146,6 +2173,8 @@ const TIP_A = {
   'del-speaker': 'Remove this speaker from the scene.',
   'add-sequence': 'Add a sequence (actions the game starts by itself, e.g. the call) with the name typed beside it.',
   'del-sequence': 'Remove this sequence.',
+  'make-variations': 'Give this line variations: a different one is said each time this runs.',
+  'add-variation': 'Add another way of saying this line.',
 };
 const TIP_ACTION = {
   say: 'Someone says a line in the dialogue box.',
@@ -2175,6 +2204,7 @@ function tipFor(el) {
   if (d.k === 'outcome') return 'What happens after the player says this line.';
   if (d.k === 'cond') return 'The condition: a helper from the setup code, or your own code.';
   if (d.k === 'flag' && /\.silent$/.test(d.p || '')) return 'The player says nothing out loud for this option, e.g. “(Say nothing)”.';
+  if (d.k === 'flag' && /\.repeatable$/.test(d.p || '')) return 'Keep offering this line after it has been picked. Normally a line that doesn’t move the story on disappears once it has been said (unless nothing in the beat moves the story on: then the player has to do something, and every line stays).';
   if (d.k === 'flag' && /\.autoOpen$/.test(d.p || '')) return 'The choices appear by themselves, without the player talking first.';
   if (d.k === 'flag' && /\.untilDone$/.test(d.p || '')) return 'Wait for the animation to finish (e.g. a walk) before the next action.';
   // Menus and fields, by what they edit
@@ -2187,6 +2217,7 @@ function tipFor(el) {
     beat: 'The beat to jump to; none means the exchange is over.',
     goto: 'The beat this option leads to.',
     expression: 'The facial expression to switch to.',
+    vary: 'Which variation is said: in the order written (then at random once all are used), at random, or round and round.',
     name: el.tagName === 'SELECT' ? 'Which sound to play.' : 'Which animation to play.',
     key: 'Which value in the game state to change.',
     event: "The event's name; the game's code listens for it.",

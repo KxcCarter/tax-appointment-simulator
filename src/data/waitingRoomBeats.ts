@@ -403,7 +403,7 @@ export const waitingRoomBeats: Scene = {
           text: 'No.',
           actions: [],
           response: [
-            { do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet. Did you sign it?' },
+            { do: 'say', who: 'receptionist', text: ['Everybody gotta sign the check-in sheet. Did you sign it?', "Did you sign the check-in sheet?"] },
           ],
         },
       ],

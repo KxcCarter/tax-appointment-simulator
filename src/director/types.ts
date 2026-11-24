@@ -30,8 +30,15 @@ export type SoundName =
   | 'clockTick' | 'mouseClick' | 'blip' | 'footstep' | 'chairCreak' | 'ticketTear' | 'paperSlide'
   | 'cough' | 'sigh' | 'pageTurn' | 'chairShift' | 'watchTick' | 'chime';
 
+/*
+  `say` with a list of lines says one of them each time it runs (variations):
+    vary 'order' (default): in the order written; once all have been said, a random one each time
+                            (never the same twice in a row)
+    vary 'random': random from the start (never the same twice in a row)
+    vary 'cycle':  round and round, in order
+*/
 export type Action =
-  | { do: 'say'; who: string; text: Live<string> }
+  | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'cycle' }
   | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number; untilDone?: boolean }
   | { do: 'notice'; text: string; seconds?: number }
   | { do: 'wait'; seconds: Seconds }
@@ -50,6 +57,11 @@ export interface Option {
   showIf?: (state: GameState) => boolean;
   /** No spoken line (e.g. "(Say nothing)"). */
   silent?: boolean;
+  /**
+   * Keep offering this option after it's been picked. By default, a picked option that doesn't move
+   * the story on (a response, or a jump back to the same beat) is removed for the rest of the visit.
+   */
+  repeatable?: boolean;
   /** Run the beat's onAdvance, then move to beat.next. Takes precedence over goto/response. */
   advance?: boolean;
   /** Run `actions`, then move to this beat id (null = the exchange is over). */
