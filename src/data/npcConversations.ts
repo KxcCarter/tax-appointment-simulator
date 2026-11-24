@@ -282,7 +282,7 @@ export const onlookers: Scene = {
   joins in. `opening` plays first, in order, one person each; after that, people on the
   sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
 */
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -309,6 +309,14 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Teach that creep a lesson!',
     'Wait your turn!',         // PROPOSAL
     'I was here first!',       // (from the brief)
+  ],
+  // The receptionist, during the brawl, without looking up from her solitaire (PROPOSAL)
+  receptionist: [
+    'Please keep it down.',
+    'Sir, this is a place of business.',
+    'Now serving number twelve.',
+    'If you break it, you bought it.',
+    'Mm-hm.',
   ],
   byPerson: {
     sitter: ["I've been here since nine!"], // (from the brief)

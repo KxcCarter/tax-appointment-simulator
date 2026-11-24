@@ -212,6 +212,15 @@ income-tax-sim/
 - Changing the art style (colors, materials, lighting) needs edits to `theme.js` only.
 - No external assets are required at runtime beyond the Three.js and Rapier libraries.
 
+## 5b. Added beyond the brief (Claude's proposals, branch `milestones-4-5`; keep, change or cut)
+- **Second way into the brawl:** if the player just waits and 847 is called, they become indignant ("I was here first!", "I've been here since nine!", "Unbelievable.") and the brawl starts (`config.brawl.afterCalled`).
+- **The receptionist during the brawl:** keeps playing solitaire, with the odd remark ("Please keep it down.", "Sir, this is a place of business.", …; `brawlShouts.receptionist`).
+- **Fighting:** knockback stagger, a punch combo (every 3rd quick punch is a harder hook), longer stun from heavy blows (`config.combat`).
+- **Easter eggs** (`src/data/roomRemarks.ts`): [E] on the poster, certificate, plants (one plastic, one dying), filing cabinets (locked; then "Sir."), the coat (a receipt for one pen, 1986), the Now Serving display, the clock (after a few looks: "Staring at it won't make it go any faster."), the magazines (headlines), her screen (solitaire; she is losing), the water cooler ("The water is for clients." … "Clients with appointments."), a second ticket ("One per customer."), and knocking on the accountant's door (third knock: a voice, "Not yet."). Wandering behind the desk or into the back room: "Sir, you can't be back here."
+- **Small talk:** "What are you here for?" and "Do you know how much longer it'll be?" for everyone (lines in `people`).
+- **Side scenarios:** sitting next to the leg-jiggler, the view bounces with his knee; ask him to stop ("Stop what?", then he stops briefly and starts again faster). Sitting next to the man with the watch, he asks the time; "It's 2:00." gets "No it isn't."
+- **Room fixes:** walls have real doorway gaps; a staff gap at the east end of the desk makes the area behind it and the back room (with the bat) reachable.
+
 ## 6. Assumptions and open items
 - **Planned next (owner's outline, not built yet; details to come):** after "Number 848! Our 2:00 was a no-show…" the player protests that HE is the 2:00 appointment and was on time, even early. He asks whether the newcomer has an appointment; the newcomer says no, he's a walk-in. The player refuses to let him take his appointment and says he has to wait. Newcomer: "Hey buddy, it's not my fault you couldn't be on time to your appointment. Maybe wear a watch next time." The newcomer then starts walking towards the accountant's door. Player: "How come he didn't need to sign the check-in sheet?" Receptionist: walk-ins don't have to sign the check-in sheet.
 - **Platform:** desktop browser, keyboard and mouse. Mobile is out of scope for now.

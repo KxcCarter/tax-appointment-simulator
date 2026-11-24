@@ -20,6 +20,7 @@ import { waitingRoomCast } from '../data/waitingRoomCast.js';
 export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait = false, brawlNow = false }) {
   const room = buildWaitingRoom(scene, physics);
   const A = room.anchors;
+  let receptionistQuip = 12, quipIndex = 0; // her remarks during the brawl
   let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
 
   const receptionist = new Receptionist(scene, A, sfx);
@@ -615,6 +616,15 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         }
       }
       brawl.update(dt);
+      // She keeps playing solitaire through all of it, with the odd remark
+      if (brawl.started && !ended) {
+        receptionistQuip -= dt;
+        if (receptionistQuip <= 0 && !onlookerTalk.active) {
+          receptionistQuip = 14 + Math.random() * 10;
+          const lines = brawlShouts.receptionist;
+          onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: lines[quipIndex++ % lines.length] }]);
+        }
+      }
       // Fists up only while there's a fight on: the brawl, or the sitter coming at him (after her kick)
       const sitterNow = radioWho();
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
