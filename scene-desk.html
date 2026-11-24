@@ -1162,9 +1162,9 @@ const VOCAB = {
   },
   anims: {
     receptionist: ['lookAtPlayer', 'glanceAtClock', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee'],
-    npc: ['attend', 'resume'],
+    npc: ['attend', 'resume', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick'],
   },
-  expressions: ['neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled'],
+  expressions: ['default', 'neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled'],
   sounds: ['clockTick', 'mouseClick', 'blip', 'footstep', 'chairCreak', 'ticketTear', 'paperSlide', 'cough', 'sigh', 'pageTurn', 'chairShift', 'watchTick', 'chime'],
   phases: ['arrival', 'reception', 'waiting', 'brawl', 'doorOpen'],
   stateKeys: ['phase', 'ticketNumber', 'nowServing', 'timesIgnored', 'knockdowns', 'playerHealth', 'heldWeapon', 'toldToTakeNumber',
@@ -1572,6 +1572,7 @@ function checks() {
       if (!isObj(o)) return;
       if (typeof o.goto === 'string' && !ids.includes(o.goto)) E(`An option in “${id}” goes to “${o.goto}”, which doesn't exist.`, k);
       if (o.text === '' || o.text === undefined) Wn(`Option ${n + 1} in “${id}” has no text.`, k);
+      if ((o.advance || 'goto' in o)) { let jump = null; collect(o.actions, a => { if (a.do === 'goto') jump = a.beat; }); if (jump !== null) Wn(`Option ${n + 1} in “${id}” has a goto action (to “${jump}”), but the option's own ${o.advance ? 'advance' : '“Then”'} runs afterwards and wins. Set the option's “Then” instead.`, k); }
       if (!o.advance && !('goto' in o) && o.actions === undefined && o.response === undefined) Wn(`Option ${n + 1} in “${id}” does nothing when picked (no response, actions or next beat).`, k);
     });
     if (isObj(b.trigger) && b.trigger.target && targets.length && !targets.includes(b.trigger.target)) Wn(`“${id}” is triggered by “${b.trigger.target}”, which isn't in the scene's targets.`, k);
@@ -2217,7 +2218,7 @@ function tipFor(el) {
     next: 'The beat the story moves on to after an “advance” option.',
     beat: 'The beat to jump to; none means the exchange is over.',
     goto: 'The beat this option leads to.',
-    expression: 'The facial expression to switch to.',
+    expression: "The facial expression to switch to. It holds until changed (the receptionist) or until the conversation ends (waiting people); 'default' hands the face back to their own expressions.",
     vary: 'Which variation is said: in the order written (then at random once all are used); at random but never the same twice in a row; truly at random (the same line can come up again); or round and round in order.',
     name: el.tagName === 'SELECT' ? 'Which sound to play.' : 'Which animation to play.',
     key: 'Which value in the game state to change.',

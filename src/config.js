@@ -77,8 +77,10 @@ export const config = {
 
   // ---- The brawl (Milestone 4; src/level/brawl.js) ----
   brawl: {
-    placeholderDelay: 4,         // TEMPORARY trigger: seconds after "Number 848!" before the newcomer
-                                 // fetches the clipboard (until the argument scene is written)
+    // OFF for now (owner): nothing starts the brawl (not the 847 call, not the end of the argument).
+    // ?brawl in the URL still jumps straight to it, for testing. true turns it back on.
+    enabled: false,
+    placeholderDelay: 1,         // ?brawl (debug): seconds after the newcomer sits down before he fetches the clipboard
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
     playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:
                                  // the radio war stays feel-only, as designed)
@@ -221,6 +223,9 @@ export const config = {
       fastDuration: 6,              // with ?fastwait in the URL (testing)
     },
     call: {
+      // OFF for now (owner): the 5-minute wait ending in "Eight hundred forty-seven" cut off the check-in /
+      // pen / newcomer storyline (848 is called in that instead). true brings it back.
+      enabled: false,
       pauseBeforeLine: 0.8,
     },
     receptionistClicks: {
@@ -252,6 +257,16 @@ export const config = {
     askTime: { after: 4, every: 45, max: 3 },
     // Behind the desk, before the brawl, she shoves the player away: nobody gets closer than `radius`
     // metres to her chair. From the brawl on, everyone moves freely.
+    // The newcomer, sent in ("Number 848, you can go on in."): walks towards the accountant's door but never
+    // goes in. The player protesting stops him; every time he speaks he comes back closer, angrier.
+    newcomerPush: {
+      doorSpeed: 0.8,                       // x walk speed, heading for the door (unhurried)
+      stopShort: 1.1,                       // metres in front of the door where he waits
+      distances: [1.6, 1.2, 0.9, 0.7],      // how close he comes, each time he speaks (the last repeats)
+      expressions: ['annoyed', 'angry', 'furious', 'furious'],
+      speedPerLine: 0.35,                   // faster each time (x walk speed, on top of 1)
+      sayThenWait: 2.5,                     // seconds he stays in the player's face before heading off again
+    },
     receptionistSpace: { radius: 1.25, holdSpeed: 2.8, shoveSpeed: 3.4, shake: 0.3, shoveEvery: 0.8, lookFor: 1.5 }, // the man with the watch asks the time: seconds seated beside him, gap, times
     exhale: { every: [10, 18], duration: 2.2 },
     shift: { every: [15, 26], duration: 1.2 },
@@ -269,6 +284,7 @@ export const config = {
       kick: { duration: 1.1, knock: 3.8, shake: 1.0, damage: 15, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
       radio: { duration: 1.3, knock: 4.6, shake: 1.5, damage: 25, sound: 'radioHit' },
+      shoveHard: { duration: 1.0, knock: 7.5, shake: 1.2, damage: 0, sound: 'shove', pose: 'shove' }, // the sitter's, in the argument: several feet
       clipboard: { duration: 1.4, knock: 3.6, shake: 1.6, damage: 18, sound: 'clipboard', pose: 'radio' }, // the newcomer's opener
     },
     // The radio war: from the `violentFrom`-th time the radio is turned off, she attacks the player

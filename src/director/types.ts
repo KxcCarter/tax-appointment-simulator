@@ -19,11 +19,17 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 export type ReceptionistAnim =
   | 'lookAtPlayer' | 'glanceAtClock' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee';
 
-/** Animations a waiting NPC understands (characters/npc.js): turn to the player / go back to fidgeting. */
-export type NpcAnim = 'attend' | 'resume';
+/**
+ * Animations a waiting NPC understands (characters/npc.js): attend = turn to the player, resume = back to
+ * fidgeting; confront = get up and walk up to the player; slap/shove/shoveHard/punch/kick = (walk up and)
+ * hit him. Use untilDone: true to wait for them to arrive / the blow to land.
+ */
+export type NpcAnim = 'attend' | 'resume' | 'confront' | 'slap' | 'shove' | 'shoveHard' | 'punch' | 'kick';
 
 /** Expression presets (config.characters.expressions). */
-export type Expression = 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious' | 'appalled';
+/** 'default' = stop overriding: the character's own expressions again. A face set by the script holds
+    until changed (receptionist) or until the conversation ends (waiting people). */
+export type Expression = 'default' | 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious' | 'appalled';
 
 /** Sounds a scene can trigger directly (audio/sfx.js). */
 export type SoundName =

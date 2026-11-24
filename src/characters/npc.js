@@ -6,6 +6,9 @@ import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
 
+/** Animations a scene can play on a waiting person besides attend/resume (see _sceneMove). */
+const SCENE_ANIMS = new Set(['confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
+
 /*
   A waiting-room NPC. For now (Milestone 3) only the seated states:
     Seated -> IdleFidget (personality) -> reactions (ticket glance, crowded, called)
@@ -172,8 +175,13 @@ export class Npc {
     this.crowdSide = side;
   }
 
+  /**
+   * Set by the script ({ do: 'face' }): wins over their own expressions until the conversation ends
+   * (play('resume')) or the script sets 'default'.
+   */
   setExpression(name) {
-    this.face?.setExpression(name);
+    this.scripted = name === 'default' ? null : name;
+    if (this.scripted) this.face?.setExpression(this.scripted);
   }
 
   /** Director hooks for small talk: 'attend' = turn to the player and stop fidgeting; 'resume' = carry on. */
@@ -184,8 +192,85 @@ export class Npc {
       if (this.pagePivot) this.pagePivot.rotation.z = 0;
     } else if (name === 'resume') {
       this.attending = false;
+      this.scripted = null; // the conversation is over: their own expressions again
       this.nextAction = rand(2, 5);
+    } else if (SCENE_ANIMS.has(name)) {
+      return this._sceneMove(name);
     }
+  }
+
+  // ---- The newcomer, sent in: heading for the door, stopped by protests, coming back angrier ----
+
+  /** Start (or go back to) walking towards `spot` in front of the accountant's door, and wait there. */
+  leaveFor(spot, faceYaw) {
+    if (this.down || this.brawling) return;
+    const P = N.newcomerPush;
+    this.leaving = { spot, faceYaw };
+    this.walker.start([
+      { type: 'walk', to: spot, pushThrough: true, leg: 'door' },
+      { type: 'face', yaw: faceYaw },
+      { type: 'hold', seconds: Infinity },
+    ], { speedMul: P.doorSpeed, anger: 0 });
+  }
+
+  /** The player protests: if he's on his way to the door, he stops and turns round. */
+  halt() {
+    const wk = this.walker;
+    if (!this.leaving || this.down || this.brawling || !wk.active || wk.current?.leg !== 'door') return;
+    const target = () => (this._camera ? this._camera.position.clone() : this.rig.root.position.clone());
+    wk.start([{ type: 'hold', seconds: Infinity, target }], { speedMul: 1, anger: this.aggro ?? 0 });
+  }
+
+  /** He speaks: he comes back at the player, closer and angrier each time, then heads for the door again. */
+  pressIn() {
+    if (!this.leaving || this.down || this.brawling) return;
+    const P = N.newcomerPush;
+    const k = Math.min(this.aggro ?? 0, P.distances.length - 1);
+    this.aggro = (this.aggro ?? 0) + 1;
+    this.scripted = P.expressions[Math.min(k, P.expressions.length - 1)];
+    this.face?.setExpression(this.scripted);
+    const target = () => (this._camera ? this._camera.position.clone() : this.rig.root.position.clone());
+    const { spot, faceYaw } = this.leaving;
+    this.walker.start([
+      { type: 'approach', target, distance: P.distances[k], timeout: 8 },
+      { type: 'hold', seconds: P.sayThenWait, target },
+      { type: 'walk', to: spot, pushThrough: true, leg: 'door' },
+      { type: 'face', yaw: faceYaw },
+      { type: 'hold', seconds: Infinity },
+    ], { speedMul: 1 + this.aggro * P.speedPerLine, anger: Math.min(3, this.aggro) });
+  }
+
+  /** Get up and go and stand at `spot`, facing `yaw` (the newcomer at the counter when 848 is called). */
+  goStand(spot, yaw) {
+    if (this.down || this.brawling) return;
+    const steps = [{ type: 'walk', to: spot, pushThrough: true }, { type: 'face', yaw }, { type: 'hold', seconds: Infinity }];
+    this.attending = false; this.action = null; this.reaction = null;
+    const wk = this.walker;
+    if (!wk.active) wk.start([{ type: 'rise' }, ...steps]);
+    else wk.start(steps);
+  }
+
+  /**
+   * Scripted moves for a scene ({ do: 'anim', who, name, untilDone: true }):
+   *   'confront'  get up, walk up to the player, and stay standing there facing him
+   *   'slap' | 'shove' | 'shoveHard' | 'punch' | 'kick'  (walk up if needed, then) hit him
+   * Resolves when they've arrived / the blow has landed; they then stay standing, facing him.
+   */
+  _sceneMove(name) {
+    if (this.down || this.brawling) return Promise.resolve();
+    return new Promise((resolve) => {
+      const target = () => (this._camera ? this._camera.position.clone() : this.rig.root.position.clone());
+      const steps = [];
+      steps.push({ type: 'approach', target, distance: N.violence.approachDistance, timeout: 12 });
+      if (name !== 'confront') steps.push({ type: 'attack', kind: name, target, onHit: (kind) => this.hitPlayer?.(this, kind) });
+      steps.push({ type: 'hold', seconds: Infinity, until: () => { resolve(); return true; } }); // arrived / the blow landed
+      steps.push({ type: 'hold', seconds: Infinity, target }); // stand there, facing him
+      this.attending = false; this.action = null; this.reaction = null;
+      const opts = { speedMul: 1.6, anger: 1 }; // marching over
+      const wk = this.walker;
+      if (!wk.active) wk.start([{ type: 'rise' }, ...steps], opts);
+      else wk.start(steps, opts);
+    });
   }
 
   setTalking(on) {
@@ -199,6 +284,7 @@ export class Npc {
   // ------------------------------------------------------------------ per frame
 
   update(dt, camera) {
+    this._camera = camera; // for scripted moves towards the player
     this.time += dt;
     if (this._flashT > 0) {
       this._flashT -= dt;
@@ -308,7 +394,7 @@ export class Npc {
       eyesOn = camera.position;
     }
 
-    this.face?.setExpression(expression);
+    this.face?.setExpression(this.scripted ?? expression);
     this.footLiftNow = footLift;
     this._solve(dt, desired, eyesOn, footLift);
   }
@@ -526,7 +612,7 @@ export class Npc {
   startClipboardSmash({ clipboard, target, onSmash, brawl }) {
     // If the player is holding the clipboard himself, the newcomer just punches him instead
     const fetch = clipboard.isHeld() ? [] : [
-      { type: 'walk', to: clipboard.standSpot },
+      { type: 'walk', to: clipboard.standSpot, pushThrough: true }, // the player is in the way at the counter: not for long
       { type: 'face', yaw: clipboard.faceYaw },
       { type: 'reach', target: clipboard.reachTarget, onReach: () => { if (!clipboard.isHeld()) { clipboard.take(); this.carrying = clipboard; } } },
     ];
@@ -619,6 +705,7 @@ export class Npc {
 
   _knockDown(dir, knock = 1) {
     this.down = true;
+    this.scripted = null;
     this.rig.root.visible = true;
     this.walker.steps = null; // abandon whatever they were doing
     if (this.carrying) { this.carrying.drop(this.rig.root.position.clone()); this.carrying = null; }
@@ -650,6 +737,7 @@ export class Npc {
           .addScaledVector(new THREE.Vector3(Math.sin(wk.yaw), 0, Math.cos(wk.yaw)), 0.32).setY(1.0 * self.rig.scale)
         : null),
       expression: (wk) => {
+        if (self.scripted) return self.scripted;
         if (self.brawling) return 'furious';
         if (self.called) return 'annoyed';
         const ladder = N.anger.expressions;

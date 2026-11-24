@@ -24,6 +24,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   const A = room.anchors;
   let receptionistQuip = 12, quipIndex = 0; // her remarks during the brawl
   let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
+  let smashWanted = false;     // the argument is over: the newcomer goes for the clipboard
+  let lastLine = null;         // the director's line being typed (who's talking, for the newcomer)
 
   const receptionist = new Receptionist(scene, A, sfx);
   const actors = { receptionist };
@@ -46,13 +48,23 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     data: waitingRoomBeats, state, ui, sfx, actors, player, config,
     isBlocked: () => anyActive(director),
     onEvent: (type, key) => {
+      if (type === 'clipboardSmash' && config.brawl.enabled) smashWanted = true; // the end of the argument: he grabs the clipboard
+      if (type === 'set' && key === 'newcomerSentIn' && state.newcomerSentIn && newcomer) {
+        const d = A.accountantDoor.pivot.position, P = config.npc.newcomerPush;
+        newcomer.leaveFor(new THREE.Vector3(d.x + 0.5, 0, d.z + P.stopShort), Math.PI); // never goes in
+      }
       if (type === 'set' && key === 'nowServing') {
         room.nowServing.setNumber(state.nowServing);
         sfx.chime(A.nowServing.getWorldPosition(new THREE.Vector3()));
+        // His number: the newcomer gets up and goes to stand at the counter, beside the player
+        if (state.nowServing === config.ticket.number + 1 && newcomer) {
+          const c = A.clipboardPath.end;
+          newcomer.goStand(new THREE.Vector3(c.x + 0.8, 0, c.z + 0.55), Math.PI);
+        }
       }
       if (type === 'set' && key === 'called') {
         for (const n of npcs) n.onCalled();
-        calledBrawlTimer = config.brawl.afterCalled; // the brief: called -> indignant -> brawl
+        if (config.brawl.enabled) calledBrawlTimer = config.brawl.afterCalled; // the brief: called -> indignant -> brawl
       }
       updatePhase();
     },
@@ -157,6 +169,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     actors.newcomer = newcomer;
     npcs.push(newcomer);
     const disp = A.ticketDispenser.getWorldPosition(new THREE.Vector3());
+    newcomer.hitPlayer = (w, k) => hitPlayer(w, k);
+    newcomer.onKnockedDown = (n) => onKnockedDown(n);
     newcomer.arrive({
       door: A.entrance,
       dispenserSpot: new THREE.Vector3(disp.x, 0, disp.z + 0.6),
@@ -323,7 +337,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   const clipHome = A.clipboardPath.end;
   const clipboardHandle = {
     group: A.clipboard,
-    standSpot: new THREE.Vector3(clipHome.x, 0, clipHome.z + 0.55),
+    standSpot: new THREE.Vector3(clipHome.x - 0.65, 0, clipHome.z + 0.55), // beside where the player stands at the counter
     faceYaw: Math.PI, // facing the counter
     reachTarget: () => A.clipboard.getWorldPosition(new THREE.Vector3()),
     orient: (g, yaw) => g.rotation.set(-1.2, yaw, 0, 'YXZ'), // held upright, board towards the victim
@@ -562,7 +576,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   }
 
   // --- knockdowns: at config.brawl.knockdownsToOpen the accountant's door unlocks ---
-  for (const n of npcs) n.onKnockedDown = onKnockedDown;
+  for (const n of npcs) { n.onKnockedDown = onKnockedDown; n.hitPlayer = hitPlayer; } // hitPlayer: scripted slaps and shoves
   function onKnockedDown() {
     state.knockdowns++;
     if (state.knockdowns >= B.knockdownsToOpen && state.phase === 'brawl') {
@@ -643,9 +657,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       A.entrance.pivot.rotation.y = entranceAngle;
       // TEMPORARY brawl trigger (until the argument scene is written): a few seconds after
       // "Number 848!", once the newcomer is seated, he goes for the clipboard
-      const nextCalled = state.nowServing === config.ticket.number + 1;
-      if ((nextCalled || brawlNow) && !smashStarted && newcomer && !newcomer.brawling && !newcomer.walker.active && !director.active) {
-        smashTimer = (smashTimer ?? (brawlNow ? 1 : config.brawl.placeholderDelay)) - dt;
+      // The argument (beats argument_*) ends with { do: 'emit', event: 'clipboardSmash' }; ?brawl skips to it
+      if ((smashWanted || brawlNow) && !smashStarted && newcomer && !newcomer.brawling && !director.active && (smashWanted || !newcomer.walker.active)) {
+        smashTimer = (smashTimer ?? (brawlNow && !smashWanted ? config.brawl.placeholderDelay : 0)) - dt;
         if (smashTimer <= 0) startSmash();
       }
       // Called (847) before anything else started a fight: indignation, then the brawl
@@ -658,6 +672,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
           brawl.start(null, brawlShouts.called);
         }
       }
+      // The newcomer, once sent in: protests stop him; when he speaks he comes back at the player
+      const ty = director.typing;
+      if (ty && ty !== lastLine && newcomer?.leaving) {
+        const sp = director.data.speakers;
+        if (ty.speaker === sp.player?.name) newcomer.halt();
+        else if (ty.speaker === sp.newcomer?.name) newcomer.pressIn();
+      }
+      lastLine = ty;
       brawl.update(dt);
       // She keeps playing solitaire through all of it, with the odd remark
       if (brawl.started && !ended) {
@@ -699,7 +721,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       receptionist.update(dt, camera.position);
 
       // The wait: counts no matter what the player does (owner's decision)
-      if (state.phase === 'waiting' && !state.called && !this.callStarted && !brawl.started) {
+      if (config.timings.call.enabled && state.phase === 'waiting' && !state.called && !this.callStarted && !brawl.started) {
         state.waitElapsed += dt;
         if (state.waitElapsed >= waitDuration) {
           this.callStarted = true;

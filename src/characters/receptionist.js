@@ -82,7 +82,7 @@ export class Receptionist {
       w: (x, y, z) => seat.localToWorld(new THREE.Vector3(x, y, z)),
       seatedFoot: (side) => seat.localToWorld(new THREE.Vector3(side * 0.17, 0, 0.42)),
       seatedHand: (side) => (side === 1 ? self._keyboardHand() : self._mouseHand()),
-      expression: () => (self.cup.visible ? 'neutral' : 'bored'),
+      expression: () => self.scripted ?? (self.cup.visible ? 'neutral' : 'bored'),
     });
 
     // --- the coffee cup she comes back with ---
@@ -144,9 +144,11 @@ export class Receptionist {
 
   /** Called by the director's 'anim' action. */
   play(name) {
-    if (name === 'lookAtPlayer') { this.state = 'look'; this.face?.setExpression('unimpressed'); }
-    else if (name === 'glanceAtClock') { this.state = 'clock'; this.face?.setExpression('unimpressed'); }
-    else if (name === 'resumeSolitaire') { this.state = 'solitaire'; this.face?.setExpression(this.baseExpression); }
+    // An expression set by the script ({ do: 'face' }) wins over the one each animation would pick
+    const face = (auto) => this.face?.setExpression(this.scripted ?? auto);
+    if (name === 'lookAtPlayer') { this.state = 'look'; face('unimpressed'); }
+    else if (name === 'glanceAtClock') { this.state = 'clock'; face('unimpressed'); }
+    else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
     else if (name === 'sipCoffee') { this.state = 'sip'; this.sipT = 0; }
     else if (name === 'slideClipboard') {
@@ -159,7 +161,11 @@ export class Receptionist {
 
   /** Director hooks: expression presets (config.characters.expressions) and mouth movement. */
   setExpression(name) {
-    this.face?.setExpression(name);
+    // Set by the script: holds through her animations until the script changes it.
+    // 'default' hands her face back to the animations (bored at solitaire, unimpressed when she looks up).
+    this.scripted = name === 'default' ? null : name;
+    const auto = this.state === 'look' || this.state === 'clock' ? 'unimpressed' : this.baseExpression;
+    this.face?.setExpression(this.scripted ?? auto);
   }
 
   setTalking(on) {

@@ -184,7 +184,8 @@ export class Walker {
         break;
       case 'walk':
         if (S.glare) look = camera.position.clone();
-        if (walkTowards(S.to === 'front' ? this.front : S.to)) this._next();
+        // pushThrough: don't wait for the player to get out of the way
+        if (walkTowards(S.to === 'front' ? this.front : S.to, S.pushThrough)) this._next();
         break;
       case 'face':
       case 'turn':

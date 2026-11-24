@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import type { Action, GameState, Scene } from '../director/types.ts';
+import type { Action, GameState, Option, Scene } from '../director/types.ts';
 
 /*
   The Waiting Room, as data. Edit lines and order here; edit timings in config.js.
@@ -31,6 +31,40 @@ const beforeAppointment = (state: GameState): boolean => clockMinute(state) < ap
 const late = (state: GameState): boolean => clockMinute(state) > apptMinute + AP.onTimeMinutes;
 const clockReadsTwo = (state: GameState): boolean => clockMinute(state) === apptMinute;
 const onTime = (state: GameState): boolean => !beforeAppointment(state) && !late(state);
+// Whole minutes since the player walked in (the clock read 1:55:00 then)
+const arrivedAt = config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond;
+const minutesHere = (state: GameState): number => Math.max(0, Math.floor((state.clockTime - arrivedAt) / 60));
+const pause: Action = { do: 'wait', seconds: T.sideOptionPause };
+
+// Told to take a number when he already has one (owner's request). Her reply is a PROPOSAL.
+const alreadyHaveTicket = (state: GameState): boolean => state.ticketNumber != null;
+const alreadyTookTicket: Option = {
+  text: 'I already took a ticket.',
+  showIf: alreadyHaveTicket,
+  response: [pause, { do: 'say', who: 'receptionist', text: 'Then have a seat.' }],
+};
+
+// During the argument he can turn to the receptionist at any point (owner's design). Each line is offered
+// once; together they end with her sending the newcomer in.
+const pleaCheckIn: Option = {
+  text: 'Please, can I just check in for my appointment?',
+  showIf: (state: GameState) => !state.checkInPleaded,
+  response: [
+    pause,
+    { do: 'say', who: 'receptionist', text: "You can if you go find a pen. Otherwise you just gon' have to wait till tomorrow." },
+    { do: 'notice', text: 'Go look for a pen', seconds: 3 },
+    { do: 'set', key: 'checkInPleaded', value: true },
+  ],
+};
+const pleaLetMeIn: Option = {
+  text: "But I'm already here! Can't you just let me in?",
+  showIf: (state: GameState) => state.checkInPleaded && !state.newcomerSentIn,
+  response: [
+    pause,
+    { do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet. Number 848, you can go on in.' },
+    { do: 'set', key: 'newcomerSentIn', value: true },
+  ],
+};
 
 // On time (2:00-2:02), first the check-in runaround: "Did you check in already?" (beats checkin_already,
 // checkin_how, checkin_how_again, checkin_can_i). Only at the end does she ask about the sheet.
@@ -58,6 +92,14 @@ export const waitingRoomBeats: Scene = {
   speakers: {
     player: { name: 'YOU', pitch: config.characters.playerVoicePitch },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
+    // The man who walks in after her coffee (same name and voice as in npcConversations.ts)
+    newcomer: { name: 'MAN IN TRENCH COAT', pitch: 140, actor: 'newcomer' },
+    // The waiting people (same names and voices as their small talk, npcConversations.ts)
+    cougher: { name: 'OLDER MAN', pitch: 150, actor: 'cougher' },
+    watchChecker: { name: 'MAN WITH BRIEFCASE', pitch: 165, actor: 'watchChecker' },
+    sitter: { name: 'WOMAN', pitch: 260, actor: 'sitter' },
+    jiggler: { name: 'YOUNG MAN', pitch: 205, actor: 'jiggler' },
+    reader: { name: 'WOMAN WITH MAGAZINE', pitch: 285, actor: 'reader' },
   },
 
   // Sequences the game starts itself (director.play(name)).
@@ -103,7 +145,7 @@ export const waitingRoomBeats: Scene = {
       ],
       onAdvance: [
         // She looks at you. Two seconds. Nothing. Back to the cards.
-        { do: 'face', who: 'receptionist', expression: 'annoyed' },
+        { do: 'face', who: 'receptionist', expression: 'unimpressed' },
         // She looks at you. Two seconds. Nothing. Back to the cards.
         { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
         { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
@@ -167,6 +209,7 @@ export const waitingRoomBeats: Scene = {
         },
         // Letting it go isn't final: she can be asked again later (protest_again)
         { text: 'Okay.', silent: true, goto: 'protest_again' },
+        alreadyTookTicket, // only if he already has one
       ],
       lockedOptions: [],
       lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Got me a full stack...' }],
@@ -242,6 +285,21 @@ export const waitingRoomBeats: Scene = {
       lockedOptions: [],
     },
     {
+      // "You're late. You'll have to take a number and have a seat." when he already has one
+      id: 'late_ticket',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'I already took a ticket.',
+          goto: null, // that's all she has to say about it
+          actions: [pause, { do: 'say', who: 'receptionist', text: 'Then have a seat.' }],
+        },
+        { text: '(Say nothing)', silent: true, goto: null },
+      ],
+      lockedOptions: [],
+    },
+    {
       id: 'appointment_time',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
@@ -250,7 +308,8 @@ export const waitingRoomBeats: Scene = {
           text: 'My appointment is at 2:00.',
           // On time: "Did you check in already?" (checkin_already). Early ("not 2:00 yet"): she can be asked again later.
           // Late: the exchange is over.
-          goto: (state: GameState) => (state.checkInAsked ? 'checkin_already' : late(state) ? null : 'protest_again'),
+          goto: (state: GameState) =>
+            (state.checkInAsked ? 'checkin_already' : late(state) ? (alreadyHaveTicket(state) ? 'late_ticket' : null) : 'protest_again'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -512,8 +571,8 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'Do you have a pen I can borrow?',
-          // The second "No." is followed by calling the next number: the exchange is over
-          goto: (state: GameState) => (state.penRefusals >= 2 ? null : 'how_check_in'),
+          // The second "No." is followed by calling the next number (848, the newcomer), then he can protest
+          goto: (state: GameState) => (state.penRefusals >= 2 ? 'newcomer_checks_in' : 'how_check_in'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             { do: 'say', who: 'receptionist', text: 'No.' },
@@ -535,6 +594,158 @@ export const waitingRoomBeats: Scene = {
         },
       ],
       lockedOptions: [],
+      next: 'newcomer_checks_in',
+    },
+    {
+      id: 'newcomer_checks_in',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [{ text: 'How come he gets to go first? My number was before his!', advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', untilDone: true },
+        {
+          do: 'say',
+          who: 'receptionist',
+          text: ['His number was called.', 'His number is being served now.'],
+          vary: 'any',
+        },
+        { do: 'wait', seconds: T.sideOptionPause },
+        { do: 'say', who: 'newcomer', text: 'Yeah buddy, first come, first served.' },
+      ],
+      next: 'argument_1',
+      nextUnlockAfter: 0,
+    },
+
+    // ---- The argument that leads to the fight (owner's script, temp_script_leading_to_fight.md) ----
+    // Every reply opens by itself: it's an argument. It ends with the newcomer grabbing the clipboard.
+    {
+      id: 'argument_1',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: 'But I was here first. I have an appointment at 2:00.', advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'anim', who: 'newcomer', name: 'attend' },
+        { do: 'say', who: 'newcomer', text: "Well you're late. You forfeit your appointment." },
+        pause,
+        {
+          do: 'if',
+          test: (state: GameState) => !state.sitterDown, // (unless the radio war put her on the floor)
+          then: [
+            { do: 'anim', who: 'sitter', name: 'attend' },
+            { do: 'say', who: 'sitter', text: 'Yeah, maybe show up on time next time.' },
+            pause,
+          ],
+        },
+        { do: 'anim', who: 'jiggler', name: 'attend' },
+        { do: 'say', who: 'jiggler', text: 'Yeah dude, get a watch.' },
+        pause,
+        { do: 'anim', who: 'cougher', name: 'attend' },
+        { do: 'say', who: 'cougher', text: "These youngsters can't tell time anymore unless it's on their iPad phone." },
+      ],
+      next: 'argument_2',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_2',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`, advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' },
+      ],
+      next: 'argument_3',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_3',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: "I'm not yelling. I'm just saying I was here first.", advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'face', who: 'newcomer', expression: 'pleased' },
+        { do: 'say', who: 'newcomer', text: 'Oh we got a smart-ass here...' },
+        pause,
+        { do: 'anim', who: 'reader', name: 'attend' },
+        { do: 'face', who: 'reader', expression: 'angry' },
+        { do: 'say', who: 'reader', text: 'Actually, I was here first.' },
+        // She gets up and walks over to the reception desk, angrily
+        { do: 'anim', who: 'reader', name: 'confront', untilDone: true },
+        { do: 'say', who: 'reader', text: 'If anyone should go next it should be me.' },
+      ],
+      next: 'argument_4',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_4',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." },
+      ],
+      next: 'argument_5',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_5',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: 'Okay, well do you have a number?', advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'face', who: 'reader', expression: 'appalled' },
+        { do: 'say', who: 'reader', text: 'Ew! This creep is asking for my number??' },
+        { do: 'anim', who: 'reader', name: 'slap', untilDone: true }, // across the face
+        pause,
+        { do: 'say', who: 'receptionist', text: 'Sir...' },
+        pause,
+        { do: 'say', who: 'newcomer', text: 'Wow, dude, really?' },
+      ],
+      next: 'argument_6',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_6',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: "I wasn't asking for her phone number!", advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'say', who: 'receptionist', text: 'Sir, I need you to calm down.' },
+        // The sitter stands up, marches over and shoves him back several feet
+        // (if the radio war put her on the floor, the young man does it)
+        {
+          do: 'if',
+          test: (state: GameState) => !state.sitterDown,
+          then: [{ do: 'face', who: 'sitter', expression: 'furious' }, { do: 'anim', who: 'sitter', name: 'shoveHard', untilDone: true }],
+          else: [{ do: 'face', who: 'jiggler', expression: 'furious' }, { do: 'anim', who: 'jiggler', name: 'shoveHard', untilDone: true }],
+        },
+      ],
+      next: 'argument_7',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'argument_7',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [{ text: "Okay everyone, let's just calm down here.", advance: true }, pleaCheckIn, pleaLetMeIn],
+      lockedOptions: [],
+      onAdvance: [
+        pause,
+        { do: 'say', who: 'newcomer', text: "Dude, I think you're the one who needs to calm down." },
+        { do: 'emit', event: 'clipboardSmash' }, // he grabs the check-in clipboard: the brawl starts (waitingRoomLevel.js)
+      ],
+      nextUnlockAfter: 0,
     },
     {
       id: 'how_check_in',

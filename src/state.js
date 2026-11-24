@@ -28,6 +28,8 @@ export const state = {
   clockTime:               // seconds since midnight (12h face)
     config.clock.startHour * 3600 + config.clock.startMinute * 60 + config.clock.startSecond,
 
+  checkInPleaded: false,   // during the argument: "Please, can I just check in...?" ("go find a pen")
+  newcomerSentIn: false,   // ...and "Can't you just let me in?": "Number 848, you can go on in."
   jiggleAsks: 0,           // times the player asked the young man to stop bouncing his leg
   timeAsks: 0,             // times the man with the watch has asked the player the time
   retries: 0,              // times the player has woken up in a chair with a higher ticket
