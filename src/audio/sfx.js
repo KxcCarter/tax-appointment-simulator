@@ -422,6 +422,25 @@ export class Sfx {
     this._tone(t + 0.04, 0.09, out, 'square', 180, 0.4, 0.001, 120);
   }
 
+  /** Knuckles on a wooden door: three knocks. */
+  knock(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.6, position, A.hits);
+    for (let i = 0; i < 3; i++) {
+      this._tone(t + i * 0.16, 0.08, out, 'sine', 180, 0.7, 0.001, 120);
+      this._noise(t + i * 0.16, 0.04, out, 'bandpass', 900, 2, 0.5, 0.001);
+    }
+  }
+
+  /** The water cooler: a big hollow glug. */
+  glug(position = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(0.5, position, A.hits);
+    for (let i = 0; i < 3; i++) this._tone(t + i * 0.22, 0.18, out, 'sine', 140 + i * 25, 0.6, 0.01, 220 + i * 30);
+  }
+
   /** A door opening: a long low creak. */
   doorOpen(position = null) {
     if (!this.ctx) return;

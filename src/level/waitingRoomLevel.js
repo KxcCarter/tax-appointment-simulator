@@ -5,6 +5,7 @@ import { buildWaitingRoom } from './waitingRoom.js';
 import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
+import { roomRemarks, trespassLines } from '../data/roomRemarks.ts';
 import { npcConversations, people, onlookers, brawlShouts } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
@@ -327,6 +328,62 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     },
   };
 
+  // --- things to look at (easter eggs; src/data/roomRemarks.ts) ---
+  const remarkCount = {};
+  function clockText() {
+    const t = Math.floor(state.clockTime / 60) % 720;
+    return `It's ${Math.floor(t / 60) || 12}:${String(t % 60).padStart(2, '0')}.`;
+  }
+  function remark(key) {
+    const set = roomRemarks[key];
+    const i = remarkCount[key] = (remarkCount[key] ?? -1) + 1;
+    const line = set.loop ? set.lines[i % set.lines.length] : set.lines[Math.min(i, set.lines.length - 1)];
+    if (typeof line === 'string') {
+      const text = line === 'CLOCK' ? clockText() : line;
+      ui.toast(text, 1.6 + text.length * 0.035);
+    } else if (!onlookerTalk.active) {
+      onlookerTalk.runActions([{ do: 'say', who: line.who, text: line.text }]);
+    }
+  }
+  function lookable(object, key, when = () => true, then = null) {
+    if (!object) return;
+    interaction.register(object, {
+      prompt: () => (when() ? roomRemarks[key].prompt : null),
+      onInteract: () => { if (!when()) return; then?.(); remark(key); },
+    });
+  }
+  const calm = () => state.phase !== 'brawl' && state.phase !== 'doorOpen';
+  lookable(A.poster, 'poster');
+  lookable(A.certificate, 'certificate');
+  lookable(A.plants?.[0], 'plantWest');
+  lookable(A.plants?.[1], 'plantEast');
+  for (const c of A.cabinets ?? []) lookable(c, 'cabinets', calm);
+  lookable(A.coat, 'coat');
+  lookable(A.nowServing, 'nowServing', calm);
+  lookable(A.clock, 'clock');
+  lookable(A.crtScreen ?? A.crt, 'screen', calm);
+  for (const m of A.magazines ?? []) lookable(m, 'magazine');
+  lookable(A.coolerBottle, 'water', calm, () => sfx.glug(A.coolerBottle.getWorldPosition(new THREE.Vector3())));
+  // The dispenser, once you have a ticket
+  {
+    const take = A.ticketDispenser.userData.interactable;
+    interaction.register(A.ticketDispenser, {
+      prompt: () => take.prompt() ?? roomRemarks.dispenserAgain.prompt,
+      onInteract: () => (state.ticketNumber == null ? take.onInteract() : remark('dispenserAgain')),
+    });
+  }
+  // Behind the desk or in the back room, she notices (not during the brawl)
+  let trespassCooldown = 0, trespassCount = 0;
+  function checkTrespass(dt) {
+    trespassCooldown -= dt;
+    const p = camera.position;
+    const behind = (p.z < -3.75 && p.x < -0.95) || p.z < -5.1;
+    if (!behind || !calm() || trespassCooldown > 0 || onlookerTalk.active || director.active) return;
+    if (receptionist.walker?.active) return; // she's off getting coffee
+    trespassCooldown = 18;
+    onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: trespassLines[Math.min(trespassCount++, trespassLines.length - 1)] }]);
+  }
+
   // --- improvised weapons: anything can be one (owner's decision) ---
   // Once the player's fists are up, anything registered here can be picked up. If it also has its
   // normal use (Sit, Sign the sheet, Turn off the radio), that stays on E and picking up goes on R.
@@ -446,9 +503,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     prompt: () => {
       if (accOpen) return null;
       if (state.phase === 'doorOpen') return '[E] Open the door';
-      return state.phase === 'brawl' || state.called ? '[E] Try the door' : null;
+      return state.phase === 'brawl' ? '[E] Try the door' : roomRemarks.accountantDoor.prompt;
     },
     onInteract: () => {
+      if (state.phase !== 'doorOpen' && state.phase !== 'brawl') {
+        sfx.knock(accDoor.pivot.getWorldPosition(new THREE.Vector3()));
+        setTimeout(() => remark('accountantDoor'), 700);
+        return;
+      }
       if (state.phase === 'doorOpen') {
         accOpen = true;
         physics.world.removeCollider(accDoor.collider, true);
@@ -525,6 +587,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       const sitterNow = radioWho();
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
+      checkTrespass(dt);
       // Brawl HUD
       const fighting = state.phase === 'brawl' || state.phase === 'doorOpen';
       ui.setHealth(fighting ? state.playerHealth / B.playerHealth : null);

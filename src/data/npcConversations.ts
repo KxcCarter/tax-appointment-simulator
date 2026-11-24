@@ -151,6 +151,7 @@ export const onlookers: Scene = {
   speakers: {
     ...Object.fromEntries(Object.entries(people).map(([id, p]) => [id, { name: p.name, pitch: p.pitch, actor: id }])),
     newcomer: { name: 'MAN IN TRENCH COAT', pitch: 140, actor: 'newcomer' },
+    voice: { name: 'VOICE BEHIND THE DOOR', pitch: 110 },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
   },
   beats: [],

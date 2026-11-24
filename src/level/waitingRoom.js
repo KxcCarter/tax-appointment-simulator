@@ -459,7 +459,7 @@ export function buildWaitingRoom(scene, physics) {
     // Filing cabinets closing the gap between the desk and the west wall
     for (let i = 0; i < 3; i++) {
       const fx = -5.75 + i * 0.47;
-      box(0.45, 1.3, 0.6, mat('filingCabinet'), fx, 0.65, -3.2);
+      (anchors.cabinets ??= []).push(box(0.45, 1.3, 0.6, mat('filingCabinet'), fx, 0.65, -3.2));
       for (let d = 0; d < 3; d++) box(0.18, 0.03, 0.02, mat('metalGrey'), fx, 1.1 - d * 0.4, -2.89);
     }
     staticBox(-5.3, 0.65, -3.2, 0.72, 0.65, 0.3);
@@ -686,6 +686,7 @@ export function buildWaitingRoom(scene, physics) {
       peg.rotation.set(0.5, (i * Math.PI) / 2, 0);
     }
     const coat = box(0.36, 0.7, 0.14, mat('coat'), rx + 0.05, 1.35, rz - 0.06);
+    anchors.coat = coat;
     coat.rotation.z = 0.05;
     staticBox(rx, 0.9, rz, 0.12, 0.9, 0.12);
   }
@@ -702,7 +703,7 @@ export function buildWaitingRoom(scene, physics) {
       c.font = '7px monospace'; c.fillText('It is not a request.', w / 2, 118);
     });
     // West wall faces +x: BoxGeometry face 0 (+x) carries the poster
-    box(0.02, 0.9, 0.68, mat('black'), -hw + 0.02, 1.75, -0.4).material = [
+    (anchors.poster = box(0.02, 0.9, 0.68, mat('black'), -hw + 0.02, 1.75, -0.4)).material = [
       theme.textured(posterTex), mat('black'), mat('black'), mat('black'), mat('black'), mat('black'),
     ];
 
@@ -715,7 +716,7 @@ export function buildWaitingRoom(scene, physics) {
       c.fillStyle = theme.css('inkRed'); c.beginPath(); c.arc(w - 18, h - 16, 6, 0, Math.PI * 2); c.fill();
     });
     box(0.02, 0.4, 0.52, mat('woodDark'), hw - 0.015, 1.7, -1.1);
-    box(0.01, 0.34, 0.46, mat('woodDark'), hw - 0.03, 1.7, -1.1).material = [
+    (anchors.certificate = box(0.01, 0.34, 0.46, mat('woodDark'), hw - 0.03, 1.7, -1.1)).material = [
       mat('woodDark'), theme.textured(certTex), mat('woodDark'), mat('woodDark'), mat('woodDark'), mat('woodDark'),
     ];
   }
