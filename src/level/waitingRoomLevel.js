@@ -6,7 +6,7 @@ import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
 import { roomRemarks, trespassLines } from '../data/roomRemarks.ts';
-import { npcConversations, people, onlookers, brawlShouts } from '../data/npcConversations.ts';
+import { npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
 import { Brawl } from './brawl.js';
@@ -45,7 +45,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   const anyActive = (except) => [director, ...smallTalk].some((d) => d !== except && d.active);
 
   const director = new Director({
-    data: waitingRoomBeats, state, ui, sfx, actors, player, config,
+    data: waitingRoomBeats, state, ui, sfx, actors, player, config, name: 'receptionist',
     isBlocked: () => anyActive(director),
     onEvent: (type, key) => {
       if (type === 'clipboardSmash' && config.brawl.enabled) smashWanted = true; // the end of the argument: he grabs the clipboard
@@ -74,7 +74,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     const data = npcConversations[n.id];
     if (!data) continue;
     const d = new Director({
-      data, state, ui, sfx, actors, player, config,
+      data, state, ui, sfx, actors, player, config, name: n.id,
       onEvent: (type) => { if (type === 'jiggleAsked') jiggleAsked(); },
       isBlocked: () => anyActive(d) || state.called || state.foughtBack, // nobody chats after the call, or with a maniac
     });
@@ -84,10 +84,24 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // The bystanders' outburst when the player hits the sitter back (one shared scene)
   const onlookerTalk = new Director({
-    data: onlookers, state, ui, sfx, actors, player, config,
+    data: onlookers, state, ui, sfx, actors, player, config, name: 'onlookers',
     isBlocked: () => anyActive(onlookerTalk),
   });
   smallTalk.push(onlookerTalk);
+
+  // Overheard: the waiting people talking among themselves now and then (src/data/npcConversations.ts)
+  const overheardTalk = new Director({
+    data: overheard, state, ui, sfx, actors, player, config, name: 'overheard',
+    isBlocked: () => anyActive(overheardTalk),
+  });
+  smallTalk.push(overheardTalk);
+
+  // The voice behind the accountant's door (after "Not yet.", knocking starts a conversation)
+  const doorTalk = new Director({
+    data: doorVoice, state, ui, sfx, actors, player, config, name: 'door',
+    isBlocked: () => anyActive(doorTalk),
+  });
+  smallTalk.push(doorTalk);
 
   const interaction = new Interaction(camera, scene, ui, player);
 
@@ -171,6 +185,20 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     const disp = A.ticketDispenser.getWorldPosition(new THREE.Vector3());
     newcomer.hitPlayer = (w, k) => hitPlayer(w, k);
     newcomer.onKnockedDown = (n) => onKnockedDown(n);
+    // Small talk with him while he sits with 848 (until 848 is called)
+    if (npcConversations.newcomer) {
+      const d = new Director({
+        data: npcConversations.newcomer, state, ui, sfx, actors, player, config, name: 'newcomer',
+        isBlocked: () => anyActive(d) || state.called || state.foughtBack || state.nowServing === config.ticket.number + 1,
+      });
+      smallTalk.push(d);
+      newcomer.conversation = d;
+      interaction.register(newcomer.rig.root, {
+        prompt: () => (!state.newcomerArrived || state.called || state.foughtBack || state.phase === 'brawl'
+          || state.nowServing === config.ticket.number + 1 || newcomer.busyElsewhere ? null : '[E] Talk'),
+        onInteract: () => d.interact('newcomer'),
+      });
+    }
     newcomer.arrive({
       door: A.entrance,
       dispenserSpot: new THREE.Vector3(disp.x, 0, disp.z + 0.6),
@@ -389,6 +417,30 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     }
   }
 
+  // --- overheard exchanges: one every so often, while nothing else is going on ---
+  const overheardLeft = Object.keys(overheard.sequences ?? {});
+  let overheardTimer = config.overheard.first;
+  const speakersIn = (actions) => actions.flatMap((a) => (a.do === 'if' ? [...speakersIn(a.then ?? []), ...speakersIn(a.else ?? [])] : a.who ? [a.who] : []));
+  const canSpeak = (id) => {
+    if (id === 'receptionist') return !receptionist.walker.active;
+    const n = byId(id);
+    return !!n && !n.busyElsewhere && !n.brawling && !n.violent && !n.conversation?.active;
+  };
+  function overhear(dt) {
+    if (!overheardLeft.length) return;
+    overheardTimer -= dt;
+    if (overheardTimer > 0) return;
+    // Not once 848 has been called (the argument), nor in a fight
+    const quiet = calm() && !state.called && !state.foughtBack && !anyActive(null) && !smashWanted
+      && state.nowServing !== config.ticket.number + 1;
+    const i = quiet ? overheardLeft.findIndex((name) =>
+      (overheardWhen[name]?.(state) ?? true) && speakersIn(overheard.sequences[name]).every(canSpeak)) : -1;
+    if (i < 0) { overheardTimer = config.overheard.retry; return; }
+    const [name] = overheardLeft.splice(i, 1);
+    overheardTimer = config.overheard.every[0] + Math.random() * (config.overheard.every[1] - config.overheard.every[0]);
+    overheardTalk.play(name);
+  }
+
   // --- things to look at (easter eggs; src/data/roomRemarks.ts) ---
   const remarkCount = {};
   function clockText() {
@@ -598,7 +650,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     },
     onInteract: () => {
       if (state.phase !== 'doorOpen' && state.phase !== 'brawl') {
+        if (doorTalk.active || anyActive(doorTalk)) return;
         sfx.knock(accDoor.pivot.getWorldPosition(new THREE.Vector3()));
+        // After "Not yet." (the third knock), someone answers: the voice's conversation, until it's over
+        const knocks = (remarkCount.accountantDoor ?? -1) + 1;
+        if (knocks >= config.overheard.doorTalkAfterKnocks && doorTalk.current) {
+          setTimeout(() => doorTalk.interact('accountantDoor'), 700);
+          return;
+        }
         setTimeout(() => remark('accountantDoor'), 700);
         return;
       }
@@ -642,6 +701,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     receptionist,
     npcs,
     interaction,
+    overheardTalk, // (exposed for tests)
+    doorTalk,
     combat,
     brawl,
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
@@ -696,6 +757,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
       checkTrespass(dt);
+      overhear(dt);
       player.speedMul = combat.enabled ? config.combat.moveSpeedMul : 1; // quicker on your feet in a fight
       // Fight options (only while the fists are up)
       ui.setFightHelp(combat.enabled ? (combat.held
@@ -719,6 +781,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       room.update(dt);
       director.update(dt);
       for (const d of smallTalk) d.update(dt);
+      // Debug: the current beat, top left (config.debug.showBeat, F4)
+      if (config.debug.showBeat) {
+        const gate = director.gateRemaining;
+        const lines = [`${director.name}: ${director.currentId ?? '(end)'}${gate > 0 ? `  (locked ${gate.toFixed(0)} s)` : ''}`];
+        for (const d of smallTalk) if (d.active) lines.push(`${d.name}: ${d.currentId || '(sequence)'}`);
+        ui.setDebugBeat(lines.join('\n'));
+      }
       receptionist.update(dt, camera.position);
 
       // The wait: counts no matter what the player does (owner's decision)

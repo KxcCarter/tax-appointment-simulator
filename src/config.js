@@ -190,6 +190,14 @@ export const config = {
     seatPreference: [9, 4, 5, 7, 1],  // first free chair from this list (see waitingRoomCast.js)
   },
 
+  // The waiting people talking among themselves (overheard in src/data/npcConversations.ts)
+  overheard: {
+    first: 75,                // seconds of play before the first exchange
+    every: [55, 90],          // seconds between exchanges
+    retry: 6,                 // seconds before trying again when nobody can talk right now
+    doorTalkAfterKnocks: 3,   // knocks on the accountant's door before the voice starts talking back
+  },
+
   // The player's appointment, as read on the wall clock (12-hour face)
   appointment: {
     hour: 2,
@@ -452,6 +460,7 @@ export const config = {
 
   debug: {
     showFps: false,           // toggle in-game with F3
+    showBeat: true,           // the current beat, top left (toggle in-game with F4)
     autostart: false,         // also enabled by ?autostart in the URL (skips the title screen)
   },
 };

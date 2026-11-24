@@ -38,6 +38,7 @@ export class UI {
         <div id="dlg-hint" class="hidden">1–4, or move the mouse and click · E to step away</div>
       </div>
       <div id="fps" class="hidden"></div>
+      <div id="debugbeat" class="hidden"></div>
       <div id="toast" style="opacity:0"></div>
 
       <div id="loading" class="screen">
@@ -117,7 +118,9 @@ export class UI {
     this.$('dlg-text').textContent = context ? context.text : '';
     this.$('dlg-text').classList.toggle('hidden', !context);
     list.classList.remove('hidden');
-    this.$('dlg-hint').classList.remove('hidden');
+    const hint = this.$('dlg-hint');
+    hint.classList.remove('hidden');
+    hint.textContent = `${options.length > 1 ? `1–${Math.min(9, options.length)}` : '1'}, or move the mouse and click · E to step away`; // the number keys that work
     list.innerHTML = '';
     options.forEach((o, i) => {
       const li = document.createElement('li');
@@ -238,6 +241,13 @@ export class UI {
     const el = this.$('fps');
     el.classList.toggle('hidden', fps == null);
     if (fps != null) el.textContent = `${fps.toFixed(0)} fps`;
+  }
+
+  /** Debug: the current beat(s), top left; null hides it. */
+  setDebugBeat(text) {
+    const el = this.$('debugbeat');
+    el.classList.toggle('hidden', text == null);
+    if (text != null && el.textContent !== text) el.textContent = text;
   }
 
   toast(text, seconds = 1.5) {

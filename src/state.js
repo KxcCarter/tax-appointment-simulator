@@ -32,6 +32,7 @@ export const state = {
   newcomerSentIn: false,   // ...and "Can't you just let me in?": "Number 848, you can go on in."
   jiggleAsks: 0,           // times the player asked the young man to stop bouncing his leg
   timeAsks: 0,             // times the man with the watch has asked the player the time
+  asked: /** @type {Record<string, boolean>} */ ({}), // small-talk questions already asked ('<person>.<topic>')
   retries: 0,              // times the player has woken up in a chair with a higher ticket
   ended: false,            // walked through the accountant's door (end card)
 

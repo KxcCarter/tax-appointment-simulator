@@ -43,7 +43,8 @@
 const pick = (v) => (Array.isArray(v) ? v[0] + Math.random() * (v[1] - v[0]) : v ?? 0);
 
 export class Director {
-  constructor({ data, state, ui, sfx, actors, player, config, onEvent, isBlocked }) {
+  constructor({ data, state, ui, sfx, actors, player, config, onEvent, isBlocked, name = 'scene' }) {
+    this.name = name; // shown by the debug beat readout
     // isBlocked(): true while another conversation owns the dialogue box (one at a time)
     this.isBlocked = isBlocked ?? (() => false);
     this.data = data;

@@ -77,6 +77,7 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.code === 'F4') { e.preventDefault(); config.debug.showBeat = !config.debug.showBeat; if (!config.debug.showBeat) ui.setDebugBeat(null); }
   if (e.code === 'F3') { e.preventDefault(); config.debug.showFps = !config.debug.showFps; if (!config.debug.showFps) ui.setFps(null); }
 });
 

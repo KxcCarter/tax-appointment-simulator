@@ -135,14 +135,19 @@ export const waitingRoomBeats: Scene = {
       options: [
         { text: "I'm here for my appointment.", advance: true },
         { text: 'Excuse me.', response: silence },
+        // PROPOSAL (more-dialogue): nothing, then one click
+        {
+          text: '(Clear your throat)',
+          silent: true,
+          response: [
+            { do: 'sound', name: 'cough' },
+            { do: 'wait', seconds: 1.5 },
+            { do: 'sound', name: 'mouseClick', who: 'receptionist' },
+          ],
+        },
       ],
       lockedOptions: [],
-      lockedResponse: [
-        { do: 'face', who: 'receptionist', expression: 'unimpressed' },
-        { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
-        { do: 'face', who: 'receptionist', expression: 'annoyed' },
-        { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
-      ],
+      lockedResponse: [],
       onAdvance: [
         // She looks at you. Two seconds. Nothing. Back to the cards.
         { do: 'face', who: 'receptionist', expression: 'unimpressed' },
@@ -160,9 +165,10 @@ export const waitingRoomBeats: Scene = {
       options: [
         { text: "I'm here for my appointment.", advance: true },
         { text: "Excuse me. I'm here for my appointment?", response: flat('Mmhmm.') },
-        { text: 'Hello?', response: silence },
+        { text: 'Hello?', actions: [{ do: 'face', who: 'receptionist', expression: 'annoyed' }], response: silence },
       ],
       lockedOptions: [],
+      lockedResponse: [],
       onAdvance: [
         { do: 'wait', seconds: T.beat2IgnoreBeforeLine }, // clicks continue
         { do: 'say', who: 'receptionist', text: "Shhh, momma's gotta play her game." },
@@ -212,13 +218,22 @@ export const waitingRoomBeats: Scene = {
         alreadyTookTicket,
         {
           // She points at the WALK-IN GUESTS sign over her shoulder without looking up (owner's request)
-          text: 'Why do I need a ticket if I have an appointment?',
+          text: 'Why do I need a number if I have an appointment?',
           response: [
             pause,
             { do: 'anim', who: 'receptionist', name: 'pointAtSign', duration: 1.2 },
-            { do: 'say', who: 'receptionist', text: 'Everybody gotta have a ticket.' },
+            { do: 'say', who: 'receptionist', text: ['Everybody gotta take a number.', 'Read the sign.'], vary: 'any' },
             { do: 'wait', seconds: 0.8 },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          ],
+        },
+        {
+          text: "But I'm not a walk-in.",
+          response: [
+            { do: 'wait', seconds: 2 },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire', duration: T.glanceDuration },
+            { do: 'say', who: 'receptionist', text: 'This man bout to make me lose my game...' },
           ],
         },
       ],
@@ -248,6 +263,41 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'Mmhmm.' },
             { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.glanceDuration },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          ],
+        },
+        // PROPOSAL (more-dialogue)
+        {
+          text: 'Is the accountant even in today?',
+          showIf: (state: GameState) => !state.asked['receptionist.accountantIn'], // asked once in the whole game
+          response: [
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.accountantIn': true }),
+            },
+            pause,
+            { do: 'say', who: 'receptionist', text: "He's with a client." },
+            { do: 'wait', seconds: 0.8 },
+            { do: 'say', who: 'player', text: 'Which client?' },
+            { do: 'wait', seconds: 1.4 },
+            { do: 'say', who: 'receptionist', text: 'Twelve.' },
+          ],
+        },
+        {
+          text: 'Roughly how long is the wait?',
+          showIf: (state: GameState) => !state.asked['receptionist.howLong'], // asked once in the whole game
+          response: [
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.howLong': true }),
+            },
+            pause,
+            { do: 'say', who: 'receptionist', text: 'Depends.' },
+            { do: 'wait', seconds: 0.8 },
+            { do: 'say', who: 'player', text: 'On what?' },
+            { do: 'wait', seconds: 1.4 },
+            { do: 'say', who: 'receptionist', text: 'On how long you wait.' },
           ],
         },
       ],
@@ -529,6 +579,20 @@ export const waitingRoomBeats: Scene = {
             { do: 'set', key: 'clipboardOffered', value: true },
           ], // "Did you sign the check-in sheet?" + the clipboard
         },
+        {
+          text: 'Can you please give me the check-in sheet?',
+          goto: 'checkin_offered',
+          actions: [
+            { do: 'say', who: 'receptionist', text: 'Ooo, this man impatient.' },
+            { do: 'wait', seconds: 2 },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+            { do: 'face', who: 'receptionist', expression: 'angry' },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+            { do: 'say', who: 'receptionist', text: "Mamma playin' her game..." },
+            { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
+            { do: 'set', key: 'clipboardOffered', value: true },
+          ],
+        },
       ],
       lockedOptions: [],
     },
@@ -553,6 +617,18 @@ export const waitingRoomBeats: Scene = {
             },
           ],
         },
+        // PROPOSAL (more-dialogue)
+        {
+          text: 'What do I put on it?',
+          response: [
+            pause,
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: ['Name. Appointment time. Time you got here.', 'Name. Time. Time.'],
+            },
+          ],
+        },
       ],
       lockedOptions: [],
     },
@@ -571,6 +647,16 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'Mamma gotta get her some coffee...' },
             { do: 'anim', who: 'receptionist', name: 'coffeeBreak', untilDone: true }, // ~30 s away
             { do: 'set', key: 'hadCoffee', value: true },
+          ],
+        },
+        // PROPOSAL (more-dialogue)
+        {
+          text: 'Could I sign it in pencil?',
+          showIf: (state: GameState) => !state.asked['receptionist.pencil'], // asked once in the whole game
+          response: [
+            { do: 'set', key: 'asked', value: (state: GameState) => ({ ...state.asked, 'receptionist.pencil': true }) },
+            pause,
+            { do: 'say', who: 'receptionist', text: 'Gotta be in pen.' },
           ],
         },
       ],
@@ -601,6 +687,20 @@ export const waitingRoomBeats: Scene = {
                 { do: 'set', key: 'nowServing', value: config.ticket.number + 1 }, // display chimes, jumps
               ],
             },
+          ],
+        },
+        // PROPOSAL (more-dialogue)
+        {
+          text: 'What about the pen you use for solitaire?',
+          showIf: (state: GameState) => !state.asked['receptionist.solitairePen'], // asked once in the whole game
+          response: [
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.solitairePen': true }),
+            },
+            pause,
+            { do: 'say', who: 'receptionist', text: "Solitaire's on the computer." },
           ],
         },
       ],

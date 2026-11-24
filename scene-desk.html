@@ -896,7 +896,22 @@ function stripTypes(src) {
   // function declarations / expressions: `function f(a: T): R {`
   out = out.replace(/\bfunction\b(\s*\*?\s*[A-Za-z_$][\w$]*)?\s*\(([^()]*)\)\s*(?::\s*[^{=;]+)?\s*\{/g, (m, name, params) => 'function' + (name || '') + '(' + stripParams(params) + ') {');
   // variables: `const x: T = `
-  out = out.replace(new RegExp('\\b(const|let|var)\\s+(' + ID + ')\\s*:\\s*[^=;]+?=(?![=>])', 'g'), '$1 $2 =');
+  // (the type may hold braces and semicolons, e.g. `{ a: string[]; b: number }`: find the `=` outside brackets)
+  const varRe = new RegExp('\\b(const|let|var)\\s+(' + ID + ')\\s*:', 'g');
+  for (let m; (m = varRe.exec(out));) {
+    let k = m.index + m[0].length, depth = 0;
+    for (; k < out.length; k++) {
+      const ch = out[k];
+      if ('([{<'.includes(ch)) depth++;
+      else if (')]}'.includes(ch) || (ch === '>' && out[k - 1] !== '=')) depth--;
+      else if (depth === 0 && ch === '=' && out[k + 1] !== '>' && out[k + 1] !== '=') break;
+      else if (depth === 0 && ch === ';') break; // `let x: T;` (no initializer): leave it
+    }
+    if (k >= out.length || out[k] !== '=') continue;
+    const repl = `${m[1]} ${m[2]} =`;
+    out = out.slice(0, m.index) + repl + out.slice(k + 1);
+    varRe.lastIndex = m.index + repl.length;
+  }
   // casts (not in import lines, where `as` renames)
   out = out.split('\n').map(line => (/^\s*import\b/.test(line) ? line : line
     .replace(/\s+as\s+const\b/g, '')
@@ -2125,6 +2140,8 @@ window.SceneDesk = {
   importText, exportText: () => exportText(), get project() { return P; },
   /** Read one export of a file and write the file back, without touching the editor (for tests). */
   roundTrip(text, name) { const keep = P; try { P = importText(text, name); return exportText(); } finally { P = keep; } },
+  /** Open a file's export in the editor (for tests). */
+  open(text, name) { loadProject(importText(text, name), 'Opened'); },
   exportsOf: text => findExports(text).map(e => e.name),
 };
 /* ================= Resizable panels ================= */
