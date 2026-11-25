@@ -636,7 +636,7 @@ export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'This man a perv!', pose: 'pointAt', expression: 'angry' },
 ];
 
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; receptionistAllDown: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -682,6 +682,8 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
   ],
   // The receptionist, when the fight is over (the door unlocks); then she sits down and watches it back (owner's line)
   receptionistAfter: 'Oooo, this boutta go viral!',
+  // ...and once everyone's been knocked out (owner's line)
+  receptionistAllDown: "Mmm, well I guess you can go in now. Ain't nobody else here anyway.",
   // Someone hit by a thing one of the others threw at the player (PROPOSAL; config.brawl.throwing.friendlyFire)
   friendlyFire: [
     'Hey!',

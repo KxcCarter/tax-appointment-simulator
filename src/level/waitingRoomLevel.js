@@ -720,13 +720,23 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       sfx.doorUnlock?.(A.accountantDoor.pivot.getWorldPosition(new THREE.Vector3()));
       ui.toast('Click.', 1.5);
       // The fight's over, as far as she's concerned: one last remark, then back to her chair and her phone
-      onlookerTalk.runActions([
+      afterRemark = onlookerTalk.runActions([
         { do: 'wait', seconds: 1.2 },
         { do: 'say', who: 'receptionist', text: brawlShouts.receptionistAfter },
         { do: 'wait', seconds: 0.6 },
       ]).then(() => receptionist.play('backToPhone'));
     }
+    // Everyone's down (owner's line): after whatever she's saying, she lets him in
+    if (!allDownSaid && (state.phase === 'brawl' || state.phase === 'doorOpen') && npcs.every((n) => n.down)) {
+      allDownSaid = true;
+      (async () => {
+        await afterRemark; // ("Oooo, this boutta go viral!" first, if that's just started)
+        while (onlookerTalk.talking || onlookerTalk.active) await new Promise((r) => setTimeout(r, 200));
+        await onlookerTalk.runActions([{ do: 'wait', seconds: 1.0 }, { do: 'say', who: 'receptionist', text: brawlShouts.receptionistAllDown }]);
+      })();
+    }
   }
+  let allDownSaid = false, afterRemark = Promise.resolve();
 
   // --- the accountant's door ---
   const accDoor = A.accountantDoor;

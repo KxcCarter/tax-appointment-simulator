@@ -173,7 +173,7 @@ async function collect() {
   walk(remarks);
   // Lists that are the receptionist's by name
   const B = convo.brawlShouts;
-  addText('receptionist', [...B.receptionist, ...B.receptionistMoving, B.receptionistAfter, ...remarks.trespassLines]);
+  addText('receptionist', [...B.receptionist, ...B.receptionistMoving, B.receptionistAfter, B.receptionistAllDown, ...remarks.trespassLines]);
   // Brawl shouts go to whoever's standing (src/level/brawl.js), so everyone with a voice says them all
   for (const who of Object.keys(VOICES)) {
     if (who === 'receptionist') continue;

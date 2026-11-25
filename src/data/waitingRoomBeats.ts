@@ -222,7 +222,12 @@ export const waitingRoomBeats: Scene = {
           response: [
             pause,
             { do: 'anim', who: 'receptionist', name: 'pointAtSign', duration: 1.2 },
-            { do: 'say', who: 'receptionist', text: ['Everybody gotta take a number.', 'Sir, read the sign.'], vary: 'any' },
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: ['Everybody gotta take a number.', 'Sir, read the sign.'],
+              vary: 'any',
+            },
             { do: 'wait', seconds: 0.8 },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
           ],
@@ -902,7 +907,7 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: "I'm just trying to check in for my appointment!",
-          advance: true,
+          goto: 'calm_down',
           actions: [
             { do: 'say', who: 'receptionist', text: "You didn't sign the check-in sheet." },
             { do: 'say', who: 'player', text: "I've been trying to check in since I got here!" },
@@ -920,6 +925,15 @@ export const waitingRoomBeats: Scene = {
       nextUnlockAfter: 0,
     },
     {
+      id: 'calm_down',
+      trigger: { type: 'interact', target: 'receptionist' },
+      onOpen: [{ do: 'say', who: 'receptionist', text: 'Sir you need to calm down.' }],
+      options: [{ text: '', advance: true }],
+      lockedOptions: [],
+      onAdvance: [],
+      nextUnlockAfter: 0,
+    },
+    {
       id: 'you_calling_me_a_liar',
       trigger: { type: 'interact', target: 'newcomer' },
       autoOpen: true,
@@ -930,7 +944,7 @@ export const waitingRoomBeats: Scene = {
           actions: [
             { do: 'say', who: 'newcomer', text: 'You want me to be calm?' },
             { do: 'say', who: 'player', text: 'That would be great, yeah' },
-            { do: 'say', who: 'newcomer', text: 'Yeah? Yeah?' },
+            { do: 'say', who: 'newcomer', text: 'Yeah? Yeah?!' },
             { do: 'anim', who: 'newcomer', name: 'lookAtPlayer' },
             { do: 'say', who: 'player', text: 'If we could all just be calm that would be...' },
             // He cuts him off with a shove
@@ -961,6 +975,7 @@ export const waitingRoomBeats: Scene = {
               test: (state: GameState) => !state.sitterDown,
               then: [
                 { do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
+                { do: 'say', who: 'sitter', text: "I know you ain't lookin at my breasts again!" },
               ],
               else: [
                 { do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
