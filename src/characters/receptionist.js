@@ -103,6 +103,17 @@ export class Receptionist {
     this.cupRest = anchors.keyboard.getWorldPosition(new THREE.Vector3()).addScaledVector(kbLeft, 0.34).setY(0.81);
     this.cupInHand = false;
     this.sipT = 0;
+
+    // --- her cellphone (in her pocket until she films the player) ---
+    this.phone = new THREE.Group();
+    this.phone.add(new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.15, 0.012), theme.material('phoneBody')));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.063, 0.125), theme.material('phoneScreen'));
+    screen.position.z = -0.007; // facing her: the camera side faces the player
+    screen.rotation.y = Math.PI;
+    this.phone.add(screen);
+    this.phone.visible = false;
+    scene.add(this.phone);
+    this.filming = null; // the step list while she's up filming
   }
 
   _mouseHand() {
@@ -145,6 +156,29 @@ export class Receptionist {
     });
   }
 
+  /** World position of her right hand. */
+  _rightHand() {
+    const len = config.characters.receptionist.proportions?.lowerArm?.len ?? config.characters.proportions.lowerArm.len;
+    return this.rig.joints.rElbow.localToWorld(new THREE.Vector3(0, -len - 0.06, 0.02));
+  }
+
+  /**
+   * Stand up, take her phone out of her pocket and film the player (and keep filming).
+   * Resolves once the phone is up.
+   */
+  _filmPlayer() {
+    if (this.filming) return Promise.resolve();
+    const C = config.timings.reception;
+    const target = () => (this.cameraPos ? this.cameraPos.clone() : this.rig.root.position.clone());
+    return new Promise((resolve) => {
+      this.state = 'solitaire';
+      const pocket = { type: 'hold', seconds: C.phoneOut, pose: 'pocket', target };
+      const film = { type: 'hold', seconds: Infinity, pose: 'film', target, until: () => { resolve(); return false; } };
+      this.filming = { pocket, film };
+      this.walker.start([{ type: 'rise' }, pocket, film]);
+    });
+  }
+
   /** Called by the director's 'anim' action. */
   play(name) {
     // An expression set by the script ({ do: 'face' }) wins over the one each animation would pick
@@ -154,6 +188,7 @@ export class Receptionist {
     else if (name === 'pointAtSign') { this.state = this.signPos ? 'point' : this.state; }
     else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
+    else if (name === 'filmPlayer') return this._filmPlayer();
     else if (name === 'sipCoffee') { this.state = 'sip'; this.sipT = 0; }
     else if (name === 'slideClipboard') {
       this.state = 'clipboard';
@@ -200,9 +235,18 @@ export class Receptionist {
     }
 
     // Up and about: the walker does the whole pose
+    this.cameraPos = cameraPos;
     if (this.walker.active) {
       this.walker.update(dt, { position: cameraPos });
       if (this.cupInHand) this.cup.position.copy(this._leftHand());
+      // Her phone: out of the pocket at the end of reaching for it, then held up at the player
+      const F = this.filming, step = this.walker.current;
+      this.phone.visible = !!F && (step === F.film || (step === F.pocket && this.walker.t > config.timings.reception.phoneOut * 0.6));
+      if (this.phone.visible) {
+        this.phone.position.copy(this._rightHand()).add(this._leftHand()).multiplyScalar(0.5);
+        if (step === F.film) this.phone.position.y += 0.05;
+        this.phone.lookAt(this.cameraPos);
+      }
       return;
     }
     if (this.cup.visible && this.state !== 'sip') this.cup.position.copy(this.cupRest);

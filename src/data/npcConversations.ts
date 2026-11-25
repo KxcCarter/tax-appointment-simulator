@@ -644,13 +644,11 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Wait your turn!',         // PROPOSAL
     'I was here first!',       // (from the brief)
   ],
-  // The receptionist, during the brawl, without looking up from her solitaire (PROPOSAL)
+  // The receptionist, during the brawl, filming it all on her phone (owner's lines; in order, round and round)
   receptionist: [
-    'Please keep it down.',
-    'Sir, this is a place of business.',
-    'Now serving number twelve.',
-    'If you break it, you bought it.',
-    'Mm-hm.',
+    'Oo, get him!',
+    'Ouch!',
+    "Mmhmm, that's what you get!",
   ],
   byPerson: {
     sitter: ["I've been here since nine!"], // (from the brief)

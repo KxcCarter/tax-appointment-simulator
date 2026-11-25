@@ -22,7 +22,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // Props landing and hitting things are heard (Milestone 5: sound for everything)
   physics.onImpact = (pos, strength, object, mass) => sfx.propHit(pos, strength, object.userData.impactSound, mass);
   const A = room.anchors;
-  let receptionistQuip = 12, quipIndex = 0; // her remarks during the brawl
+  let receptionistQuip = 3, quipIndex = 0; // her remarks during the brawl
   let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
   let smashWanted = false;     // the argument is over: the newcomer goes for the clipboard
   let lastLine = null;         // the director's line being typed (who's talking, for the newcomer)
@@ -49,6 +49,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     isBlocked: () => anyActive(director),
     onEvent: (type, key) => {
       if (type === 'clipboardSmash' && config.brawl.enabled) smashWanted = true; // the end of the argument: he grabs the clipboard
+      // "The creep's trying to run away! Get him!!": everyone goes for him (not switched off by config.brawl.enabled)
+      if (type === 'brawlStart' && !brawl.started) {
+        state.phase = 'brawl';
+        state.canFightBack = true;
+        brawl.start(null);
+      }
       if (type === 'set' && key === 'newcomerSentIn' && state.newcomerSentIn && newcomer) {
         const d = A.accountantDoor.pivot.position, P = config.npc.newcomerPush;
         newcomer.leaveFor(new THREE.Vector3(d.x + 0.5, 0, d.z + P.stopShort), Math.PI); // never goes in
@@ -129,15 +135,17 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- ticket dispenser: works any time; taking a ticket early doesn't help ---
   interaction.register(A.ticketDispenser, {
     prompt: () => (state.ticketNumber == null ? '[E] Take number' : null),
-    onInteract: () => {
-      if (state.ticketNumber != null) return;
-      state.ticketNumber = config.ticket.number;
-      sfx.ticketTear(A.ticketDispenser.getWorldPosition(new THREE.Vector3()));
-      ui.setTicket(state.ticketNumber);
-      for (const n of npcs) n.glanceAtPlayer();
-      updatePhase();
-    },
+    onInteract: () => takeTicket(),
   });
+  function takeTicket() {
+    if (state.ticketNumber != null) return;
+    state.ticketNumber = config.ticket.number;
+    sfx.ticketTear(A.ticketDispenser.getWorldPosition(new THREE.Vector3()));
+    ui.setTicket(state.ticketNumber);
+    for (const n of npcs) n.glanceAtPlayer();
+    updatePhase();
+  }
+  let skipping = false; // debug ?beat=: the game is playing itself (no overheard talk meanwhile)
 
   // --- chairs ---
   const up = new THREE.Vector3();
@@ -223,7 +231,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // --- phases: arrival -> reception (director) -> waiting (told + holding a ticket) ---
   function updatePhase() {
-    if (state.toldToTakeNumber && state.ticketNumber != null && state.phase !== 'waiting') {
+    // Only ever forwards (arrival / reception -> waiting), never back from the brawl or the open door
+    if (state.toldToTakeNumber && state.ticketNumber != null && (state.phase === 'arrival' || state.phase === 'reception')) {
       state.phase = 'waiting';
     }
   }
@@ -427,7 +436,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     return !!n && !n.busyElsewhere && !n.brawling && !n.violent && !n.conversation?.active;
   };
   function overhear(dt) {
-    if (!overheardLeft.length) return;
+    if (!config.overheard.enabled || !overheardLeft.length || skipping) return;
     overheardTimer -= dt;
     if (overheardTimer > 0) return;
     // Not once 848 has been called (the argument), nor in a fight
@@ -688,7 +697,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       `Times woken up in a chair: ${state.retries ?? 0}`,
       `Times the radio was turned off: ${state.radioOffCount}`,
     ]);
-    ui.hideDialogue();
+    ui.closeChoices();
     document.exitPointerLock?.();
   }
 
@@ -706,6 +715,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     combat,
     brawl,
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
+    takeTicket, // (for ?beat=, src/debug/skipToBeat.js)
+    setSkipping: (on) => { skipping = on; },
     /** Game-time update (not called while paused). */
     update(dt) {
       // Newcomer: arrives config.newcomer.delay seconds after she's back with her coffee
@@ -743,11 +754,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       }
       lastLine = ty;
       brawl.update(dt);
-      // She keeps playing solitaire through all of it, with the odd remark
+      // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended) {
+        receptionist.play('filmPlayer'); // (already filming: nothing happens)
         receptionistQuip -= dt;
         if (receptionistQuip <= 0 && !onlookerTalk.active) {
-          receptionistQuip = 14 + Math.random() * 10;
+          const Q = config.brawl.receptionistQuipEvery;
+          receptionistQuip = Q[0] + Math.random() * (Q[1] - Q[0]);
           const lines = brawlShouts.receptionist;
           onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: lines[quipIndex++ % lines.length] }]);
         }

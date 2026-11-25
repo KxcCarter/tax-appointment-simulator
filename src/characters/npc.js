@@ -7,7 +7,7 @@ import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
 
 /** Animations a scene can play on a waiting person besides attend/resume (see _sceneMove). */
-const SCENE_ANIMS = new Set(['confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
+const SCENE_ANIMS = new Set(['standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
 
 /*
   A waiting-room NPC. For now (Milestone 3) only the seated states:
@@ -252,6 +252,7 @@ export class Npc {
 
   /**
    * Scripted moves for a scene ({ do: 'anim', who, name, untilDone: true }):
+   *   'standUp'   stand up where they are and face the player
    *   'confront'  get up, walk up to the player, and stay standing there facing him
    *   'slap' | 'shove' | 'shoveHard' | 'punch' | 'kick'  (walk up if needed, then) hit him
    * Resolves when they've arrived / the blow has landed; they then stay standing, facing him.
@@ -261,8 +262,8 @@ export class Npc {
     return new Promise((resolve) => {
       const target = () => (this._camera ? this._camera.position.clone() : this.rig.root.position.clone());
       const steps = [];
-      steps.push({ type: 'approach', target, distance: N.violence.approachDistance, timeout: 12 });
-      if (name !== 'confront') steps.push({ type: 'attack', kind: name, target, onHit: (kind) => this.hitPlayer?.(this, kind) });
+      if (name !== 'standUp') steps.push({ type: 'approach', target, distance: N.violence.approachDistance, timeout: 12 });
+      if (name !== 'confront' && name !== 'standUp') steps.push({ type: 'attack', kind: name, target, onHit: (kind) => this.hitPlayer?.(this, kind) });
       steps.push({ type: 'hold', seconds: Infinity, until: () => { resolve(); return true; } }); // arrived / the blow landed
       steps.push({ type: 'hold', seconds: Infinity, target }); // stand there, facing him
       this.attending = false; this.action = null; this.reaction = null;

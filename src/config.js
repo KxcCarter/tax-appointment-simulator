@@ -77,9 +77,11 @@ export const config = {
 
   // ---- The brawl (Milestone 4; src/level/brawl.js) ----
   brawl: {
-    // OFF for now (owner): nothing starts the brawl (not the 847 call, not the end of the argument).
-    // ?brawl in the URL still jumps straight to it, for testing. true turns it back on.
+    // OFF for now (owner): the 847 call and the end of the argument don't start the brawl.
+    // It starts after "I just found all the pens." ({ do: 'emit', event: 'brawlStart' }, which works either way).
+    // ?brawl in the URL still jumps straight to it, for testing. true turns the other triggers back on.
     enabled: false,
+    receptionistQuipEvery: [5, 9], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
     placeholderDelay: 1,         // ?brawl (debug): seconds after the newcomer sits down before he fetches the clipboard
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
     playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:
@@ -192,6 +194,7 @@ export const config = {
 
   // The waiting people talking among themselves (overheard in src/data/npcConversations.ts)
   overheard: {
+    enabled: false,           // switched off for now (owner): distracting as text; maybe back once they have voices
     first: 75,                // seconds of play before the first exchange
     every: [55, 90],          // seconds between exchanges
     retry: 6,                 // seconds before trying again when nobody can talk right now
@@ -215,6 +218,7 @@ export const config = {
       sideOptionPause: 1.5,         // pause before a flat reply to a non-advancing option
       newGameWait: 10,         // "You gotta sign the check-in sheet.": she starts a new game; the player can't go on for this long
       clipboardSlide: 2.0,          // on time: she slides the check-in sheet over (whole motion)
+      phoneOut: 0.9,                // seconds to get her phone out of her pocket (anim 'filmPlayer')
       coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
       coffeeSip: 2.2,               // one sip of coffee
       clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
@@ -461,6 +465,9 @@ export const config = {
   debug: {
     showFps: false,           // toggle in-game with F3
     showBeat: true,           // the current beat, top left (toggle in-game with F4)
+    // ?beat=argument_1 in the URL: the game plays itself at high speed up to that beat (src/debug/skipToBeat.js)
+    skipStepsPerFrame: 40,    // game steps per frame while skipping (each config.physics.fixedStep long)
+    skipGiveUpAfter: 1800,    // game seconds before giving up
     autostart: false,         // also enabled by ?autostart in the URL (skips the title screen)
   },
 };

@@ -127,6 +127,17 @@ html, body {
   white-space: pre;
   pointer-events: none;
 }
+#skipping {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--amber);
+  background: var(--hud-bg);
+  padding: 8px 16px;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
 #toast {
   position: absolute;
   top: 16px;

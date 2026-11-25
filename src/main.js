@@ -7,6 +7,7 @@ import { setupWaitingRoom } from './level/waitingRoomLevel.js';
 import { Sfx } from './audio/sfx.js';
 import { UI } from './ui/ui.js';
 import { theme } from './theme.js';
+import { createBeatSkipper } from './debug/skipToBeat.js';
 
 theme.applyUi();
 
@@ -83,6 +84,7 @@ document.addEventListener('keydown', (e) => {
 
 // ---------- boot ----------
 let physics, player, level;
+let skipper = null; // debug ?beat=: fast-forwarding to a beat
 
 async function boot() {
   // Debug: ?charstyle=soft previews a character style without editing theme.js
@@ -99,13 +101,20 @@ async function boot() {
   ui.ready();
 
   // Debug: ?autostart skips the title. ?view=x,y,z,yawDeg,pitchDeg places a free camera (screenshots).
-  if (config.debug.autostart || params.has('autostart')) {
+  if (config.debug.autostart || params.has('autostart') || params.has('beat')) {
     state.started = true;
     ui.hideTitle();
     ui.showHud(true);
     player.enabled = true;
     // No click yet, so audio starts on the first one
     document.addEventListener('mousedown', () => sfx.start(), { once: true });
+  }
+  // Debug: ?beat=argument_1 fast-forwards the game to that beat (src/debug/skipToBeat.js)
+  if (params.get('beat')) {
+    const desk = level.receptionist.root.getWorldPosition(new THREE.Vector3());
+    const at = { x: -2.3, z: -2.3 }; // at the counter, out of the doorway (the newcomer comes in through it)
+    player.teleport(at.x, at.z, Math.atan2(-(desk.x - at.x), -(desk.z - at.z)));
+    skipper = createBeatSkipper({ target: params.get('beat'), level, state, player, ui, sfx, config });
   }
   const view = params.get('view');
   if (view) {
@@ -128,6 +137,23 @@ let last = performance.now();
 let accumulator = 0;
 let fpsTimer = 0, fpsFrames = 0;
 
+/** Advance the game by dt seconds (physics in fixed steps). */
+function simulate(dt) {
+  const step = config.physics.fixedStep;
+  accumulator += dt;
+  let n = 0;
+  while (accumulator >= step && n < config.physics.maxSubSteps) {
+    player.fixedUpdate(step);
+    physics.step();
+    accumulator -= step;
+    n++;
+  }
+  if (n === config.physics.maxSubSteps) accumulator = 0; // don't spiral after a hitch
+  physics.sync();
+  state.clockTime += dt * config.clock.timeScale;
+  level.update(dt);
+}
+
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -137,19 +163,15 @@ function loop(now) {
   // Hit-stop: a blow that lands freezes the game for a few frames (config.combat.hitStop)
   const frozen = state.hitStop > 0;
   if (frozen) state.hitStop = Math.max(0, state.hitStop - dt);
-  if (state.started && !state.paused && !frozen) {
-    accumulator += dt;
-    let n = 0;
-    while (accumulator >= step && n < config.physics.maxSubSteps) {
-      player.fixedUpdate(step);
-      physics.step();
-      accumulator -= step;
-      n++;
+  if (state.started && !state.paused && skipper?.active) {
+    // Debug ?beat=: many game steps per frame until the target beat comes up
+    for (let k = 0; k < config.debug.skipStepsPerFrame && skipper.active; k++) {
+      state.hitStop = 0;
+      simulate(step);
+      skipper.update(step);
     }
-    if (n === config.physics.maxSubSteps) accumulator = 0; // don't spiral after a hitch
-    physics.sync();
-    state.clockTime += dt * config.clock.timeScale;
-    level.update(dt);
+  } else if (state.started && !state.paused && !frozen) {
+    simulate(dt);
   }
   player.updateCamera(Math.min(1, accumulator / step));
   level.frame();

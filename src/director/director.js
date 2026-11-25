@@ -151,7 +151,22 @@ export class Director {
         this.runActions(beat.lockedResponse).finally(() => { this.busy = false; });
         return true;
       }
+      // Not gated and still nothing: every option is hidden (showIf) or used, and the player can't move on
+      if (!locked && !Director.waitsForPlayer(beat) && !this.warnedEmpty?.has(beat.id)) {
+        (this.warnedEmpty ??= new Set()).add(beat.id);
+        console.warn(`Director: beat "${beat.id}" has no options to show (all hidden by showIf or used): the story can't move on.`);
+      }
       return; // nothing appears. She keeps clicking.
+    }
+
+    // Debug (?beat=...): something else picks (src/debug/skipToBeat.js). -1 = nothing yet, null = show the menu
+    if (this.autoPick) {
+      const i = this.autoPick(beat, options);
+      if (i === -1) return true;
+      if (i != null) {
+        this.choose(beat, options[i], locked);
+        return true;
+      }
     }
 
     // If a line is still on screen, keep it above the choices

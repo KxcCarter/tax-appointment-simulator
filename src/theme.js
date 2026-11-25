@@ -78,6 +78,8 @@ export const palette = {
   corridor: 0x8a8470,            // the building corridor outside the entrance
   corridorFloor: 0x4a4038,
   coffeeCup: 0xf4f1e8,
+  phoneBody: 0x1c1c20,           // the receptionist's cellphone
+  phoneScreen: 0x9ec8e8,
   playerSkin: 0xd9a582,          // the player's fists
   playerSleeve: 0x4a4a48,
   playerTrousers: 0x3a3a40,     // the player's kicking leg

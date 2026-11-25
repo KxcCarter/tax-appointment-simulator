@@ -55,6 +55,9 @@ const ATTACK_POSES = {
     rFoot: phase3(u, V(-0.1, 0, 0), V(-0.1, 0.25, -0.25), V(-0.1, 0.75, 0.72)),
     lean: leanOf(u, -0.05, -0.3),
   }),
+  // The receptionist's phone: hand to her hip pocket, then held up in front of her face, filming
+  pocket: () => ({ l: V(0.22, 0.95, 0.12), r: V(-0.34, 0.92, 0.02), lean: 0.04 }),
+  film: (u) => ({ l: V(0.07, 1.5, 0.55), r: V(-0.07, 1.52 + 0.01 * Math.sin(u * Math.PI * 2), 0.56), lean: -0.03 }),
   radio: (u) => ({
     l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
     r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),

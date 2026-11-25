@@ -17,14 +17,15 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 
 /** Animations the receptionist understands (characters/receptionist.js). */
 export type ReceptionistAnim =
-  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee';
+  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee'
+  | 'filmPlayer'; // stand up, phone out of her pocket, film the player (keeps filming)
 
 /**
  * Animations a waiting NPC understands (characters/npc.js): attend = turn to the player, resume = back to
- * fidgeting; confront = get up and walk up to the player; slap/shove/shoveHard/punch/kick = (walk up and)
+ * fidgeting; standUp = stand up where they are, facing the player; confront = get up and walk up to the player; slap/shove/shoveHard/punch/kick = (walk up and)
  * hit him. Use untilDone: true to wait for them to arrive / the blow to land.
  */
-export type NpcAnim = 'attend' | 'resume' | 'confront' | 'slap' | 'shove' | 'shoveHard' | 'punch' | 'kick';
+export type NpcAnim = 'attend' | 'resume' | 'standUp' | 'confront' | 'slap' | 'shove' | 'shoveHard' | 'punch' | 'kick';
 
 /** Expression presets (config.characters.expressions). */
 /** 'default' = stop overriding: the character's own expressions again. A face set by the script holds

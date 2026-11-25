@@ -39,6 +39,7 @@ export class UI {
       </div>
       <div id="fps" class="hidden"></div>
       <div id="debugbeat" class="hidden"></div>
+      <div id="skipping" class="hidden"></div>
       <div id="toast" style="opacity:0"></div>
 
       <div id="loading" class="screen">
@@ -96,13 +97,30 @@ export class UI {
     this.$('dlg-speaker').textContent = speaker;
     this.$('dlg-text').textContent = text;
     this.$('dlg-text').classList.remove('hidden');
+    // Someone else talking while a menu is open (a remark, the radio, an overheard line): the line shows
+    // above the choices, which stay open. Hiding them would leave the player stuck in a menu they can't see.
+    if (this.choicesOpen) return;
     this.$('dlg-choices').classList.add('hidden');
     this.$('dlg-hint').classList.add('hidden');
   }
 
+  /**
+   * Clear a finished line. An open choice menu belongs to whoever opened it and is left alone
+   * (its line is cleared, the choices stay); closeChoices() closes it.
+   */
   hideDialogue() {
+    if (this.choicesOpen) {
+      this.$('dlg-text').classList.add('hidden');
+      this.$('dlg-speaker').textContent = 'YOU';
+      return;
+    }
     this.$('dialogue').classList.add('hidden');
+  }
+
+  /** Close an open choice menu without picking (it doesn't tell its owner; for the end of the game). */
+  closeChoices() {
     this._closeChoices();
+    this.$('dialogue').classList.add('hidden');
   }
 
   /**
@@ -129,6 +147,7 @@ export class UI {
       list.appendChild(li);
     });
     let sel = 0, accum = 0, done = false;
+    this.choicesOpen = true;
     const setSel = (i) => {
       sel = (i + options.length) % options.length;
       [...list.children].forEach((li, k) => li.classList.toggle('selected', k === sel));
@@ -171,6 +190,7 @@ export class UI {
       list.classList.add('hidden');
       this.$('dlg-hint').classList.add('hidden');
       box.classList.add('hidden');
+      this.choicesOpen = false;
       this._closeChoices = () => {};
     };
   }
@@ -248,6 +268,13 @@ export class UI {
     const el = this.$('debugbeat');
     el.classList.toggle('hidden', text == null);
     if (text != null && el.textContent !== text) el.textContent = text;
+  }
+
+  /** Debug (?beat=): a notice while the game fast-forwards; null hides it. */
+  setSkipping(text) {
+    const el = this.$('skipping');
+    el.classList.toggle('hidden', text == null);
+    if (text != null) el.textContent = text;
   }
 
   toast(text, seconds = 1.5) {

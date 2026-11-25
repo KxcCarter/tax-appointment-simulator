@@ -233,7 +233,7 @@ export const waitingRoomBeats: Scene = {
             { do: 'wait', seconds: 2 },
             { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire', duration: T.glanceDuration },
-            { do: 'say', who: 'receptionist', text: 'This man bout to make me lose my game...' },
+            { do: 'say', who: 'receptionist', text: 'This man boutta make me lose my game...' },
           ],
         },
       ],
@@ -267,23 +267,6 @@ export const waitingRoomBeats: Scene = {
         },
         // PROPOSAL (more-dialogue)
         {
-          text: 'Is the accountant even in today?',
-          showIf: (state: GameState) => !state.asked['receptionist.accountantIn'], // asked once in the whole game
-          response: [
-            {
-              do: 'set',
-              key: 'asked',
-              value: (state: GameState) => ({ ...state.asked, 'receptionist.accountantIn': true }),
-            },
-            pause,
-            { do: 'say', who: 'receptionist', text: "He's with a client." },
-            { do: 'wait', seconds: 0.8 },
-            { do: 'say', who: 'player', text: 'Which client?' },
-            { do: 'wait', seconds: 1.4 },
-            { do: 'say', who: 'receptionist', text: 'Twelve.' },
-          ],
-        },
-        {
           text: 'Roughly how long is the wait?',
           showIf: (state: GameState) => !state.asked['receptionist.howLong'], // asked once in the whole game
           response: [
@@ -293,11 +276,7 @@ export const waitingRoomBeats: Scene = {
               value: (state: GameState) => ({ ...state.asked, 'receptionist.howLong': true }),
             },
             pause,
-            { do: 'say', who: 'receptionist', text: 'Depends.' },
-            { do: 'wait', seconds: 0.8 },
-            { do: 'say', who: 'player', text: 'On what?' },
-            { do: 'wait', seconds: 1.4 },
-            { do: 'say', who: 'receptionist', text: 'On how long you wait.' },
+            { do: 'say', who: 'receptionist', text: 'Ooooo, this man impatient!' },
           ],
         },
       ],
@@ -310,12 +289,13 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           // Read off the wall clock at the moment the choices appear
-          text: (state: GameState) => `It's ${clockReading(state)}.`,
+          text: (state: GameState) => `${state.playerToldTime ? "Fine, it's" : "It's"} ${clockReading(state)}.`,
           showIf: (state: GameState) => !clockReadsTwo(state), // at exactly 2:00, "It's 2:00." below is the true answer
           goto: 'appointment_time',
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             { do: 'say', who: 'receptionist', text: 'And what time is your appointment?' },
+            { do: 'set', key: 'playerToldTime', value: false },
           ],
         },
         {
@@ -340,6 +320,7 @@ export const waitingRoomBeats: Scene = {
                 },
               ],
             },
+            { do: 'set', key: 'playerToldTime', value: true },
           ],
         },
       ],
@@ -366,7 +347,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         {
-          text: 'My appointment is at 2:00.',
+          text: (state: GameState) => `${state.playerRoundedTime ? "Okay fine, my" : "My"} appointment is at 2:00.`,
           // On time: "Did you check in already?" (checkin_already). Early ("not 2:00 yet"): she can be asked again later.
           // Late: the exchange is over.
           goto: (state: GameState) =>
@@ -404,11 +385,18 @@ export const waitingRoomBeats: Scene = {
                       text: ['Take a seat and wait.', 'Take a number and sit down.', 'Take a number and wait.'],
                       vary: 'any',
                     },
+                    { do: 'say', who: 'player', text: ['Oh come on...', 'Unbelievable...'] },
+                    { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
+                    { do: 'face', who: 'receptionist', expression: 'unimpressed' },
+                    { do: 'wait', seconds: 2 },
+                    { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+                    { do: 'face', who: 'receptionist', expression: 'bored' },
                   ],
                   else: askCheckedIn, // on time (2:00-2:02)
                 },
               ],
             },
+            { do: 'set', key: 'playerRoundedTime', value: false },
           ],
         },
         {
@@ -428,6 +416,7 @@ export const waitingRoomBeats: Scene = {
                   who: 'receptionist',
                   text: (state: GameState) => `We don't have any appointments scheduled for ${clockReading(state)}.`,
                 },
+                { do: 'set', key: 'playerRoundedTime', value: true },
               ],
             },
           ],
@@ -585,10 +574,11 @@ export const waitingRoomBeats: Scene = {
           actions: [
             { do: 'say', who: 'receptionist', text: 'Ooo, this man impatient.' },
             { do: 'wait', seconds: 2 },
-            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
             { do: 'face', who: 'receptionist', expression: 'angry' },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', duration: T.glanceDuration },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
             { do: 'say', who: 'receptionist', text: "Mamma playin' her game..." },
+            { do: 'face', who: 'receptionist', expression: 'bored' },
             { do: 'anim', who: 'receptionist', name: 'slideClipboard', duration: T.clipboardSlide },
             { do: 'set', key: 'clipboardOffered', value: true },
           ],
@@ -600,7 +590,7 @@ export const waitingRoomBeats: Scene = {
       // The clipboard is on the counter now (sign it: sequences.signSheet -> the pen)
       id: 'checkin_offered',
       trigger: { type: 'interact', target: 'receptionist' },
-      autoOpen: true,
+      onOpen: [{ do: 'say', who: 'receptionist', text: 'Did you sign the sheet?' }],
       options: [
         {
           text: 'No.',
@@ -746,6 +736,7 @@ export const waitingRoomBeats: Scene = {
       onAdvance: [
         pause,
         { do: 'anim', who: 'newcomer', name: 'attend' },
+        { do: 'anim', who: 'newcomer', name: 'confront' },
         { do: 'say', who: 'newcomer', text: "Well you're late. You forfeit your appointment." },
         pause,
         {
@@ -775,7 +766,10 @@ export const waitingRoomBeats: Scene = {
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
-        { text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`, advance: true },
+        {
+          text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`,
+          advance: true,
+        },
         pleaCheckIn,
         pleaLetMeIn,
       ],
@@ -876,6 +870,88 @@ export const waitingRoomBeats: Scene = {
         { do: 'say', who: 'newcomer', text: "Dude, I think you're the one who needs to calm down." },
         { do: 'emit', event: 'clipboardSmash' }, // he grabs the check-in clipboard: the brawl starts (waitingRoomLevel.js)
       ],
+      next: 'fighting_words',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'fighting_words',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: "I'm just trying to check in for my appointment!",
+          advance: true,
+          actions: [
+            { do: 'say', who: 'receptionist', text: "You didn't sign the check-in sheet." },
+            { do: 'say', who: 'player', text: "I've been trying to check in since I got here!" },
+          ],
+        },
+        {
+          text: 'I am calm.',
+          goto: 'you_calling_me_a_liar',
+          actions: [{ do: 'say', who: 'newcomer', text: 'Are you calling me a liar?' }],
+        },
+      ],
+      lockedOptions: [],
+      onAdvance: [],
+      next: 'you_calling_me_a_liar',
+      nextUnlockAfter: 0,
+    },
+    {
+      id: 'you_calling_me_a_liar',
+      trigger: { type: 'interact', target: 'newcomer' },
+      autoOpen: true,
+      options: [
+        {
+          text: 'No',
+          goto: null, // the scene ends in the brawl
+          actions: [
+            { do: 'say', who: 'newcomer', text: 'You want me to be calm?' },
+            { do: 'say', who: 'player', text: 'That would be great, yeah' },
+            { do: 'say', who: 'newcomer', text: 'Yeah? Yeah?' },
+            { do: 'anim', who: 'newcomer', name: 'lookAtPlayer' },
+            { do: 'say', who: 'player', text: 'If we could all just be calm that would be...' },
+            // He cuts him off with a shove
+            { do: 'face', who: 'newcomer', expression: 'furious' },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'say', who: 'newcomer', text: 'Is this calm enough for you??' },
+            { do: 'say', who: 'player', text: 'Uh, not really.' },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'say', who: 'newcomer', text: 'Am I calm enough for you now? Am I?' },
+            // The old man gets up out of his chair
+            { do: 'face', who: 'cougher', expression: 'angry' },
+            { do: 'anim', who: 'cougher', name: 'standUp', untilDone: true },
+            { do: 'say', who: 'cougher', text: 'The man asked you a question, boy!' },
+            { do: 'say', who: 'player', text: "You've got to be kidding me." },
+            // Shove after shove
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove' }, // still at it while she talks
+            { do: 'face', who: 'receptionist', expression: 'pleased' },
+            { do: 'say', who: 'receptionist', text: "Oooo, Imma put this on Instagram! Hold up, lemme get my phone." },
+            // She stands up, takes her phone out of her pocket and films it (and keeps filming)
+            { do: 'anim', who: 'receptionist', name: 'filmPlayer', untilDone: true },
+            { do: 'say', who: 'player', text: "I'm just trying to do my taxes!" },
+            // The sitter (the young man, if the radio war put her on the floor)
+            {
+              do: 'if',
+              test: (state: GameState) => !state.sitterDown,
+              then: [{ do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
+              else: [{ do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
+            },
+            { do: 'say', who: 'player', text: "You know what? I'm just going to go..." },
+            { do: 'wait', seconds: 1.2 },
+            { do: 'say', who: 'receptionist', text: 'Oh look at that, I just found all the pens.' },
+            { do: 'wait', seconds: 0.6 },
+            { do: 'face', who: 'jiggler', expression: 'furious' },
+            { do: 'say', who: 'jiggler', text: "The creep's trying to run away! Get him!!" },
+            { do: 'emit', event: 'brawlStart' }, // the all-out brawl (waitingRoomLevel.js); she keeps filming
+          ],
+        },
+      ],
+      lockedOptions: [],
+      onAdvance: [],
       nextUnlockAfter: 0,
     },
     {
