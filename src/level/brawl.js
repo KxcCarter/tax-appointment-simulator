@@ -6,7 +6,9 @@ import { config } from '../config.js';
   joins in, cheering him on.
 
   Each fighter runs an endless walker routine; when one round ends, plan() hands them the next:
-    attacker:   approach -> wind up (a readable telegraph) -> attack -> (next round: hang back)
+    close fighters (config.brawl.maxAttackers, the nearest when it starts; this.attackers), round after round:
+                  approach -> leap in -> wind up (a readable telegraph) -> attack -> spring back -> catch breath
+                  When one goes down, the nearest of the others is promoted (update()).
     hanging back: walk to a spot a couple of metres from the player, stand there in their fighting
                   stance (bouncing from foot to foot) or cheering
     throwing:     (sometimes, instead of hanging back) fetch something nearby, step out, throw it at him
@@ -72,7 +74,7 @@ export class Brawl {
   restart() {
     this.started = false;
     this.attackers.clear();
-    for (const n of this.npcs()) { n.justAttacked = false; n.angle = undefined; }
+    for (const n of this.npcs()) n.angle = undefined;
     this.start(null, this.shouts.again ?? this.shouts.opening);
   }
 
@@ -81,36 +83,65 @@ export class Brawl {
 
   /** Hand a fighter their next round (called by their walker when a round ends). */
   plan(npc) {
-    if (npc.down) return null;
-    this.attackers.delete(npc);
+    if (npc.down) { this.attackers.delete(npc); return null; }
+    this._fillCloseSlots();
     const tgt = this.target;
-    // Attack if there's room, unless they just did (then they hang back for a round first)
-    if (!npc.justAttacked && this.attackers.size < B().maxAttackers) {
-      this.attackers.add(npc);
-      npc.justAttacked = true;
+    // A close fighter: at him again
+    if (this.attackers.has(npc)) {
       const moves = B().moves[npc.id] ?? B().moves.default;
       // Come at the player from a different side than the other attacker
       npc.angle = this._attackAngle(npc);
-      const at = () => {
+      // A point on the ring round the player at their angle, d metres out (inside the room)
+      const ring = (d) => () => {
         const p = this.camera.position;
-        return new THREE.Vector3(p.x + Math.sin(npc.angle) * B().approachDistance, 0, p.z + Math.cos(npc.angle) * B().approachDistance);
+        return this._clamp(new THREE.Vector3(p.x + Math.sin(npc.angle) * d, 0, p.z + Math.cos(npc.angle) * d));
       };
+      const Nj = B().ninja, flip = Math.random() < Nj.flipChance, back = Math.random() < Nj.backflipChance;
       return [
-        { type: 'approach', target: tgt, at, distance: B().approachDistance, timeout: 8 },
+        // Up to a couple of metres out, then a ninja leap in (sometimes a front flip)...
+        { type: 'approach', target: tgt, at: ring(Nj.leapFrom), distance: Nj.leapFrom, timeout: 8 },
+        { type: 'leap', to: ring(B().approachDistance), face: tgt, flip: flip ? 1 : 0, height: flip ? Nj.flipHeight : Nj.height, duration: flip ? Nj.flipTime : Nj.time },
         { type: 'hold', seconds: B().windUp, target: tgt, pose: 'stance', expression: 'furious' },
         { type: 'attack', kind: pick(moves), target: tgt, onHit: (kind) => this.onHit(npc, kind) },
+        // ...and spring back out afterwards (sometimes a backflip)
+        { type: 'leap', to: ring(Nj.backTo), face: tgt, flip: back ? -1 : 0, height: back ? Nj.flipHeight : Nj.height * 0.7, duration: back ? Nj.flipTime : Nj.time },
+        { type: 'hold', seconds: rand(...B().closeRest), target: tgt, pose: 'stance' },
       ];
     }
-    npc.justAttacked = false;
+    // Everyone else keeps their distance
     // Sometimes: something to throw at him instead (config.brawl.throwing)
     if (this.throws && !npc.carrying && Math.random() < B().throwing.chance) {
       const item = this.throws.find(npc);
       if (item) return this._throwRound(npc, item);
     }
+    // To a spot to wait their turn: a hop if it's not far, else they walk
+    const spot = this._hangBackSpot(npc), from = npc.walker.pos ?? npc.rig.root.position;
+    const Nj = B().ninja, far = Math.hypot(spot.x - from.x, spot.z - from.z);
+    const move = far > 0.4 && far < Nj.hopMax
+      ? { type: 'leap', to: spot, face: tgt, height: Nj.hopHeight, duration: 0.35 + far * 0.1 }
+      : { type: 'walk', to: spot };
     return [
-      { type: 'walk', to: this._hangBackSpot(npc) },
+      move,
       { type: 'hold', seconds: rand(...B().hangBackHold), target: tgt, pose: Math.random() < B().cheerChance ? 'cheer' : 'stance' },
     ];
+  }
+
+  /** If `npc` is walking towards the other person (direction ux, uz), a sidestep to their right. */
+  _keepRight(npc, ux, uz, push) {
+    const w = npc.walker;
+    if (w.moving < 0.3 || w.yaw === undefined) return;
+    const fx = Math.sin(w.yaw), fz = Math.cos(w.yaw);
+    if (fx * ux + fz * uz < 0.3) return; // not heading into them
+    const k = push * B().keepRight; // right = -left = (-cos yaw, sin yaw)
+    w.nudge(-Math.cos(w.yaw) * k, Math.sin(w.yaw) * k);
+  }
+
+  /** A floor point kept inside the room (in front of the counter). */
+  _clamp(v) {
+    const b = B().bounds;
+    v.x = THREE.MathUtils.clamp(v.x, b.minX, b.maxX);
+    v.z = THREE.MathUtils.clamp(v.z, b.minZ, b.maxZ);
+    return v;
   }
 
   /** Fetch `item`, step out to a few metres from the player, throw it at him. */
@@ -133,6 +164,25 @@ export class Brawl {
       { type: 'hold', seconds: 0.3, target: tgt, expression: 'furious' },
       { type: 'attack', kind: 'throw', target: tgt, onHit: () => this.throws.release(npc, this.target()) },
     ];
+  }
+
+  /**
+   * Keep config.brawl.maxAttackers close fighters: the nearest of the others to the player moves in
+   * (someone in the middle of a throw finishes it first: their next round is a close one).
+   */
+  _fillCloseSlots() {
+    for (const n of [...this.attackers]) if (n.down || !this.fighters.includes(n)) this.attackers.delete(n);
+    const p = this.camera.position;
+    const far = (n) => { const at = n.walker.pos ?? n.rig.root.position; return Math.hypot(at.x - p.x, at.z - p.z); };
+    while (this.attackers.size < B().maxAttackers) {
+      const next = this.fighters.filter((n) => !n.down && !this.attackers.has(n)).sort((a, b) => far(a) - far(b))[0];
+      if (!next) break;
+      this.attackers.add(next);
+      next.angle = this._attackAngle(next);
+      // Standing about (not mid-throw): come in now
+      const s = next.walker.current;
+      if (s?.type === 'hold' && s.seconds !== Infinity && !next.carrying) s.seconds = 0;
+    }
   }
 
   /** The angle (around the player) this fighter is at now. */
@@ -163,43 +213,67 @@ export class Brawl {
    * is (so they spread out round him instead of queueing behind each other), inside the room.
    */
   _hangBackSpot(npc, dist = rand(...B().hangBack)) {
-    const taken = this.fighters
-      .filter((n) => n !== npc && !n.down && n.angle !== undefined)
-      .map((n) => n.angle);
+    // Where everyone else is (or is headed): their spots, else where they stand
+    const others = this.fighters
+      .filter((n) => n !== npc && !n.down)
+      .map((n) => n.spot ?? n.walker.pos ?? n.rig.root.position);
     const mine = this._angleOf(npc);
+    const p = this.camera.position, bd = B().bounds;
     let best = null;
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      if (!this._inBounds(a, dist)) continue;
-      const room = taken.length ? Math.min(...taken.map((t) => angDist(a, t))) : Math.PI;
-      const score = room - 0.35 * angDist(a, mine); // spread out, but don't cross the room for it
-      if (!best || score > best.score) best = { a, score };
+    // Round the player, at this distance or (near a wall) a bit closer; a spot outside the room is
+    // pulled in to the wall, so compare the spots as they really are, and keep clear of everyone else's
+    for (const d of [dist, dist * 0.8, dist * 0.65]) {
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const spot = new THREE.Vector3(
+          THREE.MathUtils.clamp(p.x + Math.sin(a) * d, bd.minX, bd.maxX), 0,
+          THREE.MathUtils.clamp(p.z + Math.cos(a) * d, bd.minZ, bd.maxZ));
+        const fromPlayer = Math.hypot(spot.x - p.x, spot.z - p.z);
+        if (fromPlayer < Math.min(2, dist * 0.6)) continue; // (pulled in too close to him by a wall)
+        const room = others.length ? Math.min(...others.map((o) => Math.hypot(o.x - spot.x, o.z - spot.z))) : 3;
+        // Spread out (room to the nearest other, up to 2.5 m), but don't cross the room for it
+        const score = Math.min(room, 2.5) - 0.3 * angDist(a, mine) - (d < dist ? 0.3 : 0);
+        if (!best || score > best.score) best = { spot, score };
+      }
     }
-    npc.angle = best?.a ?? mine;
-    const p = this.camera.position;
-    const spot = new THREE.Vector3(p.x + Math.sin(npc.angle) * dist, 0, p.z + Math.cos(npc.angle) * dist);
-    const b = B().bounds;
-    spot.x = THREE.MathUtils.clamp(spot.x, b.minX, b.maxX);
-    spot.z = THREE.MathUtils.clamp(spot.z, b.minZ, b.maxZ);
+    const spot = best?.spot ?? this._clamp(new THREE.Vector3(p.x + Math.sin(mine) * dist, 0, p.z + Math.cos(mine) * dist));
+    npc.spot = spot.clone();
+    npc.angle = Math.atan2(spot.x - p.x, spot.z - p.z);
     return spot;
   }
+
 
   update(dt) {
     if (!this.started) return;
     this.time += dt;
-    for (const n of [...this.attackers]) if (n.down) this.attackers.delete(n);
+    if ([...this.attackers].some((n) => n.down) || this.attackers.size < B().maxAttackers) this._fillCloseSlots();
     const standing = this.fighters.filter((n) => !n.down && n.walker.active);
 
-    // Keep fighters from walking into each other
+    // Keep fighters from walking (or leaping) into each other, or standing inside someone on the floor:
+    // a few passes, so pushing one out of another doesn't push them into a third
     const sep = B().separation;
-    for (let i = 0; i < standing.length; i++) {
-      for (let k = i + 1; k < standing.length; k++) {
-        const a = standing[i].walker.pos, b = standing[k].walker.pos;
-        const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
-        if (d > 1e-4 && d < sep) {
-          const push = (sep - d) / 2;
-          a.x -= (dx / d) * push; a.z -= (dz / d) * push;
-          b.x += (dx / d) * push; b.z += (dz / d) * push;
+    const downed = this.npcs().filter((n) => n.down && n.ragdoll).map((n) => n.rig.joints.pelvis.getWorldPosition(new THREE.Vector3()));
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < standing.length; i++) {
+        const A = standing[i], a = A.walker.pos;
+        for (let k = i + 1; k < standing.length; k++) {
+          const Bn = standing[k], b = Bn.walker.pos;
+          const min = A.bodyRadius + Bn.bodyRadius + sep;
+          const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+          if (d < min) {
+            const [ux, uz] = d > 1e-4 ? [dx / d, dz / d] : [Math.cos(i + k), Math.sin(i + k)];
+            const push = (min - d) / 2;
+            A.walker.nudge(-ux * push, -uz * push);
+            Bn.walker.nudge(ux * push, uz * push);
+            // Walking into each other: each also steps to their own right, so they get past
+            this._keepRight(A, ux, uz, push);
+            this._keepRight(Bn, -ux, -uz, push);
+          }
+        }
+        for (const p of downed) {
+          const min = A.bodyRadius + B().downedRadius;
+          const dx = a.x - p.x, dz = a.z - p.z, d = Math.hypot(dx, dz);
+          if (d < min && d > 1e-4) A.walker.nudge((dx / d) * (min - d), (dz / d) * (min - d));
         }
       }
     }

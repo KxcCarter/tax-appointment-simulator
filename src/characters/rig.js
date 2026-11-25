@@ -80,7 +80,7 @@ export function buildRig(look = {}) {
     buckle.position.set(0, P.pelvis.h / 2 - 0.022, P.pelvis.d * 0.49);
     pelvis.add(buckle);
   }
-  const wobbly = []; // parts that wobble (P.jiggle)
+  const wobbly = []; // parts that wobble (P.jiggle, else config.characters.jiggle)
   if (P.belly) {
     // A rounded belly on the lower front of the torso
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m(col.jacket));
@@ -99,6 +99,7 @@ export function buildRig(look = {}) {
       b.scale.set(soft ? 1.1 : 1, soft ? 0.9 : 0.92, depth);
       b.position.set(side * P.bust.spacing * (soft ? 1.05 : 1), P.bust.y - (soft ? 0.015 : 0), P.torso.d / 2 - P.bust.r + P.bust.forward * (soft && P.bust.depth == null ? 0.55 : 1));
       spine.add(b);
+      wobbly.push({ mesh: b, part: 'bust' });
     }
   }
   if (P.chest) {
@@ -259,8 +260,8 @@ export function buildRig(look = {}) {
     scale: s,
     proportions: P,   // the merged build (ragdoll.js sizes its colliders from it)
     hands: { l: lArm.end, r: rArm.end }, // the hand meshes (for things held in them)
-    /** Soft parts (belly, chest, jowls) wobble behind the body (P.jiggle; call after posing). */
-    jiggle: P.jiggle && wobbly.length ? makeJiggle(root, wobbly, P.jiggle) : () => {},
+    /** Soft parts (belly, chest, jowls, bust) wobble behind the body (call after posing). */
+    jiggle: wobbly.length ? makeJiggle(root, wobbly, P.jiggle ?? config.characters.jiggle) : () => {},
     hipHeight: hipHeight * s,
     seatOffset: (P.pelvis.h / 2) * s,     // pelvis centre above a seat surface
     lengths: {
@@ -571,7 +572,8 @@ export { UP };
 //   gain                 how much of the lag shows (x)
 //   max                  the most a part moves (m)
 //   squash               a part squashes and stretches with its bounce
-//   parts                { belly: 1, chest: 0.6, jowls: 0.4 }: how much each part wobbles
+//   parts                { belly: 1, chest: 0.6, jowls: 0.4, bust: 0.5 }: how much each part wobbles
+// Everyone with soft parts uses config.characters.jiggle unless their build has its own.
 // ---------------------------------------------------------------------------
 function makeJiggle(root, soft, J) {
   const st = soft

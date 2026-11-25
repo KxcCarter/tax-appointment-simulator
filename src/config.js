@@ -96,16 +96,24 @@ export const config = {
       fadeIn: 1.2,
       restartAfter: 5,           // seconds after waking before they come at him again
     },
-    maxAttackers: 2,             // at once, from two different sides; the rest hang back and shout
+    // Only this many fight him up close (owner): the two nearest when it starts, from two different sides,
+    // round after round. Everyone else keeps their distance (hangBack) and throws things or shouts.
+    // When a close fighter goes down, the nearest of the others moves in to take their place.
+    maxAttackers: 2,
+    closeRest: [0.5, 1.3],       // seconds a close fighter catches their breath (in their stance) between attacks
     flankAngle: 1.9,             // radians between the two attackers' angles of approach (~110 degrees)
     speed: 2.7,                  // walking speed multiplier while fighting (x config.npc.walk.speed)
     approachDistance: 0.75,      // metres from the player when they swing
     windUp: 0.45,                // seconds with fists up before a swing (the telegraph)
-    hangBack: [1.9, 2.8],        // metres from the player while waiting their turn
-    hangBackHold: [1.0, 2.6],    // seconds standing there, cheering or in guard
+    hangBack: [3.2, 4.5],        // metres from the player: everyone who isn't fighting him up close
+    hangBackHold: [1.0, 2.6],    // seconds standing there (in their stance or cheering) between throws
     openingStagger: [0.3, 1.6],  // seconds before each person is up and fighting
     shoutEvery: [2.2, 4.5],      // seconds between shouts from the sidelines
-    separation: 0.55,            // fighters don't get closer to each other than this
+    // Fighters don't walk (or leap) into each other: each has a radius from their own build (half their
+    // widest part, x their scale) plus this gap, and stays out of the others' (and knocked-down bodies')
+    separation: 0.08,
+    downedRadius: 0.4,           // metres: a knocked-down body, as far as people standing about are concerned
+    keepRight: 0.6,              // two people walking into each other each step to their right (x the push), to pass
     bounds: { minX: -5.4, maxX: 5.4, minZ: -2.2, maxZ: 4.4 }, // where they stand (in front of the counter)
     // Each person's moves (config.npc.attacks; a move listed twice comes up twice as often)
     moves: {
@@ -120,15 +128,31 @@ export const config = {
     // Fighting stances, while they wait their turn and wind up (characters/walker.js STANCES).
     // They bounce lightly from foot to foot, `bounceRate` times a second.
     stances: { cougher: 'boxing', default: 'karate' }, // the old man: an old-fashioned, fists-up boxing stance
-    bounceRate: 1.7,
+    bounceRate: 1.3,
+    // Ninjas (owner): they hop in their stance, leap in to attack (sometimes with a front flip),
+    // spring back out afterwards (sometimes a backflip), and hop from spot to spot while they wait
+    ninja: {
+      hop: 0.07,                // metres off the floor, bouncing in their stance (the old man: 70%)
+      leapFrom: 1.6,            // metres from the player: they walk up to here, then leap in
+      time: 0.6, height: 0.45,  // a leap: seconds, metres high
+      flipChance: 0.3,          // leaping in: a front flip
+      flipTime: 0.85, flipHeight: 0.95,
+      backTo: 1.5,              // after attacking: spring back out to this far from him...
+      backflipChance: 0.35,     // ...sometimes with a backflip
+      hopHeight: 0.25,          // waiting their turn: hop (not walk) to the next spot, if it's no further than
+      hopMax: 1.2,              // this (metres)
+      maxLeap: 1.2,             // no leap goes further than this (metres); a longer one falls short
+    },
     cheerChance: 0.25,          // hanging back: cheering him on instead of in their stance
     // Throwing things (owner): waiting their turn, someone fetches something and throws it at him.
     // Never the bat (or anything else from the back room), the radio, or her keyboard.
     throwing: {
-      chance: 0.35,             // each time someone hangs back
+      chance: 0.6,              // each time someone at a distance picks what to do next
       kinds: ['magazine', 'umbrella', 'plant', 'coolerBottle', 'briefcase', 'clipboard'], // (config.weapons names)
-      search: 5,                // metres: only things this close to them
-      from: [2.4, 3.4],         // metres from the player when they throw
+      search: 5,                // metres: only things this close to them...
+      keepAway: 3,              // ...and no closer than this to the player (things thrown at him land at his
+                                // feet: they're his to throw back; fetching them would crowd him)
+      from: [3.0, 4.0],         // metres from the player when they throw
       speed: 8,                 // m/s across the room
       spread: 0.35,             // metres of aim error
       damageShare: 0.4,         // x the thing's weapon damage (config.weapons)
@@ -370,7 +394,11 @@ export const config = {
     // health (config.brawl.health) runs out: 4 punches, or fewer with something heavy
     // Each time the player turns the radio off, she gets angrier: faster and faster
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
-    walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55, getUpTime: 1.6 },
+    walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55, getUpTime: 1.6,
+      // Stuck (e.g. two people walking into each other): no closer to where they're going for this long
+      // (seconds) and they step aside this far (metres) first, then carry on
+      stuckAfter: 0.9, detour: 0.8,
+      closeEnough: 1.0 },          // ...unless they're within this of it: someone's standing on it, so that'll do
   },
 
   // ---- The radio (owner's request) ----
@@ -443,6 +471,7 @@ export const config = {
       reader: {
         bust: { r: 0.075, spacing: 0.078, y: 0.325, forward: 0.05, depth: 0.7 }, // depth: how far it stands out from the chest
       },
+      // (the gamer has his own wobble, below; everyone else with soft parts uses characters.jiggle)
       gamer: {    // huge: wider and deeper than the receptionist, a belly that hangs out over his lap
         pelvis: { w: 0.74, h: 0.24, d: 0.56 },
         torso: { w: 0.8, h: 0.52, d: 0.6 },
@@ -461,6 +490,12 @@ export const config = {
         jiggle: { stiffness: 140, damping: 4.5, gain: 3, max: 0.07, squash: 2.5, parts: { belly: 1, chest: 0.6, jowls: 0.45 } },
       },
     },
+    // The wobble on soft parts (owner: all the fat bounces when they walk or jump; rig.js makeJiggle):
+    // the receptionist's belly, chest and double chin, the sitter's bust. A build's own `jiggle` replaces it.
+    //   stiffness / damping: the spring (lower stiffness = a slower, floppier bounce); gain: how much of the
+    //   lag shows; max: the most a part moves (m, x its share); squash: squashes and stretches with it;
+    //   parts: each part's share
+    jiggle: { stiffness: 160, damping: 5, gain: 3, max: 0.06, squash: 2.2, parts: { belly: 1, chest: 0.6, jowls: 0.45, bust: 0.55 } },
     // Per-style changes to the proportions above (theme.look.characterStyle picks the style)
     styleProportions: {
       figure: {

@@ -14,6 +14,9 @@ import { solveTwoBone, aimJoint } from './rig.js';
     { type: 'away', seconds, onAway(), onBack() }  out of sight (e.g. through a door) for a while
     { type: 'sit' }                           sit back down
     { type: 'getUp' }                         up off the floor (after a knockdown), from a crouch
+    { type: 'leap', to, face?, height, duration, flip? }  a ninja leap to `to` (Vector3 or () => Vector3), facing
+                                              face() (else the way they jump); crouch, fly (legs tucked),
+                                              land in a crouch. flip: 1 = a front flip, -1 = a backflip
     { type: 'approach', target(), distance, timeout? }   walk up to a moving target (the player)
     { type: 'attack', kind, target(), onHit(kind) }      an attack (config.npc.attacks); onHit at impact
   Any step may carry `leg: 'there' | 'back'` so callers can redirect a walk in progress.
@@ -38,6 +41,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
     lFoot / rFoot  where the feet go (y = lifted)        drop   knees bent (m lower)
     turn           the hips turned side-on (radians)     shift  the weight forward/back (m)
     lean           the upper body forward (+) / back (-)
+    hop            both feet off the floor (m): a ninja's bounce (config.brawl.ninja.hop)
 */
 const TAU = Math.PI * 2;
 export const STANCES = {
@@ -45,6 +49,7 @@ export const STANCES = {
   karate: (u) => {
     const w = Math.sin(u * TAU);
     return {
+      hop: config.brawl.ninja.hop * Math.abs(w),
       lFoot: V(0.13, Math.max(0, -w) * 0.035, 0.24), rFoot: V(-0.15, Math.max(0, w) * 0.035, -0.2),
       drop: 0.09 + 0.025 * Math.abs(w), turn: 0.5, shift: 0.045 * w, lean: 0.06,
       l: V(0.16, 1.34 - 0.02 * Math.abs(w), 0.5), r: V(-0.14, 1.22 - 0.02 * Math.abs(w), 0.2),
@@ -54,6 +59,7 @@ export const STANCES = {
   boxing: (u) => {
     const w = Math.sin(u * TAU), c = Math.cos(u * TAU);
     return {
+      hop: config.brawl.ninja.hop * 0.7 * Math.abs(w),
       lFoot: V(0.11, Math.max(0, -w) * 0.03, 0.17), rFoot: V(-0.12, Math.max(0, w) * 0.03, -0.12),
       drop: 0.03 + 0.02 * Math.abs(w), turn: 0.3, shift: 0.035 * w, lean: -0.1,
       l: V(0.15, 1.2 + 0.06 * w, 0.52 + 0.06 * c), r: V(-0.11, 1.3 - 0.06 * w, 0.3 - 0.06 * c),
@@ -179,6 +185,17 @@ export class Walker {
     done?.();
   }
 
+  /** Pushed aside (the brawl keeps people out of each other): mid-leap, the whole leap shifts with them. */
+  nudge(dx, dz) {
+    if (!this.pos) return;
+    this.pos.x += dx; this.pos.z += dz;
+    const S = this.current;
+    if (S?.type === 'leap' && S.from) {
+      S.from.x += dx; S.from.z += dz;
+      S.dest.x += dx; S.dest.z += dz;
+    }
+  }
+
   /** Advance and pose. Call every frame while active (instead of the host's own pose). */
   update(dt, camera) {
     const h = this.host, rig = h.rig, j = rig.joints, L = rig.lengths, root = rig.root;
@@ -189,6 +206,7 @@ export class Walker {
     this.t += dt * this.speedMul;
     const cfg = W();
     let sit = 0, bend = 0.06, reach = 0, look = null, expressionOverride = null, pose = null;
+    let air = 0, flip = 0, tuck = 0; // a leap: height off the floor, flip angle, legs tucked (0..1)
     // Flinching from a hit: freeze in place for a moment, leaning back
     if (this.stun > 0) {
       this.stun -= dt;
@@ -224,6 +242,26 @@ export class Walker {
       return false;
     };
     const yawOf = (y) => (y === 'chair' ? h.chairYaw : y);
+    // Stuck (walking, but getting no closer: someone in the way)? Step aside first (a short walk to one
+    // side, to the right the first time, then the other way), then carry on with this step.
+    const watchStuck = (goal) => {
+      // (waiting for the player to get out of the way is on purpose, except in a fight: then they go round him)
+      if (this.blocked && !this.refill) { S.stuckT = 0; return false; }
+      const d = Math.hypot(goal.x - this.pos.x, goal.z - this.pos.z);
+      if (S.best === undefined || d < S.best - 0.04) { S.best = d; S.stuckT = 0; return false; }
+      S.stuckT = (S.stuckT ?? 0) + dt;
+      if (S.stuckT < cfg.stuckAfter || d < 0.3) return false;
+      S.stuckT = 0; S.best = undefined;
+      // Nearly there, but someone's standing on the spot: close enough
+      if (d < cfg.closeEnough) { this.moving = 0; this._next(); return true; }
+      this.detourSide = -(this.detourSide ?? 1); // right (-1 x left) first, then alternate
+      const to = new THREE.Vector3(goal.x - this.pos.x, 0, goal.z - this.pos.z).normalize();
+      const side = new THREE.Vector3(to.z, 0, -to.x).multiplyScalar(this.detourSide); // left of the way (x side)
+      const at = this.pos.clone().addScaledVector(side, cfg.detour).addScaledVector(to, cfg.detour * 0.4).setY(0);
+      this.steps.splice(this.i, 0, { type: 'walk', to: at, pushThrough: true, detour: true });
+      this.t = 0;
+      return true;
+    };
 
     switch (S.type) {
       case 'rise':
@@ -235,6 +273,8 @@ export class Walker {
         if (S.glare) look = camera.position.clone();
         // pushThrough: don't wait for the player to get out of the way
         if (walkTowards(S.to === 'front' ? this.front : S.to, S.pushThrough)) this._next();
+        else if (!S.detour) watchStuck(S.to === 'front' ? this.front : S.to);
+        else if (this.t / this.speedMul > 1.5) this._next(); // (a detour that can't be walked either: give up on it)
         break;
       case 'face':
       case 'turn':
@@ -265,7 +305,7 @@ export class Walker {
           this.moving = Math.max(0, this.moving - dt * 4);
           if (turnTowards(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z))) this._next();
         } else if (this.stun <= 0 || !this.stun) {
-          walkTowards(flat, true);
+          if (!walkTowards(flat, true)) watchStuck(flat);
         }
         break;
       }
@@ -305,6 +345,33 @@ export class Walker {
         if (this.t / this.speedMul >= S.seconds || S.until?.()) this._next();
         break;
       }
+      case 'leap': {
+        // Crouch (0..0.18), fly (..0.85), land in a crouch. At its own pace, not sped up.
+        if (first) {
+          S.from = this.pos.clone();
+          S.dest = (typeof S.to === 'function' ? S.to() : S.to).clone().setY(0);
+          // Never further than config.brawl.ninja.maxLeap (it falls short)
+          const d = S.dest.clone().sub(S.from).setY(0), max = config.brawl.ninja.maxLeap;
+          if (d.length() > max) S.dest.copy(S.from).addScaledVector(d.setLength(max), 1).setY(0);
+          h.sfx.whoosh?.(this.pos.clone().setY(1));
+        }
+        const u = Math.min(1, this.t / this.speedMul / S.duration);
+        const k = u < 0.18 ? 0 : u > 0.85 ? 1 : (u - 0.18) / 0.67;
+        this.pos.lerpVectors(S.from, S.dest, smooth(k));
+        this.moving = 0;
+        const faceAt = S.face?.() ?? S.dest.clone().add(S.dest.clone().sub(S.from));
+        turnTowards(Math.atan2(faceAt.x - this.pos.x, faceAt.z - this.pos.z));
+        if (S.face) look = S.face();
+        air = 4 * S.height * k * (1 - k);
+        flip = (S.flip ?? 0) * TAU * smooth(k);
+        tuck = k > 0 && k < 1 ? Math.sin(k * Math.PI) : 0;
+        const crouch = u < 0.18 ? Math.sin((u / 0.18) * Math.PI * 0.5) : u > 0.85 ? Math.sin(((u - 0.85) / 0.15) * Math.PI) : 0;
+        const st = h.isFighting?.() ? STANCES[h.stance?.() ?? 'karate'](0) : null;
+        pose = { ...(st ?? {}), hop: 0, drop: 0.2 * crouch, lean: 0.25 * crouch + 0.2 * tuck };
+        if (k >= 1 && !S.landed) { S.landed = true; h.sfx.stomp?.(this.pos, 1.5); }
+        if (u >= 1) this._next();
+        break;
+      }
       case 'getUp': {
         // Up off the floor: from a deep crouch, hands on her knees, to standing (a shake of the head)
         const k = smooth(Math.min(1, this.t / cfg.getUpTime));
@@ -336,11 +403,19 @@ export class Walker {
     const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const left = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const bob = -Math.abs(Math.sin(this.phase)) * 0.02 * (G.bob ?? 1) * this.moving;
-    const standRoot = this.pos.clone().setY(-0.03 + bob - (pose?.drop ?? 0) * rig.scale);
+    const hop = (pose?.hop ?? 0) * rig.scale;
+    const standRoot = this.pos.clone().setY(-0.03 + bob - (pose?.drop ?? 0) * rig.scale + hop + air);
     if (pose?.shift) standRoot.addScaledVector(fwd, pose.shift * rig.scale);
-    root.position.lerpVectors(standRoot, h.seatRoot, sit);
     // A stance turns the hips side-on (the chest turns back halfway, towards the target)
     const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw + (pose?.turn ?? 0));
+    if (flip) {
+      // Somersault round the hips (+ = forwards, head first)
+      const fq = new THREE.Quaternion().setFromAxisAngle(left, flip);
+      const pivot = standRoot.clone().add(new THREE.Vector3(0, 0.9 * rig.scale, 0));
+      standRoot.sub(pivot).applyQuaternion(fq).add(pivot);
+      standQuat.premultiply(fq);
+    }
+    root.position.lerpVectors(standRoot, h.seatRoot, sit);
     // Waddle: rolling onto each foot in turn
     if (G.waddle) standQuat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.cos(this.phase) * G.waddle * this.moving));
     root.quaternion.copy(standQuat).slerp(h.seatQuat, sit);
@@ -359,6 +434,9 @@ export class Walker {
       foot.lerp(h.seatedFoot(side), sit);
       const planted = side === 1 ? pose?.lFoot : pose?.rFoot;
       if (planted) foot.copy(bodyPoint(planted));
+      foot.y += hop;
+      // In the air: knees up, feet tucked under (they turn with the body in a flip)
+      if (tuck > 0) foot.lerp(root.localToWorld(new THREE.Vector3(side * 0.12, 0.42 * rig.scale, 0.18 * rig.scale)), tuck);
       const [hip, knee] = side === 1 ? [j.lHip, j.lKnee] : [j.rHip, j.rKnee];
       solveTwoBone(hip, knee, foot, L.upperLeg, L.lowerLeg, fwd.clone().add(new THREE.Vector3(0, 0.3, 0)).normalize());
     }
@@ -374,7 +452,8 @@ export class Walker {
       if (side === -1 && reach > 0) hand.lerp(S.target(), reach);
       const carried = h.carryHand?.(side, this);
       if (carried) hand.copy(carried);
-      if (pose) hand.copy(bodyPoint(side === 1 ? pose.l : pose.r));
+      if (pose?.l) hand.copy(bodyPoint(side === 1 ? pose.l : pose.r)).add(new THREE.Vector3(0, hop + air, 0));
+      if (tuck > 0) hand.lerp(root.localToWorld(new THREE.Vector3(side * 0.2, 0.85 * rig.scale, 0.3 * rig.scale)), tuck);
       (this.hands ??= {})[side] = hand.clone();
       const [sh, el] = side === 1 ? [j.lShoulder, j.lElbow] : [j.rShoulder, j.rElbow];
       const pole = left.clone().multiplyScalar(side * 0.6).addScaledVector(fwd, -1).add(new THREE.Vector3(0, -0.4, 0)).normalize();

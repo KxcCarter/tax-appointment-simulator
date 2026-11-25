@@ -91,6 +91,7 @@ export class Combat {
 
     document.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !this.enabled || !this.player.canAct || this.player.seat) return;
+      if (!document.pointerLockElement) return; // (a click that only captures the mouse isn't a punch)
       if (this.punch || this.swing || this.kick || this.cooldown > 0 || this.block > 0.3) return;
       if (this.held) {
         this.swing = { t: 0, hitDone: false };

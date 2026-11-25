@@ -50,6 +50,9 @@ export class Npc {
     this.restExpression = def.expression ?? 'bored';
     this.face?.setExpression(this.restExpression, 100);
     scene.add(this.rig.root);
+    // How much room they take up standing (the brawl keeps people this far apart): half their widest part
+    const P = this.rig.proportions;
+    this.bodyRadius = (Math.max(P.torso.w, P.pelvis.w, P.belly?.w ?? 0, P.torso.w / 2 + P.upperArm.thick) / 2) * this.rig.scale;
     // Bruises, cuts, torn clothes... (the brawl)
     this.damage = new Damage({ rig: this.rig, look, physics, scene });
 

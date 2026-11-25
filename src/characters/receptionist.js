@@ -222,6 +222,11 @@ export class Receptionist {
   }
 
   update(dt, cameraPos) {
+    this._update(dt, cameraPos);
+    this.rig.jiggle(dt); // her belly, chest and double chin wobble (config.characters.jiggle)
+  }
+
+  _update(dt, cameraPos) {
     this.time += dt;
     const j = this.rig.joints;
     const L = this.rig.lengths;

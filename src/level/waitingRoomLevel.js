@@ -180,7 +180,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // --- a newcomer: after the receptionist's coffee run, someone walks in, takes the next ticket, sits ---
   let newcomer = null, newcomerTimer = null, entranceAngle = 0;
-  function bringInNewcomer() {
+  function bringInNewcomer(walkIn = true) {
     const pref = config.newcomer.seatPreference;
     const seat = pref.find((i) => A.chairs[i] && !A.chairs[i].occupant);
     if (seat === undefined) return;
@@ -208,6 +208,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         onInteract: () => d.interact('newcomer'),
       });
     }
+    if (!walkIn) { state.newcomerArrived = true; return; } // (?fight: already in his seat)
     newcomer.arrive({
       door: A.entrance,
       dispenserSpot: new THREE.Vector3(disp.x, 0, disp.z + 0.6),
@@ -218,7 +219,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // --- the gamer: at config.gamer.at seconds of play he walks in, straight past the dispenser, and sits ---
   let gamer = null;
-  function bringInGamer() {
+  function bringInGamer(walkIn = true) {
     const seat = config.gamer.seatPreference.find((i) => A.chairs[i] && !A.chairs[i].occupant);
     if (seat === undefined) return;
     gamer = new Npc({
@@ -230,7 +231,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     npcs.push(gamer);
     gamer.hitPlayer = (w, k) => hitPlayer(w, k);
     gamer.onKnockedDown = (n) => onKnockedDown(n);
-    gamer.arrive({ door: A.entrance, speedMul: config.gamer.gait.speed });
+    if (walkIn) gamer.arrive({ door: A.entrance, speedMul: config.gamer.gait.speed });
   }
 
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
@@ -763,6 +764,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     npcThrows, // (exposed for tests)
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     takeTicket, // (for ?beat=, src/debug/skipToBeat.js)
+    /** Debug (?fight): everyone in their seats (the newcomer and the gamer too), and the all-out brawl, now. */
+    startFight() {
+      if (!newcomer) bringInNewcomer(false);
+      if (!gamer) bringInGamer(false);
+      state.phase = 'brawl';
+      state.canFightBack = true;
+      brawl.start(null);
+    },
     setSkipping: (on) => { skipping = on; },
     /** Game-time update (not called while paused). */
     update(dt) {

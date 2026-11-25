@@ -60,6 +60,7 @@ export function createNpcThrows({ camera, sfx, items, npcs, weaponDef, onPlayerH
         if (!T().kinds.includes(item.kind) || !free(item)) continue;
         const p = item.object.position;
         if (p.x < bd.minX - 0.5 || p.x > bd.maxX + 0.5 || p.z < bd.minZ - 0.5 || p.z > bd.maxZ + 0.5) continue;
+        if (Math.hypot(p.x - camera.position.x, p.z - camera.position.z) < T().keepAway) continue;
         const d = Math.hypot(p.x - at.x, p.z - at.z);
         if (d < bestD) { best = item; bestD = d; }
       }

@@ -103,13 +103,18 @@ async function boot() {
   ui.ready();
 
   // Debug: ?autostart skips the title. ?view=x,y,z,yawDeg,pitchDeg places a free camera (screenshots).
-  if (config.debug.autostart || params.has('autostart') || params.has('beat')) {
+  if (config.debug.autostart || params.has('autostart') || params.has('beat') || params.has('fight')) {
     state.started = true;
     ui.hideTitle();
     ui.showHud(true);
     player.enabled = true;
-    // No click yet, so audio starts on the first one
+    // No click yet (the title screen's click is what normally starts the audio and captures the mouse),
+    // so a click in the game does both: the first one, and any after the mouse has been let go
     document.addEventListener('mousedown', () => sfx.start(), { once: true });
+    renderer.domElement.addEventListener('mousedown', () => {
+      if (!document.pointerLockElement && !state.ended) requestLock();
+    });
+    ui.toast('Click to look around.', 4);
   }
   // Debug: ?beat=argument_1 fast-forwards the game to that beat (src/debug/skipToBeat.js)
   if (params.get('beat')) {
@@ -117,6 +122,12 @@ async function boot() {
     const at = { x: -2.3, z: -2.3 }; // at the counter, out of the doorway (the newcomer comes in through it)
     player.teleport(at.x, at.z, Math.atan2(-(desk.x - at.x), -(desk.z - at.z)));
     skipper = createBeatSkipper({ target: params.get('beat'), level, state, player, ui, sfx, config });
+  }
+  // Debug: ?fight starts the all-out brawl right away (everyone in it), you in the middle of the room
+  if (params.has('fight')) {
+    const desk = level.receptionist.root.getWorldPosition(new THREE.Vector3());
+    player.teleport(0, 1.2, Math.atan2(-desk.x, -(desk.z - 1.2))); // facing the counter
+    level.startFight();
   }
   const view = params.get('view');
   if (view) {
