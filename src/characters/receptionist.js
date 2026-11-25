@@ -205,6 +205,20 @@ export class Receptionist {
     return true;
   }
 
+  /** Done filming: back to her chair, sit down, and watch it back on her phone (state 'phone'). */
+  _backToPhone() {
+    this.filming = null;
+    const settle = () => { this.state = 'phone'; this.phoneT = 0; };
+    if (!this.walker.active) { settle(); return Promise.resolve(); }
+    return new Promise((resolve) => {
+      this.walker.start([
+        { type: 'walk', to: 'front', pushThrough: true },
+        { type: 'turn', yaw: 'chair' },
+        { type: 'sit' },
+      ], { onDone: () => { settle(); resolve(); } });
+    });
+  }
+
   /** Called by the director's 'anim' action. */
   play(name) {
     // An expression set by the script ({ do: 'face' }) wins over the one each animation would pick
@@ -215,6 +229,7 @@ export class Receptionist {
     else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
     else if (name === 'filmPlayer') return this._filmPlayer();
+    else if (name === 'backToPhone') return this._backToPhone();
     else if (name === 'sipCoffee') { this.state = 'sip'; this.sipT = 0; }
     else if (name === 'slideClipboard') {
       this.state = 'clipboard';
@@ -354,12 +369,26 @@ export class Receptionist {
     j.spine.updateMatrixWorld(true);
     const handOnMouse = this.mouse.getWorldPosition(new THREE.Vector3());
     handOnMouse.y += 0.05 - this.press * 0.012;
+    // Watching it back on her phone: held in both hands in front of her chest, her thumb scrolling now and then
+    let phoneAt = null;
+    if (this.state === 'phone') {
+      this.phoneT = (this.phoneT ?? 0) + dt;
+      phoneAt = this.voicePosition().add(new THREE.Vector3(0, -0.5, 0)).addScaledVector(fwd, 0.3);
+      const side = new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion); // her left
+      const scroll = (this.phoneT % 4) < 0.5 ? Math.sin(((this.phoneT % 4) / 0.5) * Math.PI) * 0.015 : 0;
+      handOnMouse.copy(phoneAt).addScaledVector(side, -0.045).add(new THREE.Vector3(0, -0.02 + scroll, 0));
+      this.phone.visible = true;
+      this.phone.position.copy(phoneAt);
+      // (its camera faces away from her: the screen faces her)
+      this.phone.lookAt(phoneAt.clone().multiplyScalar(2).sub(this.voicePosition().add(new THREE.Vector3(0, -0.15, 0))));
+    }
     solveTwoBone(j.rShoulder, j.rElbow, handOnMouse, L.upperArm, L.lowerArm,
       new THREE.Vector3(-0.6, -0.4, -1).applyQuaternion(this.root.quaternion));
     const kb = this.keyboard.getWorldPosition(new THREE.Vector3());
     const handOnKeys = kb.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.12);
     handOnKeys.y += 0.05;
     if (clipHand) handOnKeys.lerp(clipHand, engage);
+    if (phoneAt) handOnKeys.copy(phoneAt).addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.045).add(new THREE.Vector3(0, -0.02, 0));
     // Pointing at the sign: the left arm swings up and out over her shoulder (eases in and out)
     this.pointAmt += ((this.state === 'point' ? 1 : 0) - this.pointAmt) * (1 - Math.exp(-7 * dt));
     if (this.pointAmt > 0.001 && this.signPos) {
@@ -397,6 +426,11 @@ export class Receptionist {
       const s = this.screen.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.5 * sipping, 0));
       aimJoint(j.neck, s, { maxYaw: 1.1, maxPitch: 0.6, alpha: turn });
       this.face?.lookAt(s);
+    } else if (this.state === 'phone' && phoneAt) {
+      // Looking down at her phone, pleased with herself
+      aimJoint(j.neck, phoneAt, { maxYaw: 1.1, maxPitch: 0.7, alpha: turn });
+      this.face?.lookAt(phoneAt);
+      if (!this.scripted) this.face?.setExpression('pleased');
     } else if (this.state === 'clock') {
       aimJoint(j.neck, this.clockPos, { maxYaw: 1.6, maxPitch: 0.6, alpha: turn * 1.5 });
       this.face?.lookAt(this.clockPos);

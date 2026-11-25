@@ -692,6 +692,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       state.phase = 'doorOpen';
       sfx.doorUnlock?.(A.accountantDoor.pivot.getWorldPosition(new THREE.Vector3()));
       ui.toast('Click.', 1.5);
+      // The fight's over, as far as she's concerned: one last remark, then back to her chair and her phone
+      onlookerTalk.runActions([
+        { do: 'wait', seconds: 1.2 },
+        { do: 'say', who: 'receptionist', text: brawlShouts.receptionistAfter },
+        { do: 'wait', seconds: 0.6 },
+      ]).then(() => receptionist.play('backToPhone'));
     }
   }
 
@@ -812,7 +818,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       brawl.update(dt);
       npcThrows.update(dt);
       // She films the whole thing on her phone, with little comments
-      if (brawl.started && !ended) {
+      if (brawl.started && !ended && state.phase === 'brawl') {
         // Bouncing with excitement; now and then off to a better angle, saying so
         if (receptionist.filmBrawl(dt)) {
           const M = brawlShouts.receptionistMoving;
