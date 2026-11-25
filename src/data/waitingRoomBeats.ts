@@ -770,8 +770,7 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`,
-          showIf: (state: GameState) => state.checkInPleaded === false,
-          advance: true,
+          advance: true, // (always offered: it's the only way on; hiding it after the check-in plea left the beat empty)
         },
         pleaCheckIn,
         pleaLetMeIn,
@@ -907,12 +906,49 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'No',
-          response: [
+          goto: null, // the scene ends in the brawl
+          actions: [
             { do: 'say', who: 'newcomer', text: 'You want me to be calm?' },
             { do: 'say', who: 'player', text: 'That would be great, yeah' },
             { do: 'say', who: 'newcomer', text: 'Yeah? Yeah?' },
             { do: 'anim', who: 'newcomer', name: 'lookAtPlayer' },
             { do: 'say', who: 'player', text: 'If we could all just be calm that would be...' },
+            // He cuts him off with a shove
+            { do: 'face', who: 'newcomer', expression: 'furious' },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'say', who: 'newcomer', text: 'Is this calm enough for you??' },
+            { do: 'say', who: 'player', text: 'Uh, not really.' },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'say', who: 'newcomer', text: 'Am I calm enough for you now? Am I?' },
+            // The old man gets up out of his chair
+            { do: 'face', who: 'cougher', expression: 'angry' },
+            { do: 'anim', who: 'cougher', name: 'standUp', untilDone: true },
+            { do: 'say', who: 'cougher', text: 'The man asked you a question, boy!' },
+            { do: 'say', who: 'player', text: "You've got to be kidding me." },
+            // Shove after shove
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'anim', who: 'newcomer', name: 'shove' }, // still at it while she talks
+            { do: 'face', who: 'receptionist', expression: 'pleased' },
+            { do: 'say', who: 'receptionist', text: "Oooo, Imma put this on Instagram! Hold up, lemme get my phone." },
+            // She stands up, takes her phone out of her pocket and films it (and keeps filming)
+            { do: 'anim', who: 'receptionist', name: 'filmPlayer', untilDone: true },
+            { do: 'say', who: 'player', text: "I'm just trying to do my taxes!" },
+            // The sitter (the young man, if the radio war put her on the floor)
+            {
+              do: 'if',
+              test: (state: GameState) => !state.sitterDown,
+              then: [{ do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
+              else: [{ do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
+            },
+            { do: 'say', who: 'player', text: "You know what? I'm just going to go..." },
+            { do: 'wait', seconds: 1.2 },
+            { do: 'say', who: 'receptionist', text: 'Oh look at that, I just found all the pens.' },
+            { do: 'wait', seconds: 0.6 },
+            { do: 'face', who: 'jiggler', expression: 'furious' },
+            { do: 'say', who: 'jiggler', text: "The creep's trying to run away! Get him!!" },
+            { do: 'emit', event: 'brawlStart' }, // the all-out brawl (waitingRoomLevel.js); she keeps filming
           ],
         },
       ],
