@@ -134,7 +134,7 @@ Walking up to the desk and looking at her shows an interaction prompt. Dialogue 
 Receptionist: `PlayingSolitaire ⇄ GlanceAtPlayer → (calls player's number)`. She does not take part in the brawl. *(proposal: she keeps playing solitaire throughout the fight.)*
 
 ### 3.7 Scene director (beat system)
-The narrative is **data-driven**. The level is a list of beats in `src/data/waitingRoomBeats.ts`, and a director steps through them. Each beat can define its trigger, available dialogue options, responses (lines, animations, sounds), delays, and `nextUnlockAfter` timers. Changing the pacing should never require touching engine code.
+The narrative is **data-driven**. The level is a list of beats in `src/data/waitingRoomBeats.ts`, and a director steps through them. Each beat can define its trigger, available dialogue options, responses (lines, animations, sounds), delays, and `nextUnlockAfter` timers. Changing the pacing should never require touching engine code. An option's `actions` play after its line is said, both with `goto` (before moving) and with `advance` (before the beat's `onAdvance`). `trigger.target` is whose [E] reopens a beat's choices if the player closes them, not who speaks; keep it `'receptionist'` for the main scene.
 
 Example shape:
 ```js

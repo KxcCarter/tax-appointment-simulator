@@ -74,6 +74,7 @@ export interface Option {
   advance?: boolean;
   /** Run `actions`, then move to this beat id (null = the exchange is over). */
   goto?: Live<string | null>;
+  /** Played after the choice is said: with goto, before moving; with advance, before the beat's onAdvance. */
   actions?: Action[];
   /** Gate before the goto target accepts an attempt. */
   unlockAfter?: Seconds;

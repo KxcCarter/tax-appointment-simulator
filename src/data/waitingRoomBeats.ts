@@ -717,9 +717,6 @@ export const waitingRoomBeats: Scene = {
       id: 'newcomer_checks_in',
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
-        { text: 'How come he gets to go first? My number was before his!', advance: true },
-        pleaCheckIn,
-        pleaLetMeIn,
         {
           text: "I'm not a no-show! I'm right here!",
           response: [
@@ -731,6 +728,9 @@ export const waitingRoomBeats: Scene = {
             },
           ],
         },
+        { text: 'But how come he gets to go first? My number was before his!', advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
       ],
       lockedOptions: [],
       onAdvance: [
@@ -818,7 +818,7 @@ export const waitingRoomBeats: Scene = {
       onAdvance: [
         pause,
         { do: 'face', who: 'newcomer', expression: 'pleased' },
-        { do: 'say', who: 'newcomer', text: 'Oh we got a smart-ass here...' },
+        { do: 'say', who: 'newcomer', text: 'Oh, we got a smart-ass here...' },
         pause,
         { do: 'anim', who: 'reader', name: 'attend' },
         { do: 'face', who: 'reader', expression: 'angry' },
@@ -832,7 +832,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_4',
-      trigger: { type: 'interact', target: 'receptionist' },
+      trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
       options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn],
       lockedOptions: [],
@@ -890,7 +890,15 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_7',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: "Okay everyone, let's just calm down here.", advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [
+        {
+          text: "Okay everyone, let's just calm down here.",
+          advance: true,
+          actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
+        },
+        pleaCheckIn,
+        pleaLetMeIn,
+      ],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -927,15 +935,23 @@ export const waitingRoomBeats: Scene = {
     {
       id: 'calm_down',
       trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true, // (it's an argument: no walking up and pressing E)
       onOpen: [{ do: 'say', who: 'receptionist', text: 'Sir you need to calm down.' }],
-      options: [{ text: '', advance: true }],
+      options: [
+        {
+          text: "I'm trying to be calm but you are being totally unreasonable here.",
+          advance: true,
+          actions: [{ do: 'say', who: 'receptionist', text: "Oh no he didn't..." }],
+        },
+      ],
       lockedOptions: [],
-      onAdvance: [],
+      onAdvance: [{ do: 'say', who: 'newcomer', text: 'You got a problem, pal?' }],
+      next: 'you_calling_me_a_liar',
       nextUnlockAfter: 0,
     },
     {
       id: 'you_calling_me_a_liar',
-      trigger: { type: 'interact', target: 'newcomer' },
+      trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
       options: [
         {

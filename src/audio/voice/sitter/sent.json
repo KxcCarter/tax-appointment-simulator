@@ -157,5 +157,15 @@
     "voice_settings": {
       "stability": 0
     }
+  },
+  "I know you ain't lookin at my breasts again!": {
+    "text": "I know you ain't lookin at my breasts again!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

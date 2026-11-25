@@ -211,6 +211,7 @@ export class Director {
     try {
       if (!option.silent) await this.say('player', option.text);
       if (option.advance && !wasLocked) {
+        await this.runActions(option.actions ?? []); // (the option's own steps first, then the beat's)
         await this.runActions(beat.onAdvance ?? []);
         this.moveTo(beat.next ?? null, beat.nextUnlockAfter);
       } else if ('goto' in option && !wasLocked) {
