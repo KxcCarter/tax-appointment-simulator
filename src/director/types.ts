@@ -30,7 +30,7 @@ export type NpcAnim = 'attend' | 'resume' | 'standUp' | 'confront' | 'slap' | 's
 /** Expression presets (config.characters.expressions). */
 /** 'default' = stop overriding: the character's own expressions again. A face set by the script holds
     until changed (receptionist) or until the conversation ends (waiting people). */
-export type Expression = 'default' | 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious' | 'appalled';
+export type Expression = 'default' | 'neutral' | 'bored' | 'unimpressed' | 'annoyed' | 'surprised' | 'pleased' | 'angry' | 'furious' | 'appalled' | 'sultry';
 
 /** Sounds a scene can trigger directly (audio/sfx.js). */
 export type SoundName =

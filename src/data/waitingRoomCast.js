@@ -9,7 +9,7 @@
 export const waitingRoomCast = [
   { id: 'watchChecker', look: 'watchChecker', seat: 0, personality: 'watchChecker', expression: 'bored', props: ['briefcase'] },
   { id: 'cougher',      look: 'cougher',      seat: 2, personality: 'cougher',      expression: 'bored' },
-  { id: 'sitter',       look: 'sitter',       seat: 3, personality: 'sitter',       expression: 'neutral' },
+  { id: 'sitter',       look: 'sitter',       seat: 3, personality: 'sitter',       expression: 'sultry' },
   { id: 'jiggler',      look: 'jiggler',      seat: 6, personality: 'jiggler',      expression: 'annoyed' },
   { id: 'reader',       look: 'reader',       seat: 8, personality: 'reader',       expression: 'bored', props: ['magazine'] },
 ];

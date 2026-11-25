@@ -69,6 +69,22 @@ const NATURAL_BODY = {
   },
 };
 
+// An hourglass figure (a build with curvy: true): a small waist flaring out to full hips and seat
+NATURAL_BODY.torsoCurvy = {
+  ...NATURAL_BODY.torso,
+  width: [[-0.5, 0.62], [-0.36, 0.6], [-0.12, 0.72], [0.15, 0.9], [0.34, 1.0], [0.42, 0.99], [0.47, 0.9],
+    [0.5, 0.6], [0.515, 0.3]],
+  depth: [[-0.5, 0.74], [-0.3, 0.74], [-0.05, 0.84], [0.18, 0.97], [0.33, 0.98], [0.43, 0.9], [0.49, 0.7],
+    [0.515, 0.42]],
+  back: [[-0.5, -0.1], [-0.25, -0.1], [0.05, 0], [0.3, 0.06], [0.45, 0.03], [0.515, 0]],         // a deeper curve in the small of the back
+};
+NATURAL_BODY.pelvisCurvy = {
+  width: [[-0.5, 0.78], [-0.4, 0.92], [-0.18, 0.98], [0.05, 0.92], [0.3, 0.72], [0.5, 0.52]],  // narrow at the waist, full at the hips
+  depth: [[-0.5, 0.7], [-0.4, 0.86], [-0.2, 0.94], [0.05, 0.9], [0.3, 0.8], [0.5, 0.72]],
+  front: [[-0.5, 0], [0.5, 0]],
+  back: [[-0.5, 0.06], [-0.3, 0.17], [-0.05, 0.15], [0.25, 0.04], [0.5, 0]],                   // a rounder seat
+};
+
 /**
  * A body part with separate width/depth profiles and front/back bulges (NATURAL_BODY), size w x h x d.
  * slice: { y0, y1, halfAngle, grow, vee } makes just a patch of its surface (the front between heights y0..y1,
@@ -127,9 +143,9 @@ export function headShell(style, w, h, d, { y0, y1 = 0.505, center = 0, half = M
   });
 }
 
-/** A patch of the 'natural' torso's front surface (a shirt front, a tie): see sculptBody's slice. */
-export function torsoFront(w, h, d, slice) {
-  return cached(`torsoFront|${w}|${h}|${d}|${JSON.stringify(slice)}`, () => sculptBody(NATURAL_BODY.torso, w, h, d, slice));
+/** A patch of the 'natural' torso's front surface (a shirt front, a tie): see sculptBody's slice. kind: 'torso' | 'torsoCurvy'. */
+export function torsoFront(w, h, d, slice, kind = 'torso') {
+  return cached(`torsoFront|${kind}|${w}|${h}|${d}|${JSON.stringify(slice)}`, () => sculptBody(NATURAL_BODY[kind], w, h, d, slice));
 }
 const profilesFor = (style) => (isNatural(style) ? NATURAL : PROFILES);
 

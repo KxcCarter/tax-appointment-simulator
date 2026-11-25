@@ -180,11 +180,12 @@ export const characterPalettes = {
       scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
       jacket: 0xb8a47a, shirt: 0xe8e2cf, tie: 0x2d4a6a, trousers: 0x4a4a48, shoes: 0x3b2a1a, glasses: 0x1b1a18,
     },
-    sitter: {         // woman: mustard jacket, pencil skirt and stockings, long hair, perfectly still
-      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'long', eyes: 0x3b2a1a, lips: 0xa8303a,
-      jacket: 0xa8822a, shirt: 0xd8a8a0, trousers: 0x3b3b38, shoes: 0x7a1a22,
-      legUpper: 0x3b3b38,   // skirt colour on the thighs...
-      legLower: 0x6a4a3a,   // ...and stockings below the knee
+    sitter: {         // woman, a bit of a seductress: fitted wine-red dress, plunging neckline, dark stockings, red heels, long hair
+      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'long', eyes: 0x3b2a1a, lips: 0xb0202e,
+      jacket: 0x7a1424, shirt: 0x7a1424, trousers: 0x7a1424, shoes: 0xa0101c,
+      shortSleeves: true, neckline: 'plunge', heels: true,
+      legUpper: 0x7a1424,   // the dress's pencil skirt on the thighs...
+      legLower: 0x3a2622,   // ...and dark sheer stockings below the knee
       lashes: 0x1b1a18,
       earrings: 0xd9c27a,
     },

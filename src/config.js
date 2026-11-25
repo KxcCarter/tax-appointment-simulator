@@ -363,14 +363,15 @@ export const config = {
     },
     // Individual builds for the waiting people (override the shared proportions above)
     builds: {
-      sitter: {   // feminine and curvy: narrow shoulders and waist, wide hips, a bust
-        pelvis: { w: 0.46, h: 0.18, d: 0.3 },
-        torso: { w: 0.34, h: 0.48, d: 0.22 },
-        bust: { r: 0.085, spacing: 0.085, y: 0.33, forward: 0.07 },
+      sitter: {   // an hourglass figure: narrow shoulders and a small waist, full hips and seat, a full bust
+        curvy: true,                   // ('natural' style: the hourglass torso and pelvis, partShapes.js)
+        pelvis: { w: 0.47, h: 0.2, d: 0.3 },
+        torso: { w: 0.35, h: 0.48, d: 0.22 },
+        bust: { r: 0.1, spacing: 0.096, y: 0.325, forward: 0.06, depth: 0.82 }, // depth: how far it stands out from the chest
         head: { w: 0.24, h: 0.29, d: 0.26 },
         upperArm: { len: 0.29, thick: 0.095 },
         lowerArm: { len: 0.26, thick: 0.085 },
-        upperLeg: { len: 0.42, thick: 0.17 },
+        upperLeg: { len: 0.42, thick: 0.19 },  // full thighs: the skirt flows down from the hips
         lowerLeg: { len: 0.4, thick: 0.115 },
         hipSpacing: 0.12,
         shoulderInset: 0.02,
@@ -420,6 +421,7 @@ export const config = {
       angry:       { lids: 0.15, brows: { raise: -0.009, angle: -0.5 },   mouth: { smile: -0.5, width: 0.75 } },
       furious:     { lids: 0.0,  brows: { raise: -0.011, angle: -0.65 },  mouth: { smile: -0.6, open: 0.25, width: 0.7 } },
       appalled:    { lids: 0.05, brows: { raise: 0.006, angle: -0.25 },   mouth: { smile: -0.45, open: 0.15, width: 0.7, asym: 0.1 } },
+      sultry:      { lids: 0.42, brows: { raise: 0.002, angle: 0.05, asym: 0.008 }, mouth: { smile: 0.18, width: 0.95, asym: 0.12 } }, // heavy-lidded, a knowing half-smile
     },
     blinkInterval: [2.5, 6],
     receptionist: {

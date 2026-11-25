@@ -61,13 +61,15 @@ export function buildRig(look = {}) {
   const hipHeight = P.upperLeg.len + P.lowerLeg.len + P.foot.h;
   const pelvis = joint(inner, 0, hipHeight + P.pelvis.h / 2, 0, 'pelvis');
   const parts = {};
-  parts.pelvis = part(pelvis, 'pelvis', P.pelvis.w, P.pelvis.h, P.pelvis.d, col.trousers, 0, 'pelvisMesh');
+  // 'natural' + a curvy build (P.curvy): an hourglass torso and pelvis
+  const curvy = isNatural(style) && P.curvy ? 'Curvy' : '';
+  parts.pelvis = part(pelvis, 'pelvis' + curvy, P.pelvis.w, P.pelvis.h, P.pelvis.d, col.trousers, 0, 'pelvisMesh');
 
   const spine = joint(pelvis, 0, P.pelvis.h / 2, 0, 'spine');
   const natural = isNatural(style);
   // 'natural': the waist reaches down into the pelvis, so bending at the spine shows no gap
   const tuck = natural ? 0.05 : 0;
-  parts.torso = part(spine, 'torso', P.torso.w, P.torso.h + tuck, P.torso.d, col.jacket, (P.torso.h - tuck) / 2, 'torsoMesh');
+  parts.torso = part(spine, 'torso' + curvy, P.torso.w, P.torso.h + tuck, P.torso.d, col.jacket, (P.torso.h - tuck) / 2, 'torsoMesh');
   if (natural && !look.legUpper) {
     // A belt at the waistband, with a buckle (trousers only)
     const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.032, 32), theme.material('beltLeather'));
@@ -90,9 +92,10 @@ export function buildRig(look = {}) {
     for (const side of [1, -1]) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(P.bust.r, 20, 14), m(col.jacket));
       // 'natural': softer, set lower into the chest
-      const soft = isNatural(style);
-      b.scale.set(soft ? 1.1 : 1, soft ? 0.88 : 0.92, soft ? 0.62 : 0.85);
-      b.position.set(side * P.bust.spacing * (soft ? 1.05 : 1), P.bust.y - (soft ? 0.015 : 0), P.torso.d / 2 - P.bust.r + P.bust.forward * (soft ? 0.55 : 1));
+      // (P.bust.depth: how far it stands out from the chest, 0..1; leave it out for the softer default)
+      const soft = isNatural(style), depth = P.bust.depth ?? (soft ? 0.62 : 0.85);
+      b.scale.set(soft ? 1.1 : 1, soft ? 0.9 : 0.92, depth);
+      b.position.set(side * P.bust.spacing * (soft ? 1.05 : 1), P.bust.y - (soft ? 0.015 : 0), P.torso.d / 2 - P.bust.r + P.bust.forward * (soft && P.bust.depth == null ? 0.55 : 1));
       spine.add(b);
     }
   }
@@ -149,6 +152,15 @@ export function buildRig(look = {}) {
     } else {
       end = new THREE.Mesh(partGeometry(style, 'foot', P.foot.w, P.foot.h, P.foot.l), m(col.shoes));
       end.position.set(0, -lower.len - P.foot.h / 2, P.foot.l * 0.25);
+      if (natural && look.heels) {
+        // High heels (look.heels): the shoe tips toe-down onto a thin heel
+        end.scale.set(0.9, 0.85, 0.92);
+        end.rotation.x = 0.32;
+        end.position.y += 0.02;
+        const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.006, 0.075, 10), m(col.shoes));
+        heel.position.set(0, -lower.len - P.foot.h - 0.005, P.foot.l * 0.25 - P.foot.l * 0.38);
+        b.add(heel);
+      }
     }
     b.add(end);
     return { upper: a, lower: b, end };
@@ -182,14 +194,17 @@ export function buildRig(look = {}) {
   const front = (y0, y1, halfAngle, grow, color, vee = 0) => {
     const H = P.torso.h + tuck, cy = (P.torso.h - tuck) / 2;
     // (two-sided: at the top edge you look in under the patch, which would show its shadow)
-    const mesh = new THREE.Mesh(torsoFront(P.torso.w, H, P.torso.d, { y0: (y0 - cy) / H, y1: (y1 - cy) / H, halfAngle, grow, vee }), m(color, { side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(torsoFront(P.torso.w, H, P.torso.d, { y0: (y0 - cy) / H, y1: (y1 - cy) / H, halfAngle, grow, vee }, 'torso' + curvy), m(color, { side: THREE.DoubleSide }));
     mesh.position.y = cy;
     spine.add(mesh);
     return mesh;
   };
   const shirtFront = look.shirt !== undefined && look.jacket !== undefined && look.shirt !== look.jacket;
   // (under a jacket: a V-shaped opening, narrowing to a point)
-  if (natural && shirtFront) front(P.torso.h * 0.42, P.torso.h * 0.93, 0.42, 1.014, look.shirt, 0.92);
+  if (natural && look.neckline === 'plunge') {
+    // A plunging V neckline (look.neckline): skin from the collarbones down between the bust
+    front(P.torso.h * 0.5, P.torso.h * 0.95, 0.62, 1.012, look.skin, 0.97);
+  } else if (natural && shirtFront) front(P.torso.h * 0.42, P.torso.h * 0.93, 0.42, 1.014, look.shirt, 0.92);
   if (natural && look.tie !== undefined) front(P.torso.h * 0.36, P.torso.h * 0.92, 0.11, 1.03, look.tie);
   if (!natural && shirtFront) {
     const bib = new THREE.Mesh(partGeometry(style, 'trim', P.torso.w * 0.32, P.torso.h * 0.55, 0.012), m(look.shirt));
