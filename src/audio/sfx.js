@@ -1,15 +1,31 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
+import { SOUNDS, soundNameOf } from './soundList.js';
 
 /*
-  Every sound is synthesised here with the Web Audio API. No audio files.
+  Every sound is synthesised here with the Web Audio API, unless there's a recording of it: a file named
+  after it in src/audio/sfx/ (the names: src/audio/soundList.js). config.audio.sounds says, per sound,
+  whether to use the file ('auto', the default: the file if there is one), the synthesised version
+  ('synth'), or both at once ('both').
   Call start() from a user gesture (browsers block audio before one).
   Positional sounds take a THREE.Vector3; the listener follows the camera.
   All methods are safe to call before start(); they just do nothing.
 */
 
 const A = config.audio;
+// hit(kind) -> its sound's name, where they differ (the rest: 'hit_' + kind)
+const HIT_FILES = { radioHit: 'hit_radio' };
 const rand = (a, b) => a + Math.random() * (b - a);
+
+// The recordings in src/audio/sfx/ (bundled by Vite; a file added while the dev server runs reloads the page)
+const FILE_URLS = import.meta.glob('./sfx/*.{mp3,wav,ogg,m4a,flac}', { eager: true, query: '?url', import: 'default' });
+const FILES = {}; // sound name -> [url, ...] (numbered versions: hit_punch_1, hit_punch_2...)
+for (const [path, url] of Object.entries(FILE_URLS)) {
+  const base = path.split('/').pop().replace(/\.[^.]+$/, '');
+  const name = soundNameOf(base);
+  if (!name) { console.warn(`Sound file "${path.split('/').pop()}" isn't named after a sound in src/audio/soundList.js: not used.`); continue; }
+  (FILES[name] ??= []).push(url);
+}
 
 export class Sfx {
   constructor() {
@@ -32,6 +48,58 @@ export class Sfx {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
 
     this._startHum();
+    this._loadFiles();
+  }
+
+  // ---------------------------------------------------------------- recordings (src/audio/sfx/)
+
+  /** Decode every recording (in the background: until one's ready, its sound is synthesised). */
+  async _loadFiles() {
+    this.files = {};
+    await Promise.all(Object.entries(FILES).map(async ([name, urls]) => {
+      const list = (await Promise.all(urls.map((u) => this.loadAudio(u)))).filter(Boolean);
+      if (list.length) this.files[name] = list;
+    }));
+    // The hum is already running (synthesised): swap in the recording
+    if (this.files.hum && this._mode('hum') !== 'synth') this._fileHum();
+  }
+
+  /** 'auto' (the file if there is one, else synthesised) | 'synth' | 'both' (config.audio.sounds). */
+  _mode(name) {
+    return A.sounds?.[name] ?? 'auto';
+  }
+
+  /**
+   * Play the recording of `name`, if there is one and its mode allows, through the same volume and
+   * position as the synthesised version. Returns true if that's all (skip the synthesised one).
+   * rate: playback speed (pitch), e.g. the voice blips.
+   */
+  _play(name, volume, position = null, spatial = {}, rate = 1) {
+    const mode = this._mode(name);
+    if (mode === 'synth') return false;
+    const fb = SOUNDS[name]?.fallback;
+    const list = this.files?.[name] ?? (fb && !FILES[name] ? this.files?.[fb] : null);
+    if (!list?.length) return false;
+    // One of the versions, never the same one twice in a row
+    let i = Math.floor(Math.random() * list.length);
+    if (list.length > 1 && i === this._last?.[name]) i = (i + 1) % list.length;
+    (this._last ??= {})[name] = i;
+    const src = this.ctx.createBufferSource();
+    src.buffer = list[i];
+    src.playbackRate.value = rate;
+    src.connect(this._out(volume * (A.fileVolume?.[name] ?? 1), position, spatial));
+    src.start();
+    return mode !== 'both';
+  }
+
+  /** The hum from its recording, looped (and the synthesised one stopped, unless 'both'). */
+  _fileHum() {
+    if (this._mode('hum') !== 'both') this.humOut?.disconnect(); // (the synthesised hum, silenced)
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.files.hum[0];
+    src.loop = true;
+    src.connect(this._out(A.hum.volume * (A.fileVolume?.hum ?? 1), null));
+    src.start();
   }
 
   suspend() { this.ctx?.suspend(); }
@@ -124,6 +192,7 @@ export class Sfx {
   _startHum() {
     const c = this.ctx;
     const out = this._out(A.hum.volume, null);
+    this.humOut = out; // (stopped if there's a recording: _fileHum)
     const lp = c.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 420;
@@ -160,6 +229,7 @@ export class Sfx {
 
   mouseClick(position) {
     if (!this.ctx) return;
+    if (this._play('mouse_click', A.mouseClick.volume, position, A.mouseClick)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.mouseClick.volume, position, A.mouseClick);
     const v = rand(0.7, 1);
@@ -174,6 +244,7 @@ export class Sfx {
   /** Dialogue voice blip. pitch in Hz. */
   blip(pitch, position = null) {
     if (!this.ctx) return;
+    if (this._play('voice_blip', A.voice.volume, position, { refDistance: 2, rolloff: 0.6 }, (pitch / A.blipBasePitch) * rand(0.95, 1.06))) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.voice.volume, position, { refDistance: 2, rolloff: 0.6 });
     const lp = this.ctx.createBiquadFilter();
@@ -186,6 +257,7 @@ export class Sfx {
 
   footstep() {
     if (!this.ctx) return;
+    if (this._play('footstep', A.footsteps.volume * rand(0.8, 1.1))) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.footsteps.volume * rand(0.8, 1.1), null);
     this._noise(t, 0.09, out, 'lowpass', rand(380, 520), 1, 0.9, 0.004);
@@ -194,6 +266,7 @@ export class Sfx {
 
   chairCreak(position = null) {
     if (!this.ctx) return;
+    if (this._play('chair_creak', A.chairCreak.volume, position, { refDistance: 1.5, rolloff: 1 })) return;
     const c = this.ctx;
     const t = c.currentTime;
     const out = this._out(A.chairCreak.volume, position, { refDistance: 1.5, rolloff: 1 });
@@ -216,6 +289,7 @@ export class Sfx {
   /** A clipboard shoved across a laminate counter, ending in a small tap. */
   paperSlide(position = null) {
     if (!this.ctx) return;
+    if (this._play('paper_slide', A.paperSlide.volume, position, { refDistance: 1.2, rolloff: 1 })) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.paperSlide.volume, position, { refDistance: 1.2, rolloff: 1 });
     const n = this._noise(t, 0.3, out, 'bandpass', 700, 1.2, 0.9, 0.015);
@@ -226,6 +300,7 @@ export class Sfx {
   /** A dry, unproductive cough: two noise bursts through a throaty band-pass. */
   cough(position = null) {
     if (!this.ctx) return;
+    if (this._play('cough', A.cough.volume * rand(0.8, 1.1), position, A.cough)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.cough.volume * rand(0.8, 1.1), position, A.cough);
     const f = rand(500, 750);
@@ -238,6 +313,7 @@ export class Sfx {
   /** A long, resigned exhale. */
   sigh(position = null) {
     if (!this.ctx) return;
+    if (this._play('sigh', A.sigh.volume, position, A.sigh)) return;
     const c = this.ctx;
     const t = c.currentTime;
     const out = this._out(A.sigh.volume, position, A.sigh);
@@ -249,6 +325,7 @@ export class Sfx {
 
   pageTurn(position = null) {
     if (!this.ctx) return;
+    if (this._play('page_turn', A.pageTurn.volume, position, A.pageTurn)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.pageTurn.volume, position, A.pageTurn);
     const n = this._noise(t, 0.28, out, 'highpass', 1800, 0.8, 0.8, 0.04);
@@ -258,6 +335,7 @@ export class Sfx {
   /** Someone shifting their weight on a vinyl chair. */
   chairShift(position = null) {
     if (!this.ctx) return;
+    if (this._play('chair_shift', A.chairShift.volume, position, { refDistance: 1.2, rolloff: 1.2 })) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.chairShift.volume, position, { refDistance: 1.2, rolloff: 1.2 });
     const n = this._noise(t, 0.35, out, 'bandpass', 420, 3, 0.7, 0.05);
@@ -267,6 +345,7 @@ export class Sfx {
 
   watchTick(position) {
     if (!this.ctx) return;
+    if (this._play('watch_tick', A.watchTick.volume, position, A.watchTick)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.watchTick.volume, position, A.watchTick);
     this._noise(t, 0.008, out, 'highpass', 5000, 1, 0.8, 0.0005);
@@ -275,6 +354,7 @@ export class Sfx {
   /** The NOW SERVING display: a dull two-tone electronic chime. */
   chime(position = null) {
     if (!this.ctx) return;
+    if (this._play('chime', A.chime.volume, position, { refDistance: 3, rolloff: 0.6 })) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.chime.volume, position, { refDistance: 3, rolloff: 0.6 });
     this._tone(t, 0.9, out, 'triangle', 784, 0.6, 0.005);
@@ -284,6 +364,7 @@ export class Sfx {
   /** A plastic rotary switch, then a moment of warm-up static. */
   radioClick(position = null) {
     if (!this.ctx) return;
+    if (this._play('radio_click', 0.4, position, { refDistance: 1.2, rolloff: 1 })) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.4, position, { refDistance: 1.2, rolloff: 1 });
     this._noise(t, 0.015, out, 'highpass', 2500, 1, 0.9, 0.0005);
@@ -358,6 +439,7 @@ export class Sfx {
   /** Chips being crunched: a few sharp, dry cracks. */
   crunch(position = null, bites = 3, volume = 1) {
     if (!this.ctx) return;
+    if (this._play('crunch', A.snack.volume * volume, position, A.snack)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.snack.volume * volume, position, A.snack);
     for (let i = 0; i < bites; i++) {
@@ -370,6 +452,7 @@ export class Sfx {
   /** A hand in a foil chip bag: crinkly, scattered high noise. */
   bagRustle(position = null, seconds = 0.5) {
     if (!this.ctx) return;
+    if (this._play('bag_rustle', A.snack.volume * 0.8, position, A.snack)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.snack.volume * 0.8, position, A.snack);
     const n = Math.round(seconds * 22);
@@ -381,6 +464,7 @@ export class Sfx {
   /** Swallowing from a can: a few gulps, then the can's hollow little ring. */
   gulp(position = null, gulps = 3) {
     if (!this.ctx) return;
+    if (this._play('gulp', A.snack.volume * 0.9, position, A.snack)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.snack.volume * 0.9, position, A.snack);
     for (let i = 0; i < gulps; i++) {
@@ -394,6 +478,7 @@ export class Sfx {
   /** A short, unembarrassed burp. */
   burp(position = null) {
     if (!this.ctx) return;
+    if (this._play('burp', A.snack.volume * 1.1, position, A.snack)) return;
     const c = this.ctx, t = c.currentTime;
     const out = this._out(A.snack.volume * 1.1, position, A.snack);
     const lp = c.createBiquadFilter();
@@ -416,6 +501,7 @@ export class Sfx {
   /** An angry footstep; heavier the angrier she is. */
   stomp(position, anger = 1) {
     if (!this.ctx) return;
+    if (this._play('stomp', A.stomp.volume * Math.min(2, 0.7 + anger * 0.3) * rand(0.85, 1.1), position, A.stomp)) return;
     const t = this.ctx.currentTime;
     const v = A.stomp.volume * Math.min(2, 0.7 + anger * 0.3) * rand(0.85, 1.1);
     const out = this._out(v, position, A.stomp);
@@ -428,6 +514,8 @@ export class Sfx {
   /** Hit sounds by name: slap | shove | punch | kick | radioHit. */
   hit(kind, position = null) {
     if (!this.ctx) return;
+    if (this._play(HIT_FILES[kind] ?? 'hit_' + kind, A.hits.volume * rand(0.9, 1.1), position, A.hits)) return;
+    if (kind === 'chop') kind = 'slap'; // (synthesised: the same as a slap)
     const t = this.ctx.currentTime;
     const out = this._out(A.hits.volume * rand(0.9, 1.1), position, A.hits);
     if (kind === 'slap') {
@@ -483,6 +571,7 @@ export class Sfx {
    */
   propHit(position, strength = 0.5, kind = 'thud', mass = 2) {
     if (!this.ctx) return;
+    if (this._play(kind === 'metal' ? 'prop_metal' : kind === 'paper' ? 'prop_paper' : 'prop_thud', 0.15 + 0.6 * strength, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.15 + 0.6 * strength, position, A.hits);
     if (kind === 'metal') {
@@ -501,6 +590,7 @@ export class Sfx {
   /** The accountant's door unlocking: a deadbolt clunk. */
   doorUnlock(position = null) {
     if (!this.ctx) return;
+    if (this._play('door_unlock', 0.6, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.6, position, A.hits);
     this._noise(t, 0.05, out, 'bandpass', 2400, 3, 1, 0.001);
@@ -510,6 +600,7 @@ export class Sfx {
   /** Knuckles on a wooden door: three knocks. */
   knock(position = null) {
     if (!this.ctx) return;
+    if (this._play('knock', 0.6, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.6, position, A.hits);
     for (let i = 0; i < 3; i++) {
@@ -521,6 +612,7 @@ export class Sfx {
   /** The water cooler: a big hollow glug. */
   glug(position = null) {
     if (!this.ctx) return;
+    if (this._play('glug', 0.5, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.5, position, A.hits);
     for (let i = 0; i < 3; i++) this._tone(t + i * 0.22, 0.18, out, 'sine', 140 + i * 25, 0.6, 0.01, 220 + i * 30);
@@ -529,6 +621,7 @@ export class Sfx {
   /** A door opening: a long low creak. */
   doorOpen(position = null) {
     if (!this.ctx) return;
+    if (this._play('door_open', 0.5, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.5, position, A.hits);
     this._tone(t, 1.1, out, 'sawtooth', 95, 0.18, 0.05, 140);
@@ -538,6 +631,7 @@ export class Sfx {
   /** Trying a locked door: the handle rattles. */
   doorRattle(position = null) {
     if (!this.ctx) return;
+    if (this._play('door_rattle', 0.5, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.5, position, A.hits);
     for (let i = 0; i < 3; i++) this._noise(t + i * 0.09, 0.05, out, 'bandpass', 1600 + i * 200, 4, 0.8, 0.002);
@@ -546,6 +640,7 @@ export class Sfx {
   /** A swing that misses. */
   whoosh(position = null) {
     if (!this.ctx) return;
+    if (this._play('whoosh', 0.25, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.25, position, A.hits);
     const n = this._noise(t, 0.22, out, 'bandpass', 500, 2, 0.8, 0.05);
@@ -555,6 +650,7 @@ export class Sfx {
   /** A body hitting the carpet. */
   bodyThud(position = null, strength = 1) {
     if (!this.ctx) return;
+    if (this._play('body_thud', 0.8 * strength, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.8 * strength, position, A.hits);
     this._noise(t, 0.25, out, 'lowpass', 300, 1, 1, 0.003);
@@ -563,6 +659,7 @@ export class Sfx {
 
   ticketTear(position = null) {
     if (!this.ctx) return;
+    if (this._play('ticket_tear', A.ticketTear.volume, position, { refDistance: 1, rolloff: 1 })) return;
     const c = this.ctx;
     const t = c.currentTime;
     const out = this._out(A.ticketTear.volume, position, { refDistance: 1, rolloff: 1 });

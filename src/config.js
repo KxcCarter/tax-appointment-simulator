@@ -381,7 +381,7 @@ export const config = {
       punch: { duration: 0.9, knock: 2.6, shake: 0.9, damage: 12, sound: 'punch' },
       kick: { duration: 1.1, knock: 3.8, shake: 1.0, damage: 15, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
-      chop: { duration: 0.95, knock: 1.8, shake: 0.9, damage: 11, sound: 'slap' },        // karate: a knife-hand chop from above
+      chop: { duration: 0.95, knock: 1.8, shake: 0.9, damage: 11, sound: 'chop' },        // karate: a knife-hand chop from above
       roundhouse: { duration: 1.25, knock: 4.4, shake: 1.2, damage: 16, sound: 'kick' },  // karate: a sweeping kick
       jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'punch' },         // boxing: quick, straight, the lead hand
       boxCombo: { duration: 1.9, sequence: ['jab', 'jab', 'punch'] },                     // boxing: jab, jab, cross
@@ -603,6 +603,23 @@ export const config = {
     chairCreak: { volume: 0.35 },
     // The gamer's snacking (all synthesised, positional: you hear it from his corner of the room)
     snack: { volume: 0.4, refDistance: 1.0, rolloff: 1.4 },
+
+    // ---- Recorded sound effects (owner) ----
+    // Drop a file named after a sound into src/audio/sfx/ (hit_punch.mp3, or hit_punch_1.wav, hit_punch_2.wav...
+    // for versions picked at random). The names and where each plays: src/audio/soundList.js.
+    // `npm run sounds` lists what's there and what's missing.
+    // Per sound: 'auto' (the default: the file if there is one, else synthesised), 'synth' (always the
+    // synthesised one, even with a file there) or 'both' (the file and the synthesised one together).
+    sounds: {
+      // e.g. hit_punch: 'both', hum: 'synth',
+    },
+    // How loud each file plays, x the volume its synthesised version was set to (1 = the same)
+    fileVolume: {
+      // e.g. hit_punch: 0.8,
+    },
+    // The voice blip's recording is played higher or lower for each character's voice pitch (Hz):
+    // this is the pitch it was recorded at
+    blipBasePitch: 196,
   },
 
   debug: {
