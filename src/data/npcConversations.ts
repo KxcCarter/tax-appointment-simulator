@@ -632,6 +632,8 @@ export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'Hey perv, my eyes are up HERE!', pose: 'pointEyes', expression: 'furious' },
   { text: 'This creep is looking at my breasts!!', pose: 'pointAt', expression: 'furious' },
   { text: 'He lookin at my BREASTS!!', pose: 'pointAt', expression: 'furious' },
+  { text: 'You a perv...', pose: 'pointAt', expression: 'angry' },
+  { text: 'This man a perv!', pose: 'pointAt', expression: 'angry' },
 ];
 
 export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
@@ -675,7 +677,8 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Let me see some of that action!',
     'Hold on, hold on, I gotta get this.',      // PROPOSAL
     'Mmm, from over here. Yes.',                // PROPOSAL
-    "Y'all are going viral.",                   // PROPOSAL
+    "Y'all are going viral.", 
+    "Oh Lawd he violent!!",                  // PROPOSAL
   ],
   // The receptionist, when the fight is over (the door unlocks); then she sits down and watches it back (owner's line)
   receptionistAfter: 'Oooo, this boutta go viral!',

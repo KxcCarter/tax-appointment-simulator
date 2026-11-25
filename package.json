@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "sounds": "node scripts/sounds.mjs",
-    "voices": "node scripts/voices.mjs"
+    "voices": "node scripts/voices.mjs",
+    "sfxgen": "node scripts/sfxgen.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

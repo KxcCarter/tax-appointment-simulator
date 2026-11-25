@@ -68,6 +68,7 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 | `hit_block` | A blow caught on your raised arms (blocking). |
 | `hit_chop` | A karate chop landing. (No file: uses hit_slap.) |
 | `hit_bat` | The baseball bat (a wooden crack). |
+| `swing_bat` | Swinging the baseball bat, hit or miss (a fast swoosh as it comes round). (No file: the whoosh.) |
 | `hit_chair` | A chair, or the fire extinguisher, hitting someone (a metal-and-vinyl clang). |
 | `hit_umbrella` | The umbrella, or the mop (a fabric fwump). |
 | `hit_keyboard` | The receptionist's keyboard (a plastic smack and loose keys clattering). |
@@ -86,3 +87,7 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 
 - `src/audio/clock_tick.mp3`: the wall clock (config.audio.clockTick)
 - `src/audio/look_to_the_sky.mp3`: the radio song (config.radio.file)
+
+## Generated
+
+`npm run sfxgen` (`scripts/sfxgen.mjs`) makes sounds with ElevenLabs from the prompts in that script: three takes each, trimmed and brought to the same level. So far: `hit_punch`, `hit_slap`, `hit_kick`, `swing_bat`, `hit_bat`, `hit_chair`. Delete a take you don't like and run it again for a new one.

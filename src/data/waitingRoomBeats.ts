@@ -222,7 +222,7 @@ export const waitingRoomBeats: Scene = {
           response: [
             pause,
             { do: 'anim', who: 'receptionist', name: 'pointAtSign', duration: 1.2 },
-            { do: 'say', who: 'receptionist', text: ['Everybody gotta take a number.', 'Read the sign.'], vary: 'any' },
+            { do: 'say', who: 'receptionist', text: ['Everybody gotta take a number.', 'Sir, read the sign.'], vary: 'any' },
             { do: 'wait', seconds: 0.8 },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
           ],

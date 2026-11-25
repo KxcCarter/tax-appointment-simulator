@@ -250,6 +250,8 @@ export class Combat {
       const s = this.swing;
       s.t += dt;
       const u = s.t / (def.swingTime * C().swingTimeMul);
+      // A weapon with a swing sound (the bat) is heard coming round, hit or miss
+      if (def.swingSound && !s.swished && u >= 0.25) { s.swished = true; this.sfx.swing(def.swingSound); }
       const ease = (x) => x * x * (3 - 2 * x);
       // k: 0 -> -1 (wind up) -> +1 (follow through) -> 0
       const k = u < 0.3 ? -ease(u / 0.3) : u < 0.62 ? -1 + 2 * ease((u - 0.3) / 0.32) : 1 - ease((u - 0.62) / 0.38);
@@ -355,7 +357,7 @@ export class Combat {
     }
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
-    if (!hit) { this.sfx.whoosh(); return; }
+    if (!hit) { if (!(source === 'weapon' && this.held?.def.swingSound)) this.sfx.whoosh(); return; } // (the bat swished already)
     const target = list.find((t) => t.rig.root === hit.object.userData.rigRoot);
     if (!target) return;
     if (target.down) {

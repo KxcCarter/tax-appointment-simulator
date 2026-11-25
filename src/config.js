@@ -206,7 +206,7 @@ export const config = {
       grip: [0, 0, 0], axis: [0, 1, 0], out: [-0.3, 0.6, -0.75], at: [0.25, -0.45, -0.5] },
     coolerBottle: { label: 'water bottle', damage: 40, reach: 1.3, swingTime: 0.8, knock: 1.4, style: 'overhead', sound: 'kick',
       grip: [0, 0, 0], axis: [0, 1, 0], out: [0, 1, 0], at: [0.22, -0.3, -0.6] },
-    bat:          { label: 'baseball bat', damage: 55, reach: 1.8, swingTime: 0.55, knock: 2.0, sound: 'bat',
+    bat:          { label: 'baseball bat', damage: 55, reach: 1.8, swingTime: 0.55, knock: 2.0, sound: 'bat', swingSound: 'bat', // swingSound: swing_bat
       grip: [0, 0.05, 0], axis: [0, 1, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.32, -0.42] },
     mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'swing',
       grip: [0, -0.1, 0], axis: [0, -1, 0], out: [-0.1, 0.1, -1], at: [0.26, -0.3, -0.35] },

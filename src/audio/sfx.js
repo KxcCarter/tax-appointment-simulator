@@ -697,6 +697,13 @@ export class Sfx {
   }
 
   /** A swing that misses. */
+  /** A weapon swung (as it comes round, hit or miss): its own recording (swing_<name>), else the whoosh. */
+  swing(name, position = null) {
+    if (!this.ctx) return;
+    if (this._play('swing_' + name, 0.35, position, A.hits)) return;
+    this.whoosh(position);
+  }
+
   whoosh(position = null) {
     if (!this.ctx) return;
     if (this._play('whoosh', 0.25, position, A.hits)) return;

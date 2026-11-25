@@ -14,6 +14,10 @@
 
   Lines built while playing (the time on the clock, the ticket number) are generated for the values they
   can realistically take: EXPAND below.
+
+  Directing a line: DIRECTIONS below (what's sent instead of the text, e.g. with eleven_v3 audio tags,
+  and other settings). The text on screen stays as written. Every request sent is kept in
+  src/audio/voice/<who>/sent.json; change a line's direction and the next run records it again.
 */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,6 +46,25 @@ export const VOICES = {
 };
 // (anyone without their own model / settings gets these)
 const DEFAULT_VOICE = { model: 'eleven_multilingual_v2', settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true } };
+
+// ---- Directions for single lines (owner) ----
+// who -> the line exactly as written in the data -> what to send instead:
+//   say:      the text spoken (e.g. with eleven_v3 audio tags: [scared], [laughs], [whispers], [shouts]...;
+//             tags only work on eleven_v3: other models read them out)
+//   model:    e.g. 'eleven_v3'
+//   settings: voice_settings for this line (replace the voice's own). On eleven_v3, stability is
+//             0 (Creative, the most expressive), 0.5 (Natural) or 1 (Robust).
+export const DIRECTIONS = {
+  receptionist: {
+    'Oh Lawd he violent!!': { say: '[scared]Oh Lawd he violent!!', model: 'eleven_v3', settings: { stability: 0 } },
+  },
+};
+
+/** The request body for a line: its direction if it has one, else the voice's defaults. */
+function requestFor(who, text) {
+  const v = { ...DEFAULT_VOICE, ...VOICES[who] }, d = DIRECTIONS[who]?.[text] ?? {};
+  return { text: d.say ?? speakable(text), model_id: d.model ?? v.model, voice_settings: d.settings ?? v.settings };
+}
 
 // ---- Lines whose text depends on the game ----
 const clockAt = (h, m) => ((h % 12) * 60 + m) * 60 + 12 * 3600; // state.clockTime for h:mm PM
@@ -147,21 +170,21 @@ function apiKey() {
   return m[1];
 }
 
-async function tts(voice, text, key) {
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice.voiceId}?output_format=mp3_44100_128`;
+async function tts(voiceId, body, key) {
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-      body: JSON.stringify({ text, model_id: voice.model, voice_settings: voice.settings }),
+      body: JSON.stringify(body),
     });
     if (res.ok) return Buffer.from(await res.arrayBuffer());
-    const body = await res.text();
+    const reply = await res.text();
     if ((res.status === 429 || res.status >= 500) && attempt < 4) {
       await new Promise((r) => setTimeout(r, 2000 * attempt));
       continue;
     }
-    throw new Error(`ElevenLabs ${res.status}: ${body.slice(0, 300)}`);
+    throw new Error(`ElevenLabs ${res.status}: ${reply.slice(0, 300)}`);
   }
 }
 
@@ -171,13 +194,20 @@ for (const [who, set] of Object.entries(found)) {
   const dir = path.join(ROOT, 'src/audio/voice', who);
   const manifestFile = path.join(dir, 'lines.json');
   const manifest = readJson(manifestFile);
+  const sentFile = path.join(dir, 'sent.json');
+  const sent = readJson(sentFile); // text -> the request its recording was made with
   const lines = [...set];
-  const todo = lines.filter((t) => (ONLY ? t.includes(ONLY) : FORCE || !manifest[t] || !fs.existsSync(path.join(dir, manifest[t]))));
-  const chars = todo.reduce((n, t) => n + speakable(t).length, 0);
+  // A line's direction changed since it was recorded (lines from before sent.json: only if directed)
+  const changed = (t) => JSON.stringify(sent[t] ?? (DIRECTIONS[who]?.[t] ? null : requestFor(who, t))) !== JSON.stringify(requestFor(who, t));
+  const todo = lines.filter((t) => (ONLY ? t.includes(ONLY) : FORCE || !manifest[t] || !fs.existsSync(path.join(dir, manifest[t])) || changed(t)));
+  const chars = todo.reduce((n, t) => n + requestFor(who, t).text.length, 0);
   const recorded = lines.filter((t) => manifest[t] && fs.existsSync(path.join(dir, manifest[t]))).length;
   console.log(`\n${who}: ${lines.length} lines, ${recorded} recorded, ${todo.length} to generate (${chars} characters)`);
   if (DRY) {
-    for (const t of lines) console.log(`  ${manifest[t] ? '✓' : '·'} ${t}${speakable(t) !== t ? `   [says: ${speakable(t)}]` : ''}`);
+    for (const t of lines) {
+      const r = requestFor(who, t), dir = DIRECTIONS[who]?.[t];
+      console.log(`  ${todo.includes(t) ? '·' : '✓'} ${t}${r.text !== t ? `   [says: ${r.text}]` : ''}${dir ? `   (${r.model_id}, ${JSON.stringify(r.voice_settings)})` : ''}`);
+    }
     continue;
   }
   fs.mkdirSync(dir, { recursive: true });
@@ -192,10 +222,13 @@ for (const [who, set] of Object.entries(found)) {
       for (let i = 2; used.has(file); i++) file = `${base}_${i}.mp3`;
       used.add(file);
     }
-    const audio = await tts({ ...DEFAULT_VOICE, ...VOICES[who] }, speakable(text), key);
+    const body = requestFor(who, text);
+    const audio = await tts(VOICES[who].voiceId, body, key);
     fs.writeFileSync(path.join(dir, file), audio);
     manifest[text] = file;
+    sent[text] = body;
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n'); // (after each, so a failure keeps what's done)
+    fs.writeFileSync(sentFile, JSON.stringify(sent, null, 2) + '\n');
     console.log(`  [${++n}/${todo.length}] ${file}  ${text}`);
   }
   // Recordings of lines nobody says any more
