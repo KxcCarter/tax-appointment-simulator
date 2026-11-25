@@ -617,6 +617,19 @@ export const onlookers: Scene = {
   joins in. `opening` plays first, in order, one person each; after that, people on the
   sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
 */
+/*
+  The sitter catches the player looking at her while she's up and walking about (owner's request): she
+  stops, turns on him and says one of these, in order, then at random (never the same twice in a row).
+  pose: what she does with her hands (walker.js ATTACK_POSES): 'coverChest' (arms over her chest),
+  'pointEyes' (two fingers at her eyes: "up HERE"), 'pointAt' (pointing at him, for the room's benefit).
+  When and how often: config.npc.eyesUp.
+*/
+export const eyesUp: { text: string; pose: string; expression: string }[] = [
+  { text: 'Are you looking at my breasts??', pose: 'coverChest', expression: 'angry' },
+  { text: 'Hey perv, my eyes are up HERE!', pose: 'pointEyes', expression: 'furious' },
+  { text: 'This creep is looking at my breasts!!', pose: 'pointAt', expression: 'furious' },
+];
+
 export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',

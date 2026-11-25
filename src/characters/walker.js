@@ -13,6 +13,7 @@ import { solveTwoBone, aimJoint } from './rig.js';
     { type: 'face', yaw } / { type: 'turn', yaw }  turn on the spot; yaw = radians or 'chair'
     { type: 'reach', target(), onReach() }    bend and reach with the right hand; onReach at contact
     { type: 'away', seconds, onAway(), onBack() }  out of sight (e.g. through a door) for a while
+    { type: 'hold', seconds, target?(), pose?, expression? }  stand still (facing target), hands in a pose
     { type: 'sit' }                           sit back down
     { type: 'getUp' }                         up off the floor (after a knockdown), from a crouch
     { type: 'leap', to, face?, height, duration, flip? }  a ninja leap to `to` (Vector3 or () => Vector3), facing
@@ -113,6 +114,12 @@ const ATTACK_POSES = {
   film: (u) => ({ l: V(0.07, 1.5, 0.55), r: V(-0.07, 1.52 + 0.01 * Math.sin(u * Math.PI * 2), 0.56), lean: -0.03 }),
   // ...the same, bouncing with excitement (the brawl: config.brawl.receptionist.bounce)
   filmBounce: (u) => ({ ...ATTACK_POSES.film(u), hop: config.brawl.receptionist.bounce * Math.abs(Math.sin(u * TAU)), drop: 0.02 }),
+  // Caught looking (the sitter: eyesUp): arms crossed over her chest, leaning back, affronted
+  coverChest: () => ({ l: V(-0.12, 1.38, 0.32), r: V(0.12, 1.43, 0.34), lean: -0.12 }),
+  // "My eyes are up HERE!": two fingers at her eyes, jabbing on the word; the other hand on her hip
+  pointEyes: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.08, 1.75 + 0.015 * Math.sin(u * TAU * 2), 0.26 + 0.05 * Math.max(0, Math.sin(u * TAU * 2))), lean: -0.06 }),
+  // Pointing at him, for everyone's benefit; the other hand on her hip
+  pointAt: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.12, 1.6 + 0.03 * Math.sin(u * TAU * 2), 0.7), lean: -0.08 }),
   radio: (u, R = GUARD) => ({
     l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
     r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),
@@ -186,6 +193,14 @@ export class Walker {
     const done = this.onDone;
     this.onDone = null;
     done?.();
+  }
+
+  /** Do these first, then carry on with what they were doing (e.g. stopping to tell the player off). */
+  interject(steps) {
+    if (!this.steps) return;
+    for (const s of steps) s.started = false;
+    this.steps.splice(this.i, 0, ...steps);
+    this.t = 0;
   }
 
   /** Pushed aside (the brawl keeps people out of each other): mid-leap, the whole leap shifts with them. */

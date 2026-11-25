@@ -21,7 +21,8 @@
     nextUnlockAfter: seconds, or [min, max], before `next` accepts an attempt
 
   Actions ({ do: ... }):
-    say      { who, text }            typewriter line with voice blips; text may be (state) => string
+    say      { who, text }            typewriter line with voice blips (or its recording, if there is one:
+                                      src/audio/voice/<who>/); text may be (state) => string
     anim     { who, name, duration?, untilDone? } actors[who].play(name); waits `duration`, or until it's done
     notice   { text, seconds? }       a short message on screen (not spoken)
     wait     { seconds }              (number or [min, max])
@@ -99,17 +100,19 @@ export class Director {
     // typewriter
     const ty = this.typing;
     if (ty) {
-      const cps = this.config.timings.dialogue.charsPerSecond;
+      // A recorded line types out over the length of its recording (and has no blips)
+      const cps = ty.cps ?? this.config.timings.dialogue.charsPerSecond;
       const shown = Math.min(ty.text.length, Math.floor((this.time - ty.start) * cps));
+      if (ty.voice) ty.voice.setPosition(ty.position?.());
       if (shown !== ty.shown) {
         for (let i = ty.shown; i < shown; i++) {
           const ch = ty.text[i];
-          if (/[A-Za-z0-9]/.test(ch) && i % 2 === 0) this.sfx.blip(ty.pitch, ty.position?.());
+          if (!ty.voice && /[A-Za-z0-9]/.test(ch) && i % 2 === 0) this.sfx.blip(ty.pitch, ty.position?.());
         }
         ty.shown = shown;
         this.ui.showLine(ty.speaker, ty.text.slice(0, shown));
       }
-      if (shown >= ty.text.length && !ty.finished) {
+      if (shown >= ty.text.length && this.time >= ty.until && !ty.finished) {
         ty.finished = true;
         ty.resolve();
       }
@@ -327,10 +330,16 @@ export class Director {
     const T = this.config.timings.dialogue;
     const token = {};
     this.lineToken = token;
+    this.typing?.voice?.stop(); // (a line cut off by this one)
+    // Its recording, if there is one (src/audio/voice/<who>/; config.audio.voices)
+    const length = this.sfx.voiceLength?.(who, text) ?? 0;
+    const voice = length ? this.sfx.voiceLine(who, text, actor?.voicePosition() ?? null) : null;
     await new Promise((resolve) => {
       this.typing = {
         speaker: sp.name, text, pitch: sp.pitch, start: this.time, shown: 0, finished: false, resolve,
         position: actor ? () => actor.voicePosition() : null,
+        voice, until: voice ? this.time + length : 0,
+        cps: voice ? Math.max(text.length / (length * 0.85), 1) : null,
       };
       this.ui.showLine(sp.name, '');
       actor?.setTalking?.(true);

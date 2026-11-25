@@ -401,6 +401,11 @@ export const config = {
     // Fighting back: people flinch when hit, and go down as a ragdoll (config.ragdoll) when their
     // health (config.brawl.health) runs out: 4 punches, or fewer with something heavy
     // Each time the player turns the radio off, she gets angrier: faster and faster
+    // The sitter, up and walking, catches the player looking at her (owner's request; lines: eyesUp in
+    // src/data/npcConversations.ts): looking within `angle` (radians) of her chest, from up to `distance`
+    // metres, for `lookFor` seconds. She stops, turns on him, says it and gestures for `holdFor` seconds,
+    // then carries on. Not again for `cooldown` seconds.
+    eyesUp: { enabled: true, who: 'sitter', angle: 0.3, distance: 9, lookFor: 0.4, holdFor: 2.4, cooldown: 12 },
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
     walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55, getUpTime: 1.6,
       // Stuck (e.g. two people walking into each other): no closer to where they're going for this long
@@ -620,6 +625,16 @@ export const config = {
     // The voice blip's recording is played higher or lower for each character's voice pitch (Hz):
     // this is the pitch it was recorded at
     blipBasePitch: 196,
+
+    // ---- Recorded voice lines (ElevenLabs; `npm run voices`, scripts/voices.mjs) ----
+    // A line said with exactly the text of a recording in src/audio/voice/<who>/ plays it, from the
+    // speaker, instead of the blips; the text types out along with it.
+    voices: {
+      enabled: true,
+      volume: 0.8,
+      byWho: {},              // x volume per speaker, e.g. receptionist: 1.2
+      refDistance: 2.5, rolloff: 0.6, // (positional: quieter further from her, but heard across the room)
+    },
   },
 
   debug: {

@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "sounds": "node scripts/sounds.mjs"
+    "sounds": "node scripts/sounds.mjs",
+    "voices": "node scripts/voices.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

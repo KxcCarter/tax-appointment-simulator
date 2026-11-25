@@ -6,7 +6,7 @@ import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
 import { roomRemarks, trespassLines } from '../data/roomRemarks.ts';
-import { npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice } from '../data/npcConversations.ts';
+import { npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice, eyesUp } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
 import { Brawl } from './brawl.js';
@@ -520,6 +520,32 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       onInteract: () => (state.ticketNumber == null ? take.onInteract() : remark('dispenserAgain')),
     });
   }
+  // The sitter, up and walking, catches the player looking at her (config.npc.eyesUp; lines: eyesUp)
+  let eyesUpLook = 0, eyesUpCooldown = 0, eyesUpCount = 0, eyesUpLast = null;
+  function checkEyesUp(dt) {
+    const E = config.npc.eyesUp;
+    eyesUpCooldown -= dt;
+    const who = npcs.find((n) => n.id === E.who);
+    const w = who?.walker, S = w?.current;
+    const walking = E.enabled && who && !who.down && !who.carrying && S?.type === 'walk' && !S.detour && w.moving > 0.3;
+    if (!walking || eyesUpCooldown > 0) { eyesUpLook = 0; return; }
+    // Is he looking at her (her chest, near enough)?
+    const chest = who.rig.joints.spine.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.25, 0));
+    const to = chest.sub(camera.position);
+    const dist = to.length();
+    const looking = dist < E.distance && camera.getWorldDirection(new THREE.Vector3()).angleTo(to) < E.angle;
+    eyesUpLook = looking ? eyesUpLook + dt : 0;
+    if (eyesUpLook < E.lookFor || anyActive(null)) return;
+    eyesUpLook = 0;
+    eyesUpCooldown = E.cooldown;
+    // In order, then at random (never the same twice in a row)
+    const line = eyesUp[eyesUpCount] ?? eyesUp.filter((l) => l !== eyesUpLast)[Math.floor(Math.random() * (eyesUp.length - 1))];
+    eyesUpCount++;
+    eyesUpLast = line;
+    w.interject([{ type: 'hold', seconds: E.holdFor, target: () => camera.position.clone(), pose: line.pose, expression: line.expression, rate: 0.8 }]);
+    who.conversation?.runActions([{ do: 'say', who: who.id, text: line.text }]);
+  }
+
   // Behind the desk or in the back room, she notices (not during the brawl)
   let trespassCooldown = 0, trespassCount = 0;
   let shoveCooldown = 0, lookTimer = 0;
@@ -842,6 +868,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
       checkTrespass(dt);
+      checkEyesUp(dt);
       overhear(dt);
       player.speedMul = combat.enabled ? config.combat.moveSpeedMul : 1; // quicker on your feet in a fight
       // Fight options (only while the fists are up)

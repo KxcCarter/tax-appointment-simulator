@@ -634,11 +634,20 @@ export const waitingRoomBeats: Scene = {
           actions: [
             // She ignores the question entirely
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
-            { do: 'say', who: 'receptionist', text: 'Mamma gotta get her some coffee...' },
-            { do: 'anim', who: 'receptionist', name: 'coffeeBreak', untilDone: true }, // ~30 s away
-            { do: 'set', key: 'hadCoffee', value: true },
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: [
+                'Oooo, Mamma gotta get her some coffee... mmm, mmm.',
+                'Mamma gotta get her some coffee...',
+                'Boy I need me some coffee...',
+              ],
+              vary: 'any',
+            },
             { do: 'wait', seconds: 1 },
             { do: 'say', who: 'player', text: 'Are you serious?' },
+            { do: 'anim', who: 'receptionist', name: 'coffeeBreak', untilDone: true }, // ~30 s away
+            { do: 'set', key: 'hadCoffee', value: true },
           ],
         },
         // PROPOSAL (more-dialogue)
@@ -706,6 +715,17 @@ export const waitingRoomBeats: Scene = {
         { text: 'How come he gets to go first? My number was before his!', advance: true },
         pleaCheckIn,
         pleaLetMeIn,
+        {
+          text: "I'm not a no-show! I'm right here!",
+          response: [
+            {
+              do: 'say',
+              who: 'receptionist',
+              text: ["Didn't check in.", "Didn't check in though.", "Didn't sign the check-in sheet so you a no-show."],
+              vary: 'any',
+            },
+          ],
+        },
       ],
       lockedOptions: [],
       onAdvance: [
@@ -931,7 +951,7 @@ export const waitingRoomBeats: Scene = {
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'anim', who: 'newcomer', name: 'shove' }, // still at it while she talks
             { do: 'face', who: 'receptionist', expression: 'pleased' },
-            { do: 'say', who: 'receptionist', text: "Oooo, Imma put this on Instagram! Hold up, lemme get my phone." },
+            { do: 'say', who: 'receptionist', text: 'Oooo, Imma put this on Instagram! Hold up, lemme get my phone.' },
             // She stands up, takes her phone out of her pocket and films it (and keeps filming)
             { do: 'anim', who: 'receptionist', name: 'filmPlayer', untilDone: true },
             { do: 'say', who: 'player', text: "I'm just trying to do my taxes!" },
@@ -939,8 +959,12 @@ export const waitingRoomBeats: Scene = {
             {
               do: 'if',
               test: (state: GameState) => !state.sitterDown,
-              then: [{ do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
-              else: [{ do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." }],
+              then: [
+                { do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
+              ],
+              else: [
+                { do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
+              ],
             },
             { do: 'say', who: 'player', text: "You know what? I'm just going to go..." },
             { do: 'wait', seconds: 1.2 },

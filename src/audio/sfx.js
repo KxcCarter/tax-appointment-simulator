@@ -27,6 +27,19 @@ for (const [path, url] of Object.entries(FILE_URLS)) {
   (FILES[name] ??= []).push(url);
 }
 
+// Recorded voice lines (src/audio/voice/<who>/, made by `npm run voices`): lines.json maps each line's
+// text to its file. Said with exactly that text, the line plays its recording instead of the blips.
+const VOICE_URLS = import.meta.glob('./voice/*/*.{mp3,wav,ogg,m4a,flac}', { eager: true, query: '?url', import: 'default' });
+const VOICE_LISTS = import.meta.glob('./voice/*/lines.json', { eager: true, import: 'default' });
+const VOICES = {}; // who -> text -> url
+for (const [path, lines] of Object.entries(VOICE_LISTS)) {
+  const dir = path.slice(0, path.lastIndexOf('/') + 1), who = dir.split('/').at(-2);
+  for (const [text, file] of Object.entries(lines)) {
+    const url = VOICE_URLS[dir + file];
+    if (url) (VOICES[who] ??= {})[text] = url;
+  }
+}
+
 export class Sfx {
   constructor() {
     this.ctx = null;
@@ -49,6 +62,51 @@ export class Sfx {
 
     this._startHum();
     this._loadFiles();
+    this._loadVoices();
+  }
+
+  // ---------------------------------------------------------------- voice lines (src/audio/voice/)
+
+  /** Decode every voice line in the background (a line said before its recording is ready gets blips). */
+  async _loadVoices() {
+    this.voices = {};
+    for (const [who, lines] of Object.entries(VOICES)) {
+      const out = (this.voices[who] = {});
+      await Promise.all(Object.entries(lines).map(async ([text, url]) => {
+        const buf = await this.loadAudio(url);
+        if (buf) out[text] = buf;
+      }));
+    }
+  }
+
+  /** Is there a recording of this line, ready to play? Its length in seconds, or 0. */
+  voiceLength(who, text) {
+    if (!A.voices?.enabled) return 0;
+    return this.voices?.[who]?.[text]?.duration ?? 0;
+  }
+
+  /**
+   * Say a line from its recording (from `position`, a Vector3, if given). Returns { setPosition(v), stop() },
+   * or null if there's no recording (then: blips).
+   */
+  voiceLine(who, text, position = null) {
+    const buf = this.voiceLength(who, text) ? this.voices[who][text] : null;
+    if (!buf) return null;
+    const V = A.voices;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this._out(V.volume * (V.byWho?.[who] ?? 1), position, V);
+    src.connect(g);
+    src.start();
+    const panner = position ? this._lastPanner : null;
+    return {
+      setPosition(v) {
+        if (!panner || !v) return;
+        if (panner.positionX) { panner.positionX.value = v.x; panner.positionY.value = v.y; panner.positionZ.value = v.z; }
+        else panner.setPosition(v.x, v.y, v.z);
+      },
+      stop() { try { src.stop(); } catch { /* already over */ } },
+    };
   }
 
   // ---------------------------------------------------------------- recordings (src/audio/sfx/)
@@ -150,6 +208,7 @@ export class Sfx {
         p.setPosition(position.x, position.y, position.z);
       }
       g.connect(p).connect(this.master);
+      this._lastPanner = p; // (voiceLine moves it with the speaker)
     } else {
       g.connect(this.master);
     }
