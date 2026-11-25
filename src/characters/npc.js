@@ -463,8 +463,12 @@ export class Npc {
     }
     if (this.personality === 'jiggler') {
       if (!this.called) {
-        desired.lHand.set(-0.08, 0.93, 0.16); // arms crossed
-        desired.rHand.set(0.08, 0.9, 0.18);
+        // Arms crossed: forearms level in front of his chest, the left one over the right, each hand
+        // tucked in by the other elbow; elbows down and a little forward (not back, into his chest)
+        desired.lHand.set(-0.085, 0.9, 0.26);
+        desired.rHand.set(0.085, 0.93, 0.22);
+        desired.lPole = new THREE.Vector3(0.35, -1, 0.55);
+        desired.rPole = new THREE.Vector3(-0.35, -1, 0.45);
       }
       // His own phase, so asking him to stop (jiggleStop) and the speed-up (jiggleRate) are smooth
       this.jiggleStop = Math.max(0, (this.jiggleStop ?? 0) - dt);
@@ -1015,8 +1019,10 @@ export class Npc {
 
     // Arms
     j.spine.updateMatrixWorld(true);
-    solveTwoBone(j.lShoulder, j.lElbow, this.w(t.lHand.x, t.lHand.y, t.lHand.z), L.upperArm, L.lowerArm, dir(0.6, -0.4, -1));
-    solveTwoBone(j.rShoulder, j.rElbow, this.w(t.rHand.x, t.rHand.y, t.rHand.z), L.upperArm, L.lowerArm, dir(-0.6, -0.4, -1));
+    // (elbows out and back, unless the pose says otherwise: d.lPole / d.rPole, chair-local directions)
+    const lp = d.lPole ?? V(0.6, -0.4, -1), rp = d.rPole ?? V(-0.6, -0.4, -1);
+    solveTwoBone(j.lShoulder, j.lElbow, this.w(t.lHand.x, t.lHand.y, t.lHand.z), L.upperArm, L.lowerArm, dir(lp.x, lp.y, lp.z));
+    solveTwoBone(j.rShoulder, j.rElbow, this.w(t.rHand.x, t.rHand.y, t.rHand.z), L.upperArm, L.lowerArm, dir(rp.x, rp.y, rp.z));
 
     // Head
     aimJoint(j.neck, this.w(t.look.x, t.look.y, t.look.z), { maxYaw: 1.3, maxPitch: 0.6, alpha: 1 });
