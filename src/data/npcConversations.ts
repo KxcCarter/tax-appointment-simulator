@@ -190,6 +190,9 @@ export const people: Record<string, Person> = {
     waiting: 'Since nine this morning.', // (8:58 on the check-in sheet)
     reason: 'They sent me a letter. It said to come in.',
     howLong: '...',
+    // Said as she gets up to turn the radio back on, from the 2nd time it's turned off.
+    // In order; after the last one, a random pick (never the same twice in a row).
+    radioComplaints: ['Rude...', 'Seriously??', 'No way...', 'Really dude?', 'Oooh no, nuh-uh!', 'Son of a...'],
     news: ['No.', "It's still warm."],
     topics: [
       {
@@ -628,6 +631,7 @@ export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'Are you looking at my breasts??', pose: 'coverChest', expression: 'angry' },
   { text: 'Hey perv, my eyes are up HERE!', pose: 'pointEyes', expression: 'furious' },
   { text: 'This creep is looking at my breasts!!', pose: 'pointAt', expression: 'furious' },
+  { text: 'He lookin at my BREASTS!!', pose: 'pointAt', expression: 'furious' },
 ];
 
 export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
