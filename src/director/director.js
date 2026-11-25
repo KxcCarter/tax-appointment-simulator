@@ -86,6 +86,12 @@ export class Director {
     return this.busy || this.choosing;
   }
 
+  /** Someone's mid-line (still typing out, or their recording still playing). */
+  get talking() {
+    const t = this.typing;
+    return !!t && (!t.finished || this.time < t.until);
+  }
+
   /** Seconds until the next attempt unlocks (0 = open). */
   get gateRemaining() {
     return Math.max(0, this.lockedUntil - this.time);

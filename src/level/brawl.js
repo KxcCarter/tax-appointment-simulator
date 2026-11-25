@@ -286,12 +286,17 @@ export class Brawl {
       p.z = THREE.MathUtils.clamp(p.z, bd.minZ - 0.6, bd.maxZ + 0.4);
     }
 
-    // Shouting from the sidelines
-    this.nextShout -= dt;
-    if (this.nextShout <= 0) {
-      const line = this._nextLine(standing);
-      if (line) this.say(line.who, line.text);
-      this.nextShout = this.queue.length ? 1.5 : rand(...B().shoutEvery);
+    // Shouting from the sidelines: one at a time, never over anyone (busy: someone's talking)
+    if (this.busy?.()) this.quietFor = 0;
+    else {
+      this.quietFor = (this.quietFor ?? 0) + dt;
+      this.nextShout -= dt;
+      if (this.nextShout <= 0 && this.quietFor >= B().shoutGap) {
+        const line = this._nextLine(standing);
+        if (line) this.say(line.who, line.text);
+        this.quietFor = 0;
+        this.nextShout = this.queue.length ? B().openingShoutEvery : rand(...B().shoutEvery);
+      }
     }
   }
 

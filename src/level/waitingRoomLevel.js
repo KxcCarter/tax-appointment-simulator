@@ -623,12 +623,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     items: () => weaponList,
     onPlayerHit: (def, dir) => landOnPlayer(def, dir),
     onFriendlyFire: (victim) => {
-      if (victim.down) return;
+      if (victim.down || onlookerTalk.talking) return; // (not over someone else)
       const lines = brawlShouts.friendlyFire;
       onlookerTalk.runActions([{ do: 'say', who: victim.id, text: lines[Math.floor(Math.random() * lines.length)] }]);
     },
   });
   brawl.throws = npcThrows;
+  brawl.busy = () => onlookerTalk.active || onlookerTalk.talking; // (brawl lines wait for silence)
   // Knocked down in the radio war? She gets back up for the brawl (config.radio.wakeForBrawl),
   // and that knockdown no longer counts
   brawl.beforeStart = () => {
@@ -850,13 +851,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
           const M = brawlShouts.receptionistMoving;
           const text = M[movingIndex] ?? M[Math.floor(Math.random() * M.length)];
           movingIndex++;
-          if (!onlookerTalk.active) {
+          if (!onlookerTalk.active && !onlookerTalk.talking && (brawl.quietFor ?? 0) >= config.brawl.shoutGap) {
             onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text }]);
             receptionistQuip = Math.max(receptionistQuip, 3); // (not straight into another remark)
           }
         }
         receptionistQuip -= dt;
-        if (receptionistQuip <= 0 && !onlookerTalk.active) {
+        if (receptionistQuip <= 0 && !onlookerTalk.active && !onlookerTalk.talking && (brawl.quietFor ?? 0) >= config.brawl.shoutGap) {
           const Q = config.brawl.receptionistQuipEvery;
           receptionistQuip = Q[0] + Math.random() * (Q[1] - Q[0]);
           const lines = brawlShouts.receptionist;

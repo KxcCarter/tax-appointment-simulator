@@ -82,7 +82,7 @@ export const config = {
     // It starts after "I just found all the pens." ({ do: 'emit', event: 'brawlStart' }, which works either way).
     // ?brawl in the URL still jumps straight to it, for testing. true turns the other triggers back on.
     enabled: false,
-    receptionistQuipEvery: [5, 9], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
+    receptionistQuipEvery: [8, 14], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
     // Her, filming the brawl (owner): bouncing with excitement, and now and then moving to a better angle
     // behind the counter (saying so: brawlShouts.receptionistMoving)
     receptionist: {
@@ -117,7 +117,9 @@ export const config = {
     hangBack: [3.2, 4.5],        // metres from the player: everyone who isn't fighting him up close
     hangBackHold: [1.0, 2.6],    // seconds standing there (in their stance or cheering) between throws
     openingStagger: [0.3, 1.6],  // seconds before each person is up and fighting
-    shoutEvery: [2.2, 4.5],      // seconds between shouts from the sidelines
+    shoutEvery: [5, 9],          // seconds between shouts from the sidelines (counted once nobody's talking)
+    openingShoutEvery: 2.5,      // seconds between the opening cheers
+    shoutGap: 1.2,               // seconds of silence after anyone's line before the next brawl line (nobody talks over anyone)
     // Fighters don't walk (or leap) into each other: each has a radius from their own build (half their
     // widest part, x their scale) plus this gap, and stays out of the others' (and knocked-down bodies')
     separation: 0.08,
