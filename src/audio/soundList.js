@@ -69,6 +69,7 @@ export const SOUNDS = {
   // ---- Things falling over ----
   prop_metal: { group: 'Things falling', where: 'A chair landing or hitting something (a metal clatter). Louder for harder impacts.' },
   prop_paper: { group: 'Things falling', where: 'A magazine or the clipboard landing (a paper slap).' },
+  debris: { group: 'Things falling', where: 'A small thing landing or hitting something: the bat, the radio, the keyboard, the gamer\'s can and chips, hats, glasses... (lighter than config.physics.impact.debrisBelow kg; heavier things: prop_thud).' },
   prop_thud: { group: 'Things falling', where: 'Anything else landing or hitting something: briefcase, umbrella, plant, water bottle, radio, the gamer\'s can... (a thud; louder for harder impacts).' },
 };
 

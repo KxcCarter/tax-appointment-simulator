@@ -18,8 +18,15 @@
   Directing a line: DIRECTIONS below (what's sent instead of the text, e.g. with eleven_v3 audio tags,
   and other settings). The text on screen stays as written. Every request sent is kept in
   src/audio/voice/<who>/sent.json; change a line's direction and the next run records it again.
+
+  The owner's own recordings are never replaced or deleted (owner's rule), not even with --force, --only
+  or --prune. Only files this script made can be: each one it writes is fingerprinted in
+  src/audio/voice/<who>/made.json, and a file that isn't listed there, or has changed since (re-recorded or
+  edited by hand), is the owner's and is kept. Whole characters whose recordings are all the owner's:
+  OWNER_VOICES (for them, only lines with no recording at all are generated).
 */
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +34,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry'), FORCE = args.includes('--force'), PRUNE = args.includes('--prune');
 const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
+
+// Characters whose recordings the owner made or replaced by hand: never regenerated or pruned
+const OWNER_VOICES = ['receptionist', 'reader'];
 
 // ---- Who has a voice ----
 export const VOICES = {
@@ -221,7 +231,15 @@ for (const [who, set] of Object.entries(found)) {
   // A line's direction changed since it was recorded (lines from before sent.json: only if directed)
   const directed = (t) => !!DIRECTIONS[who]?.[t] || (who !== 'receptionist' && !!BRAWL_LINES[who]?.has(t));
   const changed = (t) => JSON.stringify(sent[t] ?? (directed(t) ? null : requestFor(who, t))) !== JSON.stringify(requestFor(who, t));
-  const todo = lines.filter((t) => (ONLY ? t.includes(ONLY) : FORCE || !manifest[t] || !fs.existsSync(path.join(dir, manifest[t])) || changed(t)));
+  // Fingerprints of the files this script made: anything else (or changed since) is the owner's
+  const madeFile = path.join(dir, 'made.json');
+  const made = readJson(madeFile);
+  const hash = (file) => crypto.createHash('sha1').update(fs.readFileSync(path.join(dir, file))).digest('hex');
+  const has = (t) => manifest[t] && fs.existsSync(path.join(dir, manifest[t]));
+  const owners = (t) => has(t) && (OWNER_VOICES.includes(who) || made[manifest[t]] !== hash(manifest[t]));
+  const kept = lines.filter((t) => owners(t) && (FORCE || ONLY ? (!ONLY || t.includes(ONLY)) : changed(t)));
+  const todo = lines.filter((t) => !owners(t) && (ONLY ? t.includes(ONLY) : FORCE || !has(t) || changed(t)));
+  if (kept.length) console.log(`  (${who}: ${kept.length} of your own recording(s) kept, not regenerated)`);
   const chars = todo.reduce((n, t) => n + requestFor(who, t).text.length, 0);
   const recorded = lines.filter((t) => manifest[t] && fs.existsSync(path.join(dir, manifest[t]))).length;
   console.log(`\n${who}: ${lines.length} lines, ${recorded} recorded, ${todo.length} to generate (${chars} characters)`);
@@ -241,12 +259,14 @@ for (const [who, set] of Object.entries(found)) {
     if (!file) {
       const base = slug(text);
       file = `${base}.mp3`;
-      for (let i = 2; used.has(file); i++) file = `${base}_${i}.mp3`;
+      for (let i = 2; used.has(file) || fs.existsSync(path.join(dir, file)); i++) file = `${base}_${i}.mp3`; // (never over a file that's there)
       used.add(file);
     }
     const body = requestFor(who, text);
     const audio = await tts(VOICES[who].voiceId, body, key);
     fs.writeFileSync(path.join(dir, file), audio);
+    made[file] = hash(file);
+    fs.writeFileSync(madeFile, JSON.stringify(made, null, 2) + '\n');
     manifest[text] = file;
     sent[text] = body;
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n'); // (after each, so a failure keeps what's done)
@@ -259,8 +279,9 @@ for (const [who, set] of Object.entries(found)) {
     console.log(`  ${stale.length} recording(s) of lines no longer in the game:`);
     for (const t of stale) {
       console.log(`    ${manifest[t]}  ${t}`);
-      if (PRUNE) { fs.rmSync(path.join(dir, manifest[t]), { force: true }); delete manifest[t]; }
+      if (PRUNE && owners(t)) { console.log('      (yours: kept)'); continue; }
+      if (PRUNE) { fs.rmSync(path.join(dir, manifest[t]), { force: true }); delete made[manifest[t]]; delete manifest[t]; }
     }
-    if (PRUNE) fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n');
+    if (PRUNE) { fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n'); fs.writeFileSync(madeFile, JSON.stringify(made, null, 2) + '\n'); }
   }
 }

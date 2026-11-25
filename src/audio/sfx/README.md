@@ -81,7 +81,8 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 |---|---|
 | `prop_metal` | A chair landing or hitting something (a metal clatter). Louder for harder impacts. |
 | `prop_paper` | A magazine or the clipboard landing (a paper slap). |
-| `prop_thud` | Anything else landing or hitting something: briefcase, umbrella, plant, water bottle, radio, the gamer's can... (a thud; louder for harder impacts). |
+| `debris` | A small thing landing or hitting something: the bat, the radio, the keyboard, the gamer's can and chips, hats, glasses... (anything under `config.physics.impact.debrisBelow` kg; no file: `prop_thud`). |
+| `prop_thud` | Anything heavier landing or hitting something: briefcase, plant, water bottle, umbrella stand, fire extinguisher... (a thud; louder for harder impacts). |
 
 ## Already files (not here)
 
@@ -90,4 +91,4 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 
 ## Generated
 
-`npm run sfxgen` (`scripts/sfxgen.mjs`) makes sounds with ElevenLabs from the prompts in that script: three takes each, trimmed and brought to the same level. So far: `hit_punch`, `hit_slap`, `hit_kick`, `swing_bat`, `hit_bat`, `hit_chair`. Delete a take you don't like and run it again for a new one.
+`npm run sfxgen` (`scripts/sfxgen.mjs`) makes sounds with ElevenLabs from the prompts in that script: three takes each, trimmed and brought to the same level. So far: `hit_punch`, `hit_slap`, `hit_kick`, `swing_bat`, `hit_bat`, `hit_chair`. Delete a take you don't like and run it again for a new one. The script only ever touches the files it made itself (listed in `generated.json`): your own recordings in this folder are never regenerated, normalised or deleted, even with `--force`.

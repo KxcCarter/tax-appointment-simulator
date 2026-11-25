@@ -10,7 +10,7 @@ import { SOUNDS, soundNameOf } from '../src/audio/soundList.js';
 const dir = fileURLToPath(new URL('../src/audio/sfx/', import.meta.url));
 const AUDIO = /\.(mp3|wav|ogg|m4a|flac)$/i;
 const files = readdirSync(dir).filter((f) => AUDIO.test(f));
-const others = readdirSync(dir).filter((f) => !AUDIO.test(f) && !f.startsWith('.') && f !== 'README.md');
+const others = readdirSync(dir).filter((f) => !AUDIO.test(f) && !f.startsWith('.') && f !== 'README.md' && f !== 'generated.json');
 
 // config.audio.sounds, read from config.js without running the game
 let modes = {};

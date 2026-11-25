@@ -630,6 +630,9 @@ export class Sfx {
    */
   propHit(position, strength = 0.5, kind = 'thud', mass = 2) {
     if (!this.ctx) return;
+    // Small things (the bat, radio, keyboard, can, hats...): the debris recordings, if there are any
+    const small = kind !== 'metal' && kind !== 'paper' && mass < config.physics.impact.debrisBelow;
+    if (small && this._play('debris', 0.15 + 0.6 * strength, position, A.hits)) return;
     if (this._play(kind === 'metal' ? 'prop_metal' : kind === 'paper' ? 'prop_paper' : 'prop_thud', 0.15 + 0.6 * strength, position, A.hits)) return;
     const t = this.ctx.currentTime;
     const out = this._out(0.15 + 0.6 * strength, position, A.hits);

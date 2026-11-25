@@ -15,7 +15,8 @@ export const config = {
     fixedStep: 1 / 60,
     maxSubSteps: 4,
     // Props landing / hitting things make a sound (physics.js onImpact; sounds in sfx.propHit)
-    impact: { speedDrop: 1.2, loudAt: 5, gapFrames: 8 },
+    // debrisBelow: props lighter than this (kg) that aren't chairs or paper land with the 'debris' sound
+    impact: { speedDrop: 1.2, loudAt: 5, gapFrames: 8, debrisBelow: 3 },
   },
 
   player: {

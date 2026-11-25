@@ -11,6 +11,10 @@
 
   The API key is read from .env.local (ELEVENLABS_API_KEY). Each version is a fresh take: if one is bad,
   delete its file and run this again (only missing files are made).
+
+  Files this script didn't make are never touched (owner's rule): not regenerated (even with --force or
+  --only), not normalised, not deleted. It keeps a list of the files it made in src/audio/sfx/generated.json;
+  anything else in the folder (your own recordings, e.g. hit_bat_1.wav) is yours.
   Files come back as WAV, with the silence before the sound trimmed off so it lands on the frame it's played
   (and MP3, untrimmed, if the account can't get raw audio).
 */
@@ -96,9 +100,15 @@ function toWav(pcm, rate = 44100) {
   return { wav: buf, seconds: out.length / rate, peakDb };
 }
 
-// --normalize: the WAVs already in the folder, to the same peak (no API calls)
+// The files this script made (only these may be overwritten, normalised or replaced)
+const MANIFEST = path.join(OUT, 'generated.json');
+const made = new Set(fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8')) : []);
+const mine = (file) => made.has(path.basename(file));
+const remember = (file) => { made.add(path.basename(file)); fs.writeFileSync(MANIFEST, JSON.stringify([...made].sort(), null, 2) + '\n'); };
+
+// --normalize: the WAVs this script made, to the same peak (no API calls)
 if (NORMALIZE) {
-  for (const f of fs.readdirSync(OUT).filter((f) => f.endsWith('.wav'))) {
+  for (const f of fs.readdirSync(OUT).filter((f) => f.endsWith('.wav') && mine(f))) {
     const b = fs.readFileSync(path.join(OUT, f));
     const d = b.indexOf('data');
     const pcm = b.subarray(d + 8, d + 8 + b.readUInt32LE(d + 4));
@@ -115,6 +125,7 @@ for (const [name, def] of Object.entries(SFX)) {
   if (ONLY && name !== ONLY) continue;
   for (let k = 1; k <= def.versions; k++) {
     const have = existing(name, k);
+    if (have && !mine(have)) { if (FORCE || ONLY) console.log(`  ${path.basename(have)}: yours, kept`); continue; }
     if (have && !FORCE && !ONLY) continue;
     if (DRY) { console.log(`  would make ${name}_${k}`); continue; }
     key ??= apiKey();
@@ -139,6 +150,7 @@ for (const [name, def] of Object.entries(SFX)) {
       fs.writeFileSync(path.join(OUT, file), await generate(def, key, 'mp3_44100_128'));
       console.log(`  ${file}`);
     }
-    if (have && have !== path.join(OUT, file)) fs.rmSync(have); // (replaced in the other format)
+    remember(file);
+    if (have && have !== path.join(OUT, file)) { fs.rmSync(have); made.delete(path.basename(have)); remember(file); } // (replaced in the other format)
   }
 }
