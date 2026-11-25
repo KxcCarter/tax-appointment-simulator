@@ -82,6 +82,14 @@ export const config = {
     // ?brawl in the URL still jumps straight to it, for testing. true turns the other triggers back on.
     enabled: false,
     receptionistQuipEvery: [5, 9], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
+    // Her, filming the brawl (owner): bouncing with excitement, and now and then moving to a better angle
+    // behind the counter (saying so: brawlShouts.receptionistMoving)
+    receptionist: {
+      bounce: 0.05,             // metres off the floor
+      bounceRate: 1.6,          // bounces a second
+      moveEvery: [6, 11],       // seconds at a spot before she tries another
+      spots: [[-4.1, -4.05], [-3.4, -4.15], [-2.5, -4.1], [-1.6, -4.05]], // behind the counter (x, z)
+    },
     placeholderDelay: 1,         // ?brawl (debug): seconds after the newcomer sits down before he fetches the clipboard
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
     playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:

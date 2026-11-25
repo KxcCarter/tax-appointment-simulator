@@ -23,7 +23,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // Props landing and hitting things are heard (Milestone 5: sound for everything)
   physics.onImpact = (pos, strength, object, mass) => sfx.propHit(pos, strength, object.userData.impactSound, mass);
   const A = room.anchors;
-  let receptionistQuip = 3, quipIndex = 0; // her remarks during the brawl
+  let receptionistQuip = 3, quipIndex = 0, movingIndex = 0; // her remarks during the brawl
   let calledBrawlTimer = null; // after his number is called: the brawl starts (set from the director's events)
   let smashWanted = false;     // the argument is over: the newcomer goes for the clipboard
   let lastLine = null;         // the director's line being typed (who's talking, for the newcomer)
@@ -813,7 +813,16 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       npcThrows.update(dt);
       // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended) {
-        receptionist.play('filmPlayer'); // (already filming: nothing happens)
+        // Bouncing with excitement; now and then off to a better angle, saying so
+        if (receptionist.filmBrawl(dt)) {
+          const M = brawlShouts.receptionistMoving;
+          const text = M[movingIndex] ?? M[Math.floor(Math.random() * M.length)];
+          movingIndex++;
+          if (!onlookerTalk.active) {
+            onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text }]);
+            receptionistQuip = Math.max(receptionistQuip, 3); // (not straight into another remark)
+          }
+        }
         receptionistQuip -= dt;
         if (receptionistQuip <= 0 && !onlookerTalk.active) {
           const Q = config.brawl.receptionistQuipEvery;

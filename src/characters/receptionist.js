@@ -179,6 +179,32 @@ export class Receptionist {
     });
   }
 
+  /**
+   * The brawl (every frame): filming it, bouncing with excitement, and now and then walking (still
+   * filming) to a better spot behind the counter. Returns true when she sets off (the level has her
+   * say something about it).
+   */
+  filmBrawl(dt) {
+    const R = config.brawl.receptionist;
+    if (!this.filming) { this._filmPlayer(); return false; }
+    const F = this.filming, step = this.walker.current;
+    if (!F.excited) { F.excited = true; F.film.pose = 'filmBounce'; F.film.rate = R.bounceRate / 2; this.moveT = R.moveEvery[0]; }
+    if (step !== F.film) return false; // (still getting her phone out, or on her way)
+    this.moveT = (this.moveT ?? R.moveEvery[0]) - dt;
+    if (this.moveT > 0) return false;
+    this.moveT = R.moveEvery[0] + Math.random() * (R.moveEvery[1] - R.moveEvery[0]);
+    // Somewhere else along the counter (not where she is)
+    const here = this.walker.pos;
+    const spots = R.spots.map(([x, z]) => new THREE.Vector3(x, 0, z)).filter((p) => p.distanceTo(here) > 0.5);
+    const to = spots[Math.floor(Math.random() * spots.length)];
+    if (!to) return false;
+    const target = () => (this.cameraPos ? this.cameraPos.clone() : this.rig.root.position.clone());
+    const film = { type: 'hold', seconds: Infinity, pose: 'filmBounce', rate: R.bounceRate / 2, target, until: () => false };
+    F.film = film;
+    this.walker.start([{ type: 'walk', to, pose: 'film', look: target, phone: true, pushThrough: true }, film]);
+    return true;
+  }
+
   /** Called by the director's 'anim' action. */
   play(name) {
     // An expression set by the script ({ do: 'face' }) wins over the one each animation would pick
@@ -246,10 +272,10 @@ export class Receptionist {
       if (this.cupInHand) this.cup.position.copy(this._leftHand());
       // Her phone: out of the pocket at the end of reaching for it, then held up at the player
       const F = this.filming, step = this.walker.current;
-      this.phone.visible = !!F && (step === F.film || (step === F.pocket && this.walker.t > config.timings.reception.phoneOut * 0.6));
+      this.phone.visible = !!F && (step === F.film || step?.phone || (step === F.pocket && this.walker.t > config.timings.reception.phoneOut * 0.6));
       if (this.phone.visible) {
         this.phone.position.copy(this._rightHand()).add(this._leftHand()).multiplyScalar(0.5);
-        if (step === F.film) this.phone.position.y += 0.05;
+        if (step === F.film || step?.phone) this.phone.position.y += 0.05;
         this.phone.lookAt(this.cameraPos);
       }
       return;

@@ -617,7 +617,7 @@ export const onlookers: Scene = {
   joins in. `opening` plays first, in order, one person each; after that, people on the
   sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
 */
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -650,6 +650,15 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Oo, get him!',
     'Ouch!',
     "Mmhmm, that's what you get!",
+  ],
+  // The receptionist, moving to a better spot behind the counter, still filming (the first two are the
+  // owner's; in order, then at random)
+  receptionistMoving: [
+    'Ooo, this is a good angle.',
+    'Let me see some of that action!',
+    'Hold on, hold on, I gotta get this.',      // PROPOSAL
+    'Mmm, from over here. Yes.',                // PROPOSAL
+    "Y'all are going viral.",                   // PROPOSAL
   ],
   // Someone hit by a thing one of the others threw at the player (PROPOSAL; config.brawl.throwing.friendlyFire)
   friendlyFire: [

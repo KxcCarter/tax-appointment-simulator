@@ -8,7 +8,8 @@ import { solveTwoBone, aimJoint } from './rig.js';
 
   A walk is a list of steps, run in order:
     { type: 'rise' }                          stand up from the chair (startT: begin part-way)
-    { type: 'walk', to, glare? }              walk to a floor point; to = Vector3 or 'front' (in front of the chair)
+    { type: 'walk', to, glare?, look?, pose? } walk to a floor point; to = Vector3 or 'front' (in front of the chair);
+                                              look() = where to look; pose = hands held in that pose (e.g. 'film')
     { type: 'face', yaw } / { type: 'turn', yaw }  turn on the spot; yaw = radians or 'chair'
     { type: 'reach', target(), onReach() }    bend and reach with the right hand; onReach at contact
     { type: 'away', seconds, onAway(), onBack() }  out of sight (e.g. through a door) for a while
@@ -110,6 +111,8 @@ const ATTACK_POSES = {
   // The receptionist's phone: hand to her hip pocket, then held up in front of her face, filming
   pocket: () => ({ l: V(0.22, 0.95, 0.12), r: V(-0.34, 0.92, 0.02), lean: 0.04 }),
   film: (u) => ({ l: V(0.07, 1.5, 0.55), r: V(-0.07, 1.52 + 0.01 * Math.sin(u * Math.PI * 2), 0.56), lean: -0.03 }),
+  // ...the same, bouncing with excitement (the brawl: config.brawl.receptionist.bounce)
+  filmBounce: (u) => ({ ...ATTACK_POSES.film(u), hop: config.brawl.receptionist.bounce * Math.abs(Math.sin(u * TAU)), drop: 0.02 }),
   radio: (u, R = GUARD) => ({
     l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
     r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),
@@ -271,6 +274,9 @@ export class Walker {
         break;
       case 'walk':
         if (S.glare) look = camera.position.clone();
+        if (S.look) look = S.look();
+        // (a pose while walking: her phone held up, filming as she goes)
+        if (S.pose) pose = ATTACK_POSES[S.pose]((this.t * 1.6) % 1);
         // pushThrough: don't wait for the player to get out of the way
         if (walkTowards(S.to === 'front' ? this.front : S.to, S.pushThrough)) this._next();
         else if (!S.detour) watchStuck(S.to === 'front' ? this.front : S.to);
@@ -340,7 +346,7 @@ export class Walker {
         }
         // 'stance': their fighting stance (config.brawl.stances), bouncing from foot to foot
         if (S.pose === 'stance') pose = STANCES[h.stance?.() ?? 'karate'](((this.t / this.speedMul) * config.brawl.bounceRate + (this.bouncePhase ??= Math.random())) % 1);
-        else if (S.pose) pose = ATTACK_POSES[S.pose](S.poseAt ?? ((this.t / this.speedMul) * 1.6) % 1);
+        else if (S.pose) pose = ATTACK_POSES[S.pose](S.poseAt ?? ((this.t / this.speedMul) * (S.rate ?? 1.6)) % 1);
         if (S.expression) expressionOverride ??= S.expression;
         if (this.t / this.speedMul >= S.seconds || S.until?.()) this._next();
         break;
