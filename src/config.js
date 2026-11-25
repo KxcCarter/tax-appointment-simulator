@@ -383,6 +383,18 @@ export const config = {
         neck: 0.075,
         mitten: { w: 0.07, h: 0.1, d: 0.045 }, // mitten hands instead of balls
       },
+      // More lifelike (characters/partShapes.js): a smaller head, a thicker neck, slimmer limbs that the
+      // muscle shapes fill out, real hands (w = thickness, h = wrist to fingertip, d = across) and longer shoes
+      natural: {
+        head: { w: 0.235, h: 0.28, d: 0.255 },
+        neck: 0.06,
+        mitten: { w: 0.03, h: 0.15, d: 0.072 },
+        upperArm: { len: 0.3, thick: 0.108 },
+        lowerArm: { len: 0.27, thick: 0.092 },
+        upperLeg: { len: 0.42, thick: 0.165 },
+        lowerLeg: { len: 0.4, thick: 0.13 },
+        foot: { w: 0.1, h: 0.075, l: 0.27 },
+      },
       // MOCKUP: organic shapes (egg head with a jaw, chest and waist, hips, tapering limbs)
       sculpted: {
         head: { w: 0.245, h: 0.3, d: 0.265 },

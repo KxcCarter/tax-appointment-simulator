@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
-import { partGeometry, faceZ, roundGlasses, isFigure } from './partShapes.js';
+import { partGeometry, faceZ, roundGlasses, isFigure, isNatural, torsoFront, headShell } from './partShapes.js';
 import { Face } from './face.js';
 
 /*
@@ -64,7 +64,20 @@ export function buildRig(look = {}) {
   parts.pelvis = part(pelvis, 'pelvis', P.pelvis.w, P.pelvis.h, P.pelvis.d, col.trousers, 0, 'pelvisMesh');
 
   const spine = joint(pelvis, 0, P.pelvis.h / 2, 0, 'spine');
-  parts.torso = part(spine, 'torso', P.torso.w, P.torso.h, P.torso.d, col.jacket, P.torso.h / 2, 'torsoMesh');
+  const natural = isNatural(style);
+  // 'natural': the waist reaches down into the pelvis, so bending at the spine shows no gap
+  const tuck = natural ? 0.05 : 0;
+  parts.torso = part(spine, 'torso', P.torso.w, P.torso.h + tuck, P.torso.d, col.jacket, (P.torso.h - tuck) / 2, 'torsoMesh');
+  if (natural && !look.legUpper) {
+    // A belt at the waistband, with a buckle (trousers only)
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.032, 32), theme.material('beltLeather'));
+    belt.scale.set(P.pelvis.w * 0.96, 1, P.pelvis.d * 0.98);
+    belt.position.y = P.pelvis.h / 2 - 0.022;
+    pelvis.add(belt);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.03, 0.01), theme.material('beltBuckle'));
+    buckle.position.set(0, P.pelvis.h / 2 - 0.022, P.pelvis.d * 0.49);
+    pelvis.add(buckle);
+  }
   if (P.belly) {
     // A rounded belly on the lower front of the torso
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m(col.jacket));
@@ -76,8 +89,10 @@ export function buildRig(look = {}) {
   if (P.bust) {
     for (const side of [1, -1]) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(P.bust.r, 20, 14), m(col.jacket));
-      b.scale.set(1, 0.92, 0.85);
-      b.position.set(side * P.bust.spacing, P.bust.y, P.torso.d / 2 - P.bust.r + P.bust.forward);
+      // 'natural': softer, set lower into the chest
+      const soft = isNatural(style);
+      b.scale.set(soft ? 1.1 : 1, soft ? 0.88 : 0.92, soft ? 0.62 : 0.85);
+      b.position.set(side * P.bust.spacing * (soft ? 1.05 : 1), P.bust.y - (soft ? 0.015 : 0), P.torso.d / 2 - P.bust.r + P.bust.forward * (soft ? 0.55 : 1));
       spine.add(b);
     }
   }
@@ -104,16 +119,29 @@ export function buildRig(look = {}) {
 
   const armY = P.torso.h - P.upperArm.thick / 2;
   const armX = P.torso.w / 2 + P.upperArm.thick / 2 - P.shoulderInset;
+  // 'natural': trousers hang straight (stockings, look.legLower, show the calf)
+  const legCut = natural && look.legLower === undefined ? 'Trousers' : '';
   const limb = (parent, x, y, upper, lower, upperColor, lowerColor, side, kind) => {
     const a = joint(parent, x, y, 0, side + (kind === 'arm' ? 'Shoulder' : 'Hip'));
-    part(a, 'upper' + (kind === 'arm' ? 'Arm' : 'Leg'), upper.thick, upper.len, upper.thick, upperColor, -upper.len / 2, side + 'Upper' + kind);
+    // 'natural': the thigh reaches up into the hips, so there's no dip where the leg starts
+    const reach = natural && kind === 'leg' ? upper.thick * 0.45 : 0;
+    part(a, 'upper' + (kind === 'arm' ? 'Arm' : 'Leg' + legCut), upper.thick, upper.len + reach, upper.thick, upperColor, -(upper.len - reach) / 2, side + 'Upper' + kind);
+    if (natural && kind === 'arm') {
+      // A rounded shoulder (deltoid) joining the arm to the torso
+      // (flattened, and reaching in over the top of the torso: a slope, not a shoulder pad)
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 14), m(upperColor));
+      cap.scale.set(upper.thick * 1.45, upper.thick * 0.78, upper.thick * 1.02);
+      cap.position.set((side === 'l' ? -1 : 1) * upper.thick * 0.42, upper.thick * 0.02, 0);
+      a.add(cap);
+    }
     const b = joint(a, 0, -upper.len, 0, side + (kind === 'arm' ? 'Elbow' : 'Knee'));
-    part(b, 'lower' + (kind === 'arm' ? 'Arm' : 'Leg'), lower.thick, lower.len, lower.thick, lowerColor, -lower.len / 2, side + 'Lower' + kind);
+    part(b, 'lower' + (kind === 'arm' ? 'Arm' : 'Leg' + legCut), lower.thick, lower.len, lower.thick, lowerColor, -lower.len / 2, side + 'Lower' + kind);
     let end;
     if (kind === 'arm') {
       if (P.mitten) {
         end = new THREE.Mesh(partGeometry(style, 'hand', P.mitten.w, P.mitten.h, P.mitten.d), m(col.skin));
         end.position.y = -lower.len - P.mitten.h * 0.45;
+        if (natural && side === 'r') end.scale.x = -1; // mirrored: the palm faces the body, the thumb is in front
       } else {
         end = new THREE.Mesh(new THREE.SphereGeometry(P.hand, 12, 10), m(col.skin));
         end.position.y = -lower.len - P.hand * 0.6;
@@ -135,11 +163,12 @@ export function buildRig(look = {}) {
     watch = new THREE.Group();
     watch.position.set(0, -P.lowerArm.len * 0.86, 0);
     lArm.lower.add(watch);
-    const strap = new THREE.Mesh(new THREE.CylinderGeometry(P.lowerArm.thick / 2 + 0.006, P.lowerArm.thick / 2 + 0.006, 0.022, 16), theme.material('watchStrap'));
+    const wrist = (P.lowerArm.thick / 2) * (natural ? 0.68 : 1); // 'natural' forearms narrow to the wrist
+    const strap = new THREE.Mesh(new THREE.CylinderGeometry(wrist + 0.005, wrist + 0.005, 0.02, 16), theme.material('watchStrap'));
     watch.add(strap);
     const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.008, 16), theme.material('watchFace'));
     dial.rotation.z = Math.PI / 2;
-    dial.position.x = P.lowerArm.thick / 2 + 0.008;
+    dial.position.x = wrist + 0.007;
     watch.add(dial);
   }
   // Legs: trousers by default; a skirt + stockings look via legUpper / legLower
@@ -149,12 +178,25 @@ export function buildRig(look = {}) {
 
   // Shirt front / tie on the chest. On the round 'soft' torso the front is curved, so sit them a bit proud.
   const chestZ = P.torso.d / 2 + (style === 'soft' ? 0.012 : 0.004);
-  if (look.shirt !== undefined && look.jacket !== undefined && look.shirt !== look.jacket) {
+  // 'natural': the shirt front and tie follow the chest (patches of the torso's own surface)
+  const front = (y0, y1, halfAngle, grow, color, vee = 0) => {
+    const H = P.torso.h + tuck, cy = (P.torso.h - tuck) / 2;
+    // (two-sided: at the top edge you look in under the patch, which would show its shadow)
+    const mesh = new THREE.Mesh(torsoFront(P.torso.w, H, P.torso.d, { y0: (y0 - cy) / H, y1: (y1 - cy) / H, halfAngle, grow, vee }), m(color, { side: THREE.DoubleSide }));
+    mesh.position.y = cy;
+    spine.add(mesh);
+    return mesh;
+  };
+  const shirtFront = look.shirt !== undefined && look.jacket !== undefined && look.shirt !== look.jacket;
+  // (under a jacket: a V-shaped opening, narrowing to a point)
+  if (natural && shirtFront) front(P.torso.h * 0.42, P.torso.h * 0.93, 0.42, 1.014, look.shirt, 0.92);
+  if (natural && look.tie !== undefined) front(P.torso.h * 0.36, P.torso.h * 0.92, 0.11, 1.03, look.tie);
+  if (!natural && shirtFront) {
     const bib = new THREE.Mesh(partGeometry(style, 'trim', P.torso.w * 0.32, P.torso.h * 0.55, 0.012), m(look.shirt));
     bib.position.set(0, P.torso.h * 0.68, chestZ - (style === 'soft' ? 0.02 : 0));
     spine.add(bib);
   }
-  if (look.tie !== undefined) {
+  if (!natural && look.tie !== undefined) {
     const tie = new THREE.Mesh(new THREE.BoxGeometry(0.05, P.torso.h * 0.5, 0.012), m(look.tie));
     tie.position.set(0, P.torso.h * 0.66, chestZ + 0.006);
     spine.add(tie);
@@ -197,7 +239,7 @@ export function buildRig(look = {}) {
 function addFace(headPivot, look, H, style, m) {
   const cy = H.h / 2;                  // head centre height within the head pivot
   const front = (x, y) => faceZ(style, H, x, y - cy);
-  if (isFigure(style)) return addExpressiveFace(headPivot, look, H, front, m);
+  if (isFigure(style)) return addExpressiveFace(headPivot, look, H, front, m, style);
   const eyeY = H.h * 0.58, eyeX = 0.065;
   const round = style !== 'blocky';
 
@@ -243,8 +285,11 @@ function addFace(headPivot, look, H, style, m) {
 }
 
 /** 'figure' style: ears, a defined nose, and a Face with eyes, lids, brows and mouth. */
-function addExpressiveFace(headPivot, look, H, front, m) {
+function addExpressiveFace(headPivot, look, H, front, m, style) {
+  // Long hair on a 'natural' head covers the ears (and earrings)
+  const earsHidden = isNatural(style) && look.hairStyle === 'long';
   for (const side of [1, -1]) {
+    if (earsHidden) continue;
     const ear = new THREE.Mesh(partGeometry('figure', 'ear', 0.035, 0.07, 0.03), m(look.skin));
     ear.position.set(side * (H.w / 2 + 0.006), H.h * 0.5, -0.01);
     headPivot.add(ear);
@@ -295,7 +340,28 @@ function addExpressiveFace(headPivot, look, H, front, m) {
 function addHair(headPivot, look, H, style, m) {
   const hairMat = m(look.hair);
   if (look.hairStyle !== 'bald') {
-    if (isFigure(style)) {
+    if (isNatural(style)) {
+      // Fitted shells of the head's own shape: a cap down to the hairline, the back, above the ears.
+      // Two-sided, so hair is never see-through from below or from the inside of a long fall.
+      const hairBoth = m(look.hair, { side: THREE.DoubleSide });
+      const shell = (o) => {
+        const mesh = new THREE.Mesh(headShell(style, H.w, H.h, H.d, o), hairBoth);
+        mesh.position.y = H.h / 2;
+        headPivot.add(mesh);
+      };
+      const hs = look.hairStyle ?? 'short';
+      if (hs !== 'balding') shell({ y0: 0.3, grow: 1.1 });                            // top, hairline above the brows
+      if (hs === 'long') {
+        // Past the shoulders at the back, down past the chin at the sides, framing the face
+        shell({ y0: -1.15, y1: 0.38, center: Math.PI, half: 1.0, grow: 1.12, hang: -0.1 });  // down her back
+        shell({ y0: -0.6, y1: 0.36, center: Math.PI, half: 2.45, grow: 1.14, hang: -0.1 });  // over the ears, to the jaw
+      } else if (hs === 'bob') {
+        shell({ y0: -0.22, y1: 0.36, center: Math.PI, half: 1.95, grow: 1.12 });     // chin-length, framing the face
+      } else {
+        shell({ y0: -0.2, y1: 0.36, center: Math.PI, half: 1.3, grow: 1.08 });      // the back, down to the nape
+        shell({ y0: 0.06, y1: 0.36, center: Math.PI, half: 2.05, grow: 1.07 });     // the sides, above the ears
+      }
+    } else if (isFigure(style)) {
       // Hair follows the head: rounded pieces sized just outside it (no clipping),
       // with a clean hairline above the brows and fuller at the back and sides.
       const piece = (w, h, d, x, y, z) => {
@@ -304,7 +370,7 @@ function addHair(headPivot, look, H, style, m) {
         headPivot.add(mesh);
       };
       const g = 0.016; // gap outside the head
-      const hs = look.hairStyle ?? 'short';
+      const hs = look.hairStyle === 'long' ? 'bob' : look.hairStyle ?? 'short'; // (long hair: 'natural' only)
       // 'balding': no top, just a horseshoe at the back and sides
       if (hs !== 'balding') piece(H.w + 2 * g, H.h * 0.24, H.d + 2 * g, 0, H.h * 0.93, 0);   // top, hairline at ~0.81
       if (hs === 'bob') {
@@ -347,7 +413,7 @@ function addHair(headPivot, look, H, style, m) {
   }
   if (look.hairStyle === 'bun') {
     const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), hairMat);
-    bun.position.set(0, H.h + (style === 'soft' ? 0.06 : 0.1), -0.06);
+    bun.position.set(0, H.h + (style === 'soft' ? 0.06 : isNatural(style) ? 0.03 : 0.1), isNatural(style) ? -0.07 : -0.06);
     headPivot.add(bun);
   }
   if (look.hat === 'fedora' || look.hat === 'cap') {
@@ -365,6 +431,14 @@ function addHair(headPivot, look, H, style, m) {
         band.position.y = top + 0.042;
         headPivot.add(band);
       }
+    } else if (isNatural(style)) {
+      // A fitted cap: a shell over the top of the head, and a peak at the front
+      const crown = new THREE.Mesh(headShell(style, H.w, H.h, H.d, { y0: 0.2, grow: 1.16 }), hatMat);
+      crown.position.y = H.h / 2;
+      const peak = new THREE.Mesh(partGeometry(style, 'trim', H.w * 0.78, 0.016, 0.11), hatMat);
+      peak.position.set(0, H.h * 0.8, H.d / 2 + 0.04);
+      peak.rotation.x = -0.12;
+      headPivot.add(crown, peak);
     } else {
       const crown = new THREE.Mesh(partGeometry(style, 'trim', H.w + 0.04, 0.09, H.d + 0.04), hatMat);
       crown.position.y = top + 0.05;

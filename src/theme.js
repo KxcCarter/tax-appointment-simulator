@@ -78,6 +78,8 @@ export const palette = {
   corridor: 0x8a8470,            // the building corridor outside the entrance
   corridorFloor: 0x4a4038,
   coffeeCup: 0xf4f1e8,
+  beltLeather: 0x2e2118,         // the 'natural' character style's belts
+  beltBuckle: 0xb8a060,
   phoneBody: 0x1c1c20,           // the receptionist's cellphone
   phoneScreen: 0x9ec8e8,
   playerSkin: 0xd9a582,          // the player's fists
@@ -178,8 +180,8 @@ export const characterPalettes = {
       scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
       jacket: 0xb8a47a, shirt: 0xe8e2cf, tie: 0x2d4a6a, trousers: 0x4a4a48, shoes: 0x3b2a1a, glasses: 0x1b1a18,
     },
-    sitter: {         // woman: mustard jacket, pencil skirt and stockings, ponytail, perfectly still
-      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'ponytail', eyes: 0x3b2a1a, lips: 0xa8303a,
+    sitter: {         // woman: mustard jacket, pencil skirt and stockings, long hair, perfectly still
+      scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'long', eyes: 0x3b2a1a, lips: 0xa8303a,
       jacket: 0xa8822a, shirt: 0xd8a8a0, trousers: 0x3b3b38, shoes: 0x7a1a22,
       legUpper: 0x3b3b38,   // skirt colour on the thighs...
       legLower: 0x6a4a3a,   // ...and stockings below the knee
@@ -205,7 +207,7 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 export const look = {
   materialStyle: 'lambert',     // 'lambert' | 'toon'
-  characterStyle: 'figure',     // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' (see characters/partShapes.js)
+  characterStyle: 'natural',    // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' | 'sculpted' | 'natural' (see characters/partShapes.js)
   toonSteps: [90, 170, 255],    // gradient for 'toon'
   background: 0x1a1612,
   fog: null,                    // e.g. { color: 0x1a1612, near: 8, far: 30 }
