@@ -1,0 +1,121 @@
+{
+  "Unbelievable.": {
+    "text": "[angry] [shouting] Unbelievable.",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Yeah! Get that jerk!": {
+    "text": "[angry] [shouting] Yeah! Get that jerk!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Smash his face in!": {
+    "text": "[angry] [shouting] Smash his face in!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Teach that creep a lesson!": {
+    "text": "[angry] [shouting] Teach that creep a lesson!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "I was here first!": {
+    "text": "[angry] [shouting] I was here first!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "I've been here since nine!": {
+    "text": "[angry] [shouting] I've been here since nine!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "He's back.": {
+    "text": "[angry] [shouting] He's back.",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Oh, here we go.": {
+    "text": "[angry] [shouting] Oh, here we go.",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Get him!": {
+    "text": "[angry] [shouting] Get him!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Learn to tell time, idiot.": {
+    "text": "[angry] [shouting] Learn to tell time, idiot.",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "You think you're too good to wait in line?": {
+    "text": "[angry] [shouting] You think you're too good to wait in line?",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Oh, looks like this guy thinks he's something special!": {
+    "text": "[angry] [shouting] Oh, looks like this guy thinks he's something special!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Wait your turn!": {
+    "text": "[angry] [shouting] Wait your turn!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Hey!": {
+    "text": "[angry] [shouting] Hey!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Watch it!": {
+    "text": "[angry] [shouting] Watch it!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Whose side are you on?": {
+    "text": "[angry] [shouting] Whose side are you on?",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Thanks a lot.": {
+    "text": "[angry] [shouting] Thanks a lot.",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  }
+}

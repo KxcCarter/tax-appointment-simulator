@@ -65,9 +65,20 @@ export const DIRECTIONS = {
   },
 };
 
+// ---- The brawl (owner): everything the waiting people shout in it, angry and energetic ----
+// (the receptionist's lines are left alone). A line in DIRECTIONS above still wins.
+// Which lines: brawlShouts in src/data/npcConversations.ts (opening, called, again, anytime,
+// friendlyFire, byPerson), plus BRAWL_ALSO.
+const BRAWL = { tags: '[angry] [shouting]', model: 'eleven_v3', settings: { stability: 0 } };
+const BRAWL_ALSO = ["The creep's trying to run away! Get him!!"]; // (the young man: the line that starts it)
+const BRAWL_LINES = {}; // who -> Set of lines (filled by collect)
+
 /** The request body for a line: its direction if it has one, else the voice's defaults. */
 function requestFor(who, text) {
-  const v = { ...DEFAULT_VOICE, ...VOICES[who] }, d = DIRECTIONS[who]?.[text] ?? {};
+  const v = { ...DEFAULT_VOICE, ...VOICES[who] };
+  const brawl = who !== 'receptionist' && BRAWL_LINES[who]?.has(text)
+    ? { say: `${BRAWL.tags} ${speakable(text)}`, model: BRAWL.model, settings: BRAWL.settings } : {};
+  const d = DIRECTIONS[who]?.[text] ?? brawl;
   return { text: d.say ?? speakable(text), model_id: d.model ?? v.model, voice_settings: d.settings ?? v.settings };
 }
 
@@ -156,7 +167,12 @@ async function collect() {
   // Brawl shouts go to whoever's standing (src/level/brawl.js), so everyone with a voice says them all
   for (const who of Object.keys(VOICES)) {
     if (who === 'receptionist') continue;
-    addText(who, [...B.opening, ...B.called, ...(B.again ?? []), ...B.anytime, ...B.friendlyFire, ...(B.byPerson?.[who] ?? [])]);
+    const shouts = [...B.opening, ...B.called, ...(B.again ?? []), ...B.anytime, ...B.friendlyFire, ...(B.byPerson?.[who] ?? [])];
+    // (a shout that's also said outside the brawl shares its recording: it's angry there too)
+    const shared = shouts.filter((t) => found[who].has(t));
+    if (shared.length) console.log(`  (${who}: also said outside the brawl, so angry there too: ${shared.join(' | ')})`);
+    BRAWL_LINES[who] = new Set([...shouts, ...BRAWL_ALSO.filter((t) => found[who].has(t))]);
+    addText(who, shouts);
     addText(who, convo.people?.[who]?.radioComplaints ?? []);
   }
   // The sitter, caught being looked at (config.npc.eyesUp)
@@ -203,14 +219,15 @@ for (const [who, set] of Object.entries(found)) {
   const sent = readJson(sentFile); // text -> the request its recording was made with
   const lines = [...set];
   // A line's direction changed since it was recorded (lines from before sent.json: only if directed)
-  const changed = (t) => JSON.stringify(sent[t] ?? (DIRECTIONS[who]?.[t] ? null : requestFor(who, t))) !== JSON.stringify(requestFor(who, t));
+  const directed = (t) => !!DIRECTIONS[who]?.[t] || (who !== 'receptionist' && !!BRAWL_LINES[who]?.has(t));
+  const changed = (t) => JSON.stringify(sent[t] ?? (directed(t) ? null : requestFor(who, t))) !== JSON.stringify(requestFor(who, t));
   const todo = lines.filter((t) => (ONLY ? t.includes(ONLY) : FORCE || !manifest[t] || !fs.existsSync(path.join(dir, manifest[t])) || changed(t)));
   const chars = todo.reduce((n, t) => n + requestFor(who, t).text.length, 0);
   const recorded = lines.filter((t) => manifest[t] && fs.existsSync(path.join(dir, manifest[t]))).length;
   console.log(`\n${who}: ${lines.length} lines, ${recorded} recorded, ${todo.length} to generate (${chars} characters)`);
   if (DRY) {
     for (const t of lines) {
-      const r = requestFor(who, t), dir = DIRECTIONS[who]?.[t];
+      const r = requestFor(who, t), dir = directed(t);
       console.log(`  ${todo.includes(t) ? '·' : '✓'} ${t}${r.text !== t ? `   [says: ${r.text}]` : ''}${dir ? `   (${r.model_id}, ${JSON.stringify(r.voice_settings)})` : ''}`);
     }
     continue;
