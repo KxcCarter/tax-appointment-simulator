@@ -107,15 +107,35 @@ export const config = {
     shoutEvery: [2.2, 4.5],      // seconds between shouts from the sidelines
     separation: 0.55,            // fighters don't get closer to each other than this
     bounds: { minX: -5.4, maxX: 5.4, minZ: -2.2, maxZ: 4.4 }, // where they stand (in front of the counter)
-    // Each person's moves (config.npc.attacks)
+    // Each person's moves (config.npc.attacks; a move listed twice comes up twice as often)
     moves: {
-      newcomer: ['punch', 'shove', 'combo'],
-      cougher: ['slap', 'shove'],
-      watchChecker: ['punch', 'shove'],
-      jiggler: ['punch', 'kick', 'combo'],
-      reader: ['slap', 'kick'],
-      sitter: ['slap', 'shove', 'punch', 'kick'],
-      default: ['punch', 'shove'],
+      newcomer: ['punch', 'chop', 'kick', 'roundhouse', 'combo'],
+      cougher: ['jab', 'jab', 'punch', 'boxCombo', 'kick'],   // a boxer; the kick is beneath him, but he'll do it
+      watchChecker: ['punch', 'chop', 'kick', 'shove'],
+      jiggler: ['punch', 'kick', 'roundhouse', 'chop', 'combo'],
+      reader: ['slap', 'kick', 'chop', 'roundhouse'],
+      sitter: ['slap', 'shove', 'punch', 'kick', 'roundhouse'],
+      default: ['punch', 'chop', 'kick', 'shove'],
+    },
+    // Fighting stances, while they wait their turn and wind up (characters/walker.js STANCES).
+    // They bounce lightly from foot to foot, `bounceRate` times a second.
+    stances: { cougher: 'boxing', default: 'karate' }, // the old man: an old-fashioned, fists-up boxing stance
+    bounceRate: 1.7,
+    cheerChance: 0.25,          // hanging back: cheering him on instead of in their stance
+    // Throwing things (owner): waiting their turn, someone fetches something and throws it at him.
+    // Never the bat (or anything else from the back room), the radio, or her keyboard.
+    throwing: {
+      chance: 0.35,             // each time someone hangs back
+      kinds: ['magazine', 'umbrella', 'plant', 'coolerBottle', 'briefcase', 'clipboard'], // (config.weapons names)
+      search: 5,                // metres: only things this close to them
+      from: [2.4, 3.4],         // metres from the player when they throw
+      speed: 8,                 // m/s across the room
+      spread: 0.35,             // metres of aim error
+      damageShare: 0.4,         // x the thing's weapon damage (config.weapons)
+      knockShare: 1.6,          // x its knock
+      hitRadius: 0.6,           // metres from the player's head-to-chest line
+      friendlyFire: true,       // a miss can hit one of the others instead (they'll take it personally)
+      friendlyRadius: 0.3,      // ...if it passes this close to their chest
     },
   },
 
@@ -162,6 +182,24 @@ export const config = {
       grip: [0, 0.02, 0], axis: [0, -1, 0], out: [0, -0.3, -1], at: [0.25, -0.25, -0.4] },
   },
 
+  // ---- Damage you can see (the brawl; src/characters/damage.js) ----
+  // Every blow that lands leaves a mark where it landed: on the head bruises, black eyes, cuts that bleed,
+  // a nosebleed, a split lip; on the body torn clothes and ripped-off sleeves. Colours: theme.js (bruise...).
+  damage: {
+    enabled: true,
+    headShare: 0.6,             // a blow with no exact spot (thrown things): the head this often, else the body
+    // Head blows in order (the 1st, 2nd, ...); after the list, 'random' picks from headRandom
+    headSequence: ['bruise', 'blackEye', 'cut', 'noseBleed', 'blackEye', 'lip', 'random'],
+    headRandom: ['bruise', 'cut', 'bruise', 'cut', 'lip'],
+    knockOffAt: 1.0,            // a blow this hard (knock) knocks a hat off, and crooked glasses
+    sleeveEvery: 3,             // every 3rd body blow tears a sleeve off (an arm hit always does)
+    tearSize: [0.03, 0.055],    // metres across, a hole in their clothes
+    bleedTime: [1.5, 3],        // seconds for blood to run down
+    healOnRetry: false,         // the player's failure loop: they're back in their seats "as if nothing
+                                // happened", still bruised (true: the marks go too; hats stay where they fell)
+    knuckles: 8,                // punches landed before the player's own knuckles are bloody (0: never)
+  },
+
   // ---- Ragdolls (knocked-down characters; src/characters/ragdoll.js) ----
   // Tuned for maximum comedic flop without limbs exploding.
   ragdoll: {
@@ -190,6 +228,22 @@ export const config = {
   newcomer: {
     delay: 2,                         // seconds after she's back at her desk
     seatPreference: [9, 4, 5, 7, 1],  // first free chair from this list (see waitingRoomCast.js)
+  },
+
+  // The gamer (owner's character): walks in at `at` seconds of play, doesn't take a ticket, sits, snacks.
+  // Looks: theme.characterPalettes.cast.gamer; build (and belly wobble): characters.builds.gamer.
+  gamer: {
+    at: 90,                           // seconds of play (pauses don't count); ?gamer=10 in the URL for testing
+    seatPreference: [7, 5, 4, 1, 9],  // first free chair from this list (7: wedged between the young man and the woman with the magazine)
+    // His walk: slower, a deeper bounce, a side-to-side waddle, feet and arms wide, heavy footsteps
+    gait: { speed: 0.7, bob: 2.6, waddle: 0.07, hipWidth: 1.9, shoulderWidth: 1.9, steps: -0.6 },
+    // In his chair: something from the bag, or a sip, every few seconds
+    snack: {
+      every: [3, 7],                  // seconds between snacks
+      chances: { chip: 0.62, sip: 0.3, tip: 0.08 }, // tip: the bag upended over his mouth, for the crumbs
+      bites: [1, 3],                  // chips per handful
+      burpChance: 0.3,                // after a sip
+    },
   },
 
   // The waiting people talking among themselves (overheard in src/data/npcConversations.ts)
@@ -295,6 +349,11 @@ export const config = {
       punch: { duration: 0.9, knock: 2.6, shake: 0.9, damage: 12, sound: 'punch' },
       kick: { duration: 1.1, knock: 3.8, shake: 1.0, damage: 15, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
+      chop: { duration: 0.95, knock: 1.8, shake: 0.9, damage: 11, sound: 'slap' },        // karate: a knife-hand chop from above
+      roundhouse: { duration: 1.25, knock: 4.4, shake: 1.2, damage: 16, sound: 'kick' },  // karate: a sweeping kick
+      jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'punch' },         // boxing: quick, straight, the lead hand
+      boxCombo: { duration: 1.9, sequence: ['jab', 'jab', 'punch'] },                     // boxing: jab, jab, cross
+      throw: { duration: 1.1, pose: 'radio', knock: 0, shake: 0, damage: 0, sound: 'whoosh' }, // (throwing: brawl.throwing)
       radio: { duration: 1.3, knock: 4.6, shake: 1.5, damage: 25, sound: 'radioHit' },
       shoveHard: { duration: 1.0, knock: 7.5, shake: 1.2, damage: 0, sound: 'shove', pose: 'shove' }, // the sitter's, in the argument: several feet
       clipboard: { duration: 1.4, knock: 3.6, shake: 1.6, damage: 18, sound: 'clipboard', pose: 'radio' }, // the newcomer's opener
@@ -311,7 +370,7 @@ export const config = {
     // health (config.brawl.health) runs out: 4 punches, or fewer with something heavy
     // Each time the player turns the radio off, she gets angrier: faster and faster
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
-    walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55 },
+    walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55, getUpTime: 1.6 },
   },
 
   // ---- The radio (owner's request) ----
@@ -319,6 +378,11 @@ export const config = {
     at: 60,                     // seconds of play (pauses don't count) before someone turns it on
     who: 'sitter',              // which waiting person gets up (id from src/data/waitingRoomCast.js);
                                 // the sitter is across the room, so it's a long walk
+    // Fighting her before the brawl (owner): she takes this many times the usual hits to go down...
+    toughness: 2,
+    // ...and if she does go down, she gets back up when the brawl starts and joins in
+    // (her radio-war knockdown then no longer counts towards the 4)
+    wakeForBrawl: true,
     // The song (src/audio/), bundled by Vite; loops until the accountant's door opens
     file: new URL('./audio/look_to_the_sky.mp3', import.meta.url).href,
     volume: 0.18,               // very, very soft: about 4-5 dB under the fluorescent hum
@@ -367,7 +431,7 @@ export const config = {
         curvy: true,                   // ('natural' style: the hourglass torso and pelvis, partShapes.js)
         pelvis: { w: 0.47, h: 0.2, d: 0.3 },
         torso: { w: 0.35, h: 0.48, d: 0.22 },
-        bust: { r: 0.1, spacing: 0.096, y: 0.325, forward: 0.06, depth: 0.82 }, // depth: how far it stands out from the chest
+        bust: { r: 0.08, spacing: 0.099, y: 0.275, forward: 0.08, depth: 0.82 }, // depth: how far it stands out from the chest
         head: { w: 0.24, h: 0.29, d: 0.26 },
         upperArm: { len: 0.29, thick: 0.095 },
         lowerArm: { len: 0.26, thick: 0.085 },
@@ -375,6 +439,26 @@ export const config = {
         lowerLeg: { len: 0.4, thick: 0.115 },
         hipSpacing: 0.12,
         shoulderInset: 0.02,
+      },
+      reader: {
+        bust: { r: 0.075, spacing: 0.078, y: 0.325, forward: 0.05, depth: 0.7 }, // depth: how far it stands out from the chest
+      },
+      gamer: {    // huge: wider and deeper than the receptionist, a belly that hangs out over his lap
+        pelvis: { w: 0.74, h: 0.24, d: 0.56 },
+        torso: { w: 0.8, h: 0.52, d: 0.6 },
+        belly: { w: 0.8, h: 0.5, d: 0.25, y: 0.13 },    // rounded front of the torso, low down, hanging over his belt
+        chest: { w: 0.7, h: 0.24, d: 0.1, y: 0.37 },
+        head: { w: 0.26, h: 0.29, d: 0.28 },
+        jowls: { w: 0.27, h: 0.1, d: 0.16 },
+        neck: 0.02,
+        upperArm: { len: 0.3, thick: 0.185 },
+        lowerArm: { len: 0.27, thick: 0.16 },
+        upperLeg: { len: 0.42, thick: 0.31 },
+        lowerLeg: { len: 0.4, thick: 0.22 },
+        hipSpacing: 0.2,
+        shoulderInset: 0.05,
+        // The wobble (rig.js makeJiggle): the belly bounces when he walks, sits down or gets hit
+        jiggle: { stiffness: 140, damping: 4.5, gain: 3, max: 0.07, squash: 2.5, parts: { belly: 1, chest: 0.6, jowls: 0.45 } },
       },
     },
     // Per-style changes to the proportions above (theme.look.characterStyle picks the style)
@@ -474,6 +558,8 @@ export const config = {
     stomp: { volume: 0.35, refDistance: 1.5, rolloff: 1.0 },
     hits: { volume: 0.7, refDistance: 1.5, rolloff: 1.0 },
     chairCreak: { volume: 0.35 },
+    // The gamer's snacking (all synthesised, positional: you hear it from his corner of the room)
+    snack: { volume: 0.4, refDistance: 1.0, rolloff: 1.4 },
   },
 
   debug: {

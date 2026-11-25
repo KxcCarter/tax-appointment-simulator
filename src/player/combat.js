@@ -188,8 +188,8 @@ export class Combat {
         p.hitDone = true;
         const K = C().combo;
         this._resolveHit(p.hook
-          ? { reach: C().punchReach, damage: C().punchDamage * K.damage, knock: K.knock, sound: 'kick' }
-          : { reach: C().punchReach, damage: C().punchDamage, knock: 1, sound: 'punch' });
+          ? { reach: C().punchReach, damage: C().punchDamage * K.damage, knock: K.knock, sound: 'kick', source: 'fist' }
+          : { reach: C().punchReach, damage: C().punchDamage, knock: 1, sound: 'punch', source: 'fist' });
       }
       if (u >= 1) { this.punch = null; this.cooldown = C().punchCooldown; }
     }
@@ -231,7 +231,7 @@ export class Combat {
     this.leg.rotation.set(-0.3 - 1.25 * out, 0, 0);
     if (!k.hitDone && u >= K.hitAt) {
       k.hitDone = true;
-      this._resolveHit({ reach: K.reach, damage: K.damage, knock: K.knock, sound: 'kick' }, -0.25);
+      this._resolveHit({ reach: K.reach, damage: K.damage, knock: K.knock, sound: 'kick', source: 'kick' }, -0.25);
     }
     if (u >= 1) { this.kick = null; this.cooldown = K.cooldown; }
   }
@@ -270,7 +270,7 @@ export class Combat {
         rot.copy(at[0].q).slerp(at[1].q, at[2]);
         shift.copy(at[0].p).lerp(at[1].p, at[2]);
       }
-      if (!s.hitDone && u >= 0.46) { s.hitDone = true; this._resolveHit(def); }
+      if (!s.hitDone && u >= 0.46) { s.hitDone = true; this._resolveHit({ ...def, source: 'weapon' }); }
       if (u >= 1) { this.swing = null; this.cooldown = 0.06; }
     }
     // Block: the weapon comes up across the view
@@ -314,7 +314,7 @@ export class Combat {
         const chest = target.rig.joints.spine.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.25, 0));
         if (chest.distanceTo(at) < WP().throwHitRadius) {
           t.hit.add(target);
-          target.takeHit(new THREE.Vector3(v.x, 0, v.z), { damage: t.def.damage * WP().throwDamage, knock: t.def.knock });
+          target.takeHit(new THREE.Vector3(v.x, 0, v.z), { damage: t.def.damage * WP().throwDamage, knock: t.def.knock, source: 'thrown' });
           this.sfx.hit(t.def.sound, chest);
           this.onHit(target);
         }
@@ -323,8 +323,24 @@ export class Combat {
     this.thrown = this.thrown.filter((t) => t.t < 2);
   }
 
+  /** Enough punches landed (config.damage.knuckles): the player's own knuckles are bloody. */
+  _knuckles() {
+    this.punchesLanded = (this.punchesLanded ?? 0) + 1;
+    const n = config.damage.knuckles;
+    if (!n || this.punchesLanded !== n) return;
+    for (const side of [1, -1]) {
+      const fist = this.fists[side].children[0];
+      for (const x of [-0.022, 0, 0.022]) {
+        const scuff = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 6), theme.material('knuckleBlood'));
+        scuff.scale.set(1.3, 0.8, 0.6);
+        scuff.position.set(x + (Math.random() - 0.5) * 0.008, 0.024, -0.044);
+        fist.add(scuff);
+      }
+    }
+  }
+
   /** Does a blow (fist or weapon) connect with someone under the crosshair? */
-  _resolveHit({ reach, damage, knock, sound }, aimY = 0) {
+  _resolveHit({ reach, damage, knock, sound, source }, aimY = 0) {
     const cam = this.camera;
     const list = this.targets();
     const roots = list.map((t) => t.rig.root);
@@ -348,7 +364,8 @@ export class Combat {
       this._wear();
       return;
     }
-    target.takeHit(dir, { damage, knock });
+    target.takeHit(dir, { damage, knock, hit, source });
+    if (source === 'fist') this._knuckles();
     this._wear();
     this.sfx.hit(sound, hit.point);
     this.player.shake = Math.max(this.player.shake, 0.25 + 0.1 * knock);

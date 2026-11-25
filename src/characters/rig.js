@@ -80,6 +80,7 @@ export function buildRig(look = {}) {
     buckle.position.set(0, P.pelvis.h / 2 - 0.022, P.pelvis.d * 0.49);
     pelvis.add(buckle);
   }
+  const wobbly = []; // parts that wobble (P.jiggle)
   if (P.belly) {
     // A rounded belly on the lower front of the torso
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), m(col.jacket));
@@ -87,6 +88,7 @@ export function buildRig(look = {}) {
     belly.position.set(0, P.belly.y, P.torso.d / 2 - P.belly.d * 0.35);
     belly.name = 'bellyMesh';
     spine.add(belly);
+    wobbly.push({ mesh: belly, part: 'belly' });
   }
   if (P.bust) {
     for (const side of [1, -1]) {
@@ -104,6 +106,7 @@ export function buildRig(look = {}) {
     chest.scale.set(P.chest.w, P.chest.h, P.chest.d * 2);
     chest.position.set(0, P.chest.y, P.torso.d / 2 - P.chest.d * 0.45);
     spine.add(chest);
+    wobbly.push({ mesh: chest, part: 'chest' });
   }
 
   const neck = joint(spine, 0, P.torso.h, 0, 'neck');
@@ -117,8 +120,28 @@ export function buildRig(look = {}) {
     jowls.scale.set(P.jowls.w, P.jowls.h, P.jowls.d);
     jowls.position.set(0, P.jowls.h * 0.15, P.head.d * 0.18);
     headPivot.add(jowls);
+    wobbly.push({ mesh: jowls, part: 'jowls' });
   }
   addHair(headPivot, look, P.head, style, m);
+  if (look.headset !== undefined) {
+    // Headphones round the neck (look.headset): the band behind the neck, the ear cups resting on the collarbones
+    const r = Math.max(0.1, P.jowls ? P.jowls.w * 0.48 : 0.08);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 8, 28, Math.PI), m(look.headset));
+    band.rotation.x = -Math.PI / 2;
+    band.position.y = 0.02;
+    neck.add(band);
+    for (const side of [1, -1]) {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.035, 18), m(look.headset));
+      cup.rotation.set(0, 0.5 * side, Math.PI / 2 + 0.35 * side);
+      cup.position.set(side * r, 0.0, 0.03);
+      neck.add(cup);
+      if (look.headsetCushion !== undefined) {
+        const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.012, 18), m(look.headsetCushion));
+        pad.position.y = -0.022 * side;
+        cup.add(pad);
+      }
+    }
+  }
 
   const armY = P.torso.h - P.upperArm.thick / 2;
   const armX = P.torso.w / 2 + P.upperArm.thick / 2 - P.shoulderInset;
@@ -203,7 +226,7 @@ export function buildRig(look = {}) {
   // (under a jacket: a V-shaped opening, narrowing to a point)
   if (natural && look.neckline === 'plunge') {
     // A plunging V neckline (look.neckline): skin from the collarbones down between the bust
-    front(P.torso.h * 0.5, P.torso.h * 0.95, 0.62, 1.012, look.skin, 0.97);
+    front(P.torso.h * 0.45, P.torso.h * 0.95, 0.5, 1.012, look.skin, 0.89);
   } else if (natural && shirtFront) front(P.torso.h * 0.42, P.torso.h * 0.93, 0.42, 1.014, look.shirt, 0.92);
   if (natural && look.tie !== undefined) front(P.torso.h * 0.36, P.torso.h * 0.92, 0.11, 1.03, look.tie);
   if (!natural && shirtFront) {
@@ -235,6 +258,9 @@ export function buildRig(look = {}) {
     style,
     scale: s,
     proportions: P,   // the merged build (ragdoll.js sizes its colliders from it)
+    hands: { l: lArm.end, r: rArm.end }, // the hand meshes (for things held in them)
+    /** Soft parts (belly, chest, jowls) wobble behind the body (P.jiggle; call after posing). */
+    jiggle: P.jiggle && wobbly.length ? makeJiggle(root, wobbly, P.jiggle) : () => {},
     hipHeight: hipHeight * s,
     seatOffset: (P.pelvis.h / 2) * s,     // pelvis centre above a seat surface
     lengths: {
@@ -327,6 +353,13 @@ function addExpressiveFace(headPivot, look, H, front, m, style) {
     headPivot.add(tache);
   }
 
+  if (look.stubble !== undefined && isNatural(style)) {
+    // Stubble along the jaw and chin, below the mouth (look.stubble: its colour)
+    const beard = new THREE.Mesh(headShell(style, H.w, H.h, H.d, { y0: -0.5, y1: -0.22, center: 0, half: 1.75, grow: 1.025 }), m(look.stubble, { side: THREE.DoubleSide }));
+    beard.position.y = H.h / 2;
+    headPivot.add(beard);
+  }
+
   const pal = characterPalettes;
   const face = new Face(headPivot, H, front, {
     skin: look.skin,
@@ -337,17 +370,20 @@ function addExpressiveFace(headPivot, look, H, front, m, style) {
   });
 
   if (look.glasses !== undefined) {
+    // One group, pivoting on the bridge of the nose (a blow knocks them crooked, then off: damage.js)
     const frame = m(look.glasses);
+    const glasses = new THREE.Group();
+    glasses.name = 'glasses';
+    glasses.position.set(0, face.eyeY + 0.008, front(0, face.eyeY) + 0.018);
+    headPivot.add(glasses);
+    const at = (mesh, x, y, z) => { mesh.position.set(x, y, z).sub(glasses.position); glasses.add(mesh); };
     for (const e of face.eyes) {
       const x = e.socket.position.x;
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.005, 8, 24), frame);
-      ring.position.set(x, face.eyeY, front(x, face.eyeY) + 0.016);
-      headPivot.add(ring);
+      at(new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.005, 8, 24), frame), x, face.eyeY, front(x, face.eyeY) + 0.016);
     }
     const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.046, 6), frame);
     bridge.rotation.z = Math.PI / 2;
-    bridge.position.set(0, face.eyeY + 0.008, front(0, face.eyeY) + 0.018);
-    headPivot.add(bridge);
+    at(bridge, 0, face.eyeY + 0.008, front(0, face.eyeY) + 0.018);
   }
   return face;
 }
@@ -433,6 +469,11 @@ function addHair(headPivot, look, H, style, m) {
   }
   if (look.hat === 'fedora' || look.hat === 'cap') {
     const hatMat = m(look.hatColor);
+    // All of it in one group (a blow can knock it off: damage.js)
+    const hat = new THREE.Group();
+    hat.name = 'hat';
+    headPivot.add(hat);
+    headPivot = hat; // (below: parts go into the hat)
     const top = style === 'soft' ? H.h * 0.9 : H.h;
     const fig = isFigure(style);
     if (look.hat === 'fedora') {
@@ -451,8 +492,10 @@ function addHair(headPivot, look, H, style, m) {
       const crown = new THREE.Mesh(headShell(style, H.w, H.h, H.d, { y0: 0.2, grow: 1.16 }), hatMat);
       crown.position.y = H.h / 2;
       const peak = new THREE.Mesh(partGeometry(style, 'trim', H.w * 0.78, 0.016, 0.11), hatMat);
-      peak.position.set(0, H.h * 0.8, H.d / 2 + 0.04);
-      peak.rotation.x = -0.12;
+      // (look.capBackwards: the peak at the back of the neck)
+      const back = look.capBackwards ? -1 : 1;
+      peak.position.set(0, H.h * (look.capBackwards ? 0.72 : 0.8), back * (H.d / 2 + 0.04));
+      peak.rotation.x = -0.12 * back;
       headPivot.add(crown, peak);
     } else {
       const crown = new THREE.Mesh(partGeometry(style, 'trim', H.w + 0.04, 0.09, H.d + 0.04), hatMat);
@@ -520,3 +563,39 @@ export function aimJoint(jointObj, targetWorld, { maxYaw = 1.2, maxPitch = 0.6, 
 }
 
 export { UP };
+
+// ---------------------------------------------------------------------------
+// Wobble: soft parts (belly, chest, jowls) hang back on a spring and catch up, so a heavy
+// body bounces when it walks, sits down or gets hit. P.jiggle:
+//   stiffness, damping   the spring (lower stiffness = slower, floppier bounce)
+//   gain                 how much of the lag shows (x)
+//   max                  the most a part moves (m)
+//   squash               a part squashes and stretches with its bounce
+//   parts                { belly: 1, chest: 0.6, jowls: 0.4 }: how much each part wobbles
+// ---------------------------------------------------------------------------
+function makeJiggle(root, soft, J) {
+  const st = soft
+    .filter((p) => (J.parts?.[p.part] ?? 0) > 0)
+    .map((p) => ({ ...p, amount: J.parts[p.part], base: p.mesh.position.clone(), scale: p.mesh.scale.clone(), lag: null, vel: new THREE.Vector3() }));
+  const anchor = new THREE.Vector3(), off = new THREE.Vector3(), local = new THREE.Vector3();
+  return (dt) => {
+    if (!dt) return;
+    dt = Math.min(dt, 1 / 30);
+    root.updateMatrixWorld(true);
+    for (const p of st) {
+      const parent = p.mesh.parent;
+      anchor.copy(p.base).applyMatrix4(parent.matrixWorld); // where it would be without the wobble
+      if (!p.lag || p.lag.distanceToSquared(anchor) > 0.09) { p.lag = anchor.clone(); p.vel.set(0, 0, 0); } // jumped (seated, reset)
+      off.subVectors(anchor, p.lag);
+      p.vel.addScaledVector(off, J.stiffness * dt).multiplyScalar(Math.exp(-J.damping * dt));
+      p.lag.addScaledVector(p.vel, dt);
+      // The lag, in the part's own frame, exaggerated
+      local.copy(p.lag);
+      parent.worldToLocal(local).sub(p.base).multiplyScalar(J.gain * p.amount);
+      if (local.length() > J.max * p.amount) local.setLength(J.max * p.amount);
+      p.mesh.position.copy(p.base).add(local);
+      const sq = local.y * (J.squash ?? 0);
+      p.mesh.scale.set(p.scale.x * (1 - sq * 0.5), p.scale.y * (1 + sq), p.scale.z * (1 - sq * 0.5));
+    }
+  };
+}

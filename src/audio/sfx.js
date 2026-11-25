@@ -353,6 +353,66 @@ export class Sfx {
     };
   }
 
+  // ---------------------------------------------------------------- the gamer's snacks
+
+  /** Chips being crunched: a few sharp, dry cracks. */
+  crunch(position = null, bites = 3, volume = 1) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.snack.volume * volume, position, A.snack);
+    for (let i = 0; i < bites; i++) {
+      const at = t + i * rand(0.14, 0.22);
+      this._noise(at, rand(0.05, 0.09), out, 'bandpass', rand(2200, 3800), 1.4, rand(0.6, 1), 0.002);
+      this._noise(at + 0.01, 0.04, out, 'highpass', 5000, 0.7, 0.35, 0.001);
+    }
+  }
+
+  /** A hand in a foil chip bag: crinkly, scattered high noise. */
+  bagRustle(position = null, seconds = 0.5) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.snack.volume * 0.8, position, A.snack);
+    const n = Math.round(seconds * 22);
+    for (let i = 0; i < n; i++) {
+      this._noise(t + Math.random() * seconds, rand(0.015, 0.05), out, 'highpass', rand(3000, 6500), 0.8, rand(0.2, 0.7), 0.001);
+    }
+  }
+
+  /** Swallowing from a can: a few gulps, then the can's hollow little ring. */
+  gulp(position = null, gulps = 3) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.snack.volume * 0.9, position, A.snack);
+    for (let i = 0; i < gulps; i++) {
+      const at = t + i * rand(0.42, 0.55);
+      this._tone(at, 0.12, out, 'sine', rand(170, 210), 0.7, 0.01, rand(90, 110));
+      this._noise(at, 0.1, out, 'lowpass', 500, 1, 0.3, 0.01);
+    }
+    this._tone(t + gulps * 0.5 + 0.1, 0.25, out, 'sine', 1900, 0.06, 0.003, 1850);
+  }
+
+  /** A short, unembarrassed burp. */
+  burp(position = null) {
+    if (!this.ctx) return;
+    const c = this.ctx, t = c.currentTime;
+    const out = this._out(A.snack.volume * 1.1, position, A.snack);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 700;
+    lp.connect(out);
+    const dur = rand(0.35, 0.55);
+    const { osc } = this._tone(t, dur, lp, 'sawtooth', rand(85, 100), 0.9, 0.02, rand(60, 70));
+    // The rattle of it
+    const lfo = c.createOscillator();
+    lfo.frequency.value = rand(22, 30);
+    const depth = c.createGain();
+    depth.gain.value = 25;
+    lfo.connect(depth).connect(osc.frequency);
+    lfo.start(t);
+    lfo.stop(t + dur + 0.05);
+    this._noise(t, dur, lp, 'bandpass', 400, 2, 0.4, 0.02);
+  }
+
   /** An angry footstep; heavier the angrier she is. */
   stomp(position, anger = 1) {
     if (!this.ctx) return;

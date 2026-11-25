@@ -94,6 +94,8 @@ async function boot() {
   player = new PlayerController(physics, camera);
   // Debug: ?radio=10 makes the radio come on after 10 s instead of config.radio.at
   if (params.get('radio')) config.radio.at = Number(params.get('radio'));
+  // ?gamer=5: the gamer walks in after 5 s instead of config.gamer.at
+  if (params.get('gamer')) config.gamer.at = Number(params.get('gamer'));
   level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait: params.has('fastwait'), brawlNow: params.has('brawl') });
   scene.add(camera);
 

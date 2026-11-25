@@ -10,8 +10,9 @@ import { npcConversations, people, onlookers, brawlShouts, overheard, overheardW
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
 import { Brawl } from './brawl.js';
+import { createNpcThrows } from './npcThrows.js';
 import { Npc } from '../characters/npc.js';
-import { waitingRoomCast } from '../data/waitingRoomCast.js';
+import { waitingRoomCast, gamer as gamerDef } from '../data/waitingRoomCast.js';
 
 /**
  * Wires the Waiting Room together: geometry, the receptionist, the director,
@@ -215,6 +216,23 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     });
   }
 
+  // --- the gamer: at config.gamer.at seconds of play he walks in, straight past the dispenser, and sits ---
+  let gamer = null;
+  function bringInGamer() {
+    const seat = config.gamer.seatPreference.find((i) => A.chairs[i] && !A.chairs[i].occupant);
+    if (seat === undefined) return;
+    gamer = new Npc({
+      scene, physics, sfx, clockPos, receptionistHead,
+      def: { ...gamerDef, seat, gait: config.gamer.gait },
+      chair: A.chairs[seat],
+    });
+    actors.gamer = gamer;
+    npcs.push(gamer);
+    gamer.hitPlayer = (w, k) => hitPlayer(w, k);
+    gamer.onKnockedDown = (n) => onKnockedDown(n);
+    gamer.arrive({ door: A.entrance, speedMul: config.gamer.gait.speed });
+  }
+
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
   const combat = new Combat({
     camera, player, sfx, physics, scene,
@@ -285,26 +303,30 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     const at = who.walker.pos;
     const d = Math.hypot(camera.position.x - at.x, camera.position.z - at.z);
     if (d <= config.npc.attacks.reach) {
-      if (player.seat) standHandler.onInteract(); // knocked out of the chair
-      const dir = new THREE.Vector3(camera.position.x - at.x, 0, camera.position.z - at.z);
-      // Blocking (right mouse, held): blows from the front mostly stop on the raised arms
-      const Bk = config.combat.block;
-      const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
-      const fromFront = -dir.clone().normalize().dot(fwd) > Bk.arc;
-      if (combat.block > 0.6 && fromFront) {
-        player.knock(dir, def.knock * Bk.knock, def.shake * Bk.shake);
-        sfx.hit('block', camera.position);
-        hurtPlayer((def.damage ?? 0) * Bk.damage, who);
-        who.walker.stun = Bk.attackerStun; // the blow bounces off; they stagger
-        return true;
-      }
-      player.knock(dir, def.knock, def.shake);
-      sfx.hit(def.sound, camera.position);
-      hurtPlayer(def.damage ?? 0, who);
+      landOnPlayer(def, new THREE.Vector3(camera.position.x - at.x, 0, camera.position.z - at.z), who);
       return true;
     }
     sfx.whoosh(at.clone().setY(1.3));
     return false;
+  }
+
+  /** A blow (or something thrown) reaches the player, travelling along `dir`. who: the attacker, if close. */
+  function landOnPlayer(def, dir, who = null) {
+    if (player.seat) standHandler.onInteract(); // knocked out of the chair
+    // Blocking (right mouse, held): blows from the front mostly stop on the raised arms
+    const Bk = config.combat.block;
+    const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+    const fromFront = -dir.clone().normalize().dot(fwd) > Bk.arc;
+    if (combat.block > 0.6 && fromFront) {
+      player.knock(dir, def.knock * Bk.knock, def.shake * Bk.shake);
+      sfx.hit('block', camera.position);
+      hurtPlayer((def.damage ?? 0) * Bk.damage, who);
+      if (who) who.walker.stun = Bk.attackerStun; // the blow bounces off; they stagger
+      return;
+    }
+    player.knock(dir, def.knock, def.shake);
+    sfx.hit(def.sound, camera.position);
+    hurtPlayer(def.damage ?? 0, who);
   }
 
   /** One of the sitter's radio-war blows. */
@@ -539,8 +561,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- improvised weapons: anything can be one (owner's decision) ---
   // Once the player's fists are up, anything registered here can be picked up. If it also has its
   // normal use (Sit, Sign the sheet, Turn off the radio), that stays on E and picking up goes on R.
+  const weaponList = []; // { object, kind } (things the waiting people can throw: npcThrows.js)
   function registerWeapon(object, kind, canTake = () => true) {
     if (!object) return;
+    weaponList.push({ object, kind });
     const fallback = object.userData.interactable; // e.g. "[E] Sit" on a chair
     const label = weaponDef(kind).label ?? kind;
     const can = () => combat.canPickUp && !object.userData.held && canTake();
@@ -565,6 +589,27 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   registerWeapon(A.clipboard, 'clipboard');
   for (const w of A.backRoomWeapons ?? []) registerWeapon(w.object, w.kind);
   for (const n of npcs) if (n.briefcase) registerWeapon(n.briefcase, 'briefcase');
+
+  // The waiting people throwing things at him in the brawl (config.brawl.throwing)
+  const npcThrows = createNpcThrows({
+    camera, sfx, npcs: () => npcs, weaponDef,
+    items: () => weaponList,
+    onPlayerHit: (def, dir) => landOnPlayer(def, dir),
+    onFriendlyFire: (victim) => {
+      if (victim.down) return;
+      const lines = brawlShouts.friendlyFire;
+      onlookerTalk.runActions([{ do: 'say', who: victim.id, text: lines[Math.floor(Math.random() * lines.length)] }]);
+    },
+  });
+  brawl.throws = npcThrows;
+  // Knocked down in the radio war? She gets back up for the brawl (config.radio.wakeForBrawl),
+  // and that knockdown no longer counts
+  brawl.beforeStart = () => {
+    const who = radioWho();
+    if (!config.radio.wakeForBrawl || !who?.down) return;
+    who.getUp(brawl);
+    state.knockdowns = Math.max(0, state.knockdowns - 1);
+  };
 
   // The EMPLOYEES ONLY door opens for the player too (the bat is back there)
   A.employeeDoor.playerNear = () => Math.hypot(camera.position.x - A.employeeDoor.threshold.x, camera.position.z - A.employeeDoor.threshold.z) < 1.3;
@@ -622,6 +667,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     state.retries = (state.retries ?? 0) + 1;
     for (const n of npcs) n.resetToSeat();
     brawl.reset?.();
+    npcThrows.clear();
     // Wake up in a free chair
     const seat = A.chairs.find((c) => canSit(c));
     if (seat) {
@@ -714,6 +760,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     doorTalk,
     combat,
     brawl,
+    npcThrows, // (exposed for tests)
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     takeTicket, // (for ?beat=, src/debug/skipToBeat.js)
     setSkipping: (on) => { skipping = on; },
@@ -725,7 +772,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         if (newcomerTimer <= 0) bringInNewcomer();
       }
       // The entrance door opens for whoever is walking through it
-      const nearEntrance = newcomer?.walker.active && newcomer.walker.pos.distanceTo(A.entrance.threshold) < 1.2;
+      const nearEntrance = [newcomer, gamer].some((n) => n?.walker.active && n.walker.pos.distanceTo(A.entrance.threshold) < 1.2);
       entranceAngle += ((nearEntrance ? A.entrance.openAngle : 0) - entranceAngle) * (1 - Math.exp(-(nearEntrance ? 6 : 2.5) * dt));
       A.entrance.pivot.rotation.y = entranceAngle;
       // TEMPORARY brawl trigger (until the argument scene is written): a few seconds after
@@ -754,6 +801,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       }
       lastLine = ty;
       brawl.update(dt);
+      npcThrows.update(dt);
       // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended) {
         receptionist.play('filmPlayer'); // (already filming: nothing happens)
@@ -814,6 +862,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
       // The radio: at config.radio.at seconds of play, someone gets up and turns it on
       state.playTime += dt;
+      if (!gamer && state.playTime >= config.gamer.at && state.phase !== 'doorOpen') bringInGamer();
       const R = config.radio;
       if (!radioStarted && state.playTime >= R.at) {
         const who = radioWho();

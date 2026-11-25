@@ -13,3 +13,9 @@ export const waitingRoomCast = [
   { id: 'jiggler',      look: 'jiggler',      seat: 6, personality: 'jiggler',      expression: 'annoyed' },
   { id: 'reader',       look: 'reader',       seat: 8, personality: 'reader',       expression: 'bored', props: ['magazine'] },
 ];
+
+/*
+  The gamer (owner's character): walks in at config.gamer.at seconds of play, straight past the ticket
+  dispenser, and sits in the first free chair of config.gamer.seatPreference. Chips and an energy drink.
+*/
+export const gamer = { id: 'gamer', look: 'gamer', personality: 'gamer', expression: 'bored', props: ['chips', 'energyDrink'] };

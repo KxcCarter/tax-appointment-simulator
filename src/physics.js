@@ -89,6 +89,15 @@ export class Physics {
     object3d.userData.body = body;
     return body;
   }
+
+  /** Take an Object3D's dynamic body out of the world (it stays where it is, no longer simulated). */
+  remove(object3d) {
+    const body = object3d.userData.body;
+    if (!body) return;
+    this.synced = this.synced.filter((e) => e.object3d !== object3d);
+    this.world.removeRigidBody(body);
+    delete object3d.userData.body;
+  }
 }
 
 export function yawQuat(yaw) {

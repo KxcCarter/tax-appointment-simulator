@@ -82,6 +82,20 @@ export const palette = {
   beltBuckle: 0xb8a060,
   phoneBody: 0x1c1c20,           // the receptionist's cellphone
   phoneScreen: 0x9ec8e8,
+  chipsBag: 0xd8442a,            // the gamer's family-size bag of chips
+  chipsBagBand: 0xf0c030,
+  chipsBagCrimp: 0xb8341e,
+  chip: 0xe8c060,
+  // Damage (the brawl: src/characters/damage.js)
+  bruise: 0x6a3f5e,              // fresh: purple
+  bruiseOld: 0x8a7f4a,           // older: yellow-green
+  blackEye: 0x3e2a44,
+  cut: 0x5a0808,
+  blood: 0x8e1010,
+  knuckleBlood: 0x9a2020,        // the player's own fists, after enough punches
+  canBody: 0x1b1d1a,             // ...and his energy drink
+  canStripe: 0x8ae03a,
+  canTop: 0xb8bcc0,
   playerSkin: 0xd9a582,          // the player's fists
   playerSleeve: 0x4a4a48,
   playerTrousers: 0x3a3a40,     // the player's kicking leg
@@ -180,6 +194,14 @@ export const characterPalettes = {
       scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
       jacket: 0xb8a47a, shirt: 0xe8e2cf, tie: 0x2d4a6a, trousers: 0x4a4a48, shoes: 0x3b2a1a, glasses: 0x1b1a18,
     },
+    gamer: {          // arrives at 90 s: huge young man, black T-shirt, cargo shorts, cap on backwards, headphones round his neck
+      scale: 1.05, skin: 0xe9b896, hair: 0x6a4a2a, hairStyle: 'short', eyes: 0x5a6a3a, lips: 0xc08a78,
+      jacket: 0x3a3a42, shirt: 0x3a3a42, trousers: 0x6a6450, shoes: 0xe8e2cf, shortSleeves: true,
+      legLower: 0xe9b896,   // cargo shorts: bare calves
+      hat: 'cap', hatColor: 0x2d4a6a, capBackwards: true,
+      headset: 0x1b1a18, headsetCushion: 0x8ae03a,   // (lime ear cushions, like his can)
+      stubble: 0x8a6a4a,
+    },
     sitter: {         // woman, a bit of a seductress: fitted wine-red dress, plunging neckline, dark stockings, red heels, long hair
       scale: 0.95, skin: 0x9c6644, hair: 0x2b2a26, hairStyle: 'long', eyes: 0x3b2a1a, lips: 0xb0202e,
       jacket: 0x7a1424, shirt: 0x7a1424, trousers: 0x7a1424, shoes: 0xa0101c,
@@ -271,7 +293,7 @@ function getToonGradient() {
 
 const cache = new Map();
 function cached(kind, color, opts, build) {
-  const key = `${kind}|${color}|${opts.map?.uuid ?? ''}|${opts.transparent ?? ''}|${opts.opacity ?? ''}`;
+  const key = `${kind}|${color}|${opts.map?.uuid ?? ''}|${opts.transparent ?? ''}|${opts.opacity ?? ''}|${opts.side ?? ''}|${opts.polygonOffset ? opts.polygonOffsetFactor : ''}`;
   if (!cache.has(key)) cache.set(key, build());
   return cache.get(key);
 }

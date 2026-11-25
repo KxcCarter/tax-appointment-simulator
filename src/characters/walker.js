@@ -13,6 +13,7 @@ import { solveTwoBone, aimJoint } from './rig.js';
     { type: 'reach', target(), onReach() }    bend and reach with the right hand; onReach at contact
     { type: 'away', seconds, onAway(), onBack() }  out of sight (e.g. through a door) for a while
     { type: 'sit' }                           sit back down
+    { type: 'getUp' }                         up off the floor (after a knockdown), from a crouch
     { type: 'approach', target(), distance, timeout? }   walk up to a moving target (the player)
     { type: 'attack', kind, target(), onHit(kind) }      an attack (config.npc.attacks); onHit at impact
   Any step may carry `leg: 'there' | 'back'` so callers can redirect a walk in progress.
@@ -22,6 +23,9 @@ import { solveTwoBone, aimJoint } from './rig.js';
     w(x, y, z) chair-local -> world, frontOffset (how far in front of the chair to stand),
     seatedFoot(side) / seatedHand(side) -> world points for the seated pose (side +1 = their left),
     expression(walker) -> preset name (optional)
+    gait (optional): { bob, waddle, steps } a heavier walk: bob = x the usual up-and-down, waddle = side-to-side
+      roll (radians), steps = footsteps every stride (a stomp at this anger; negative = softer)
+    hipWidth / shoulderWidth (optional): feet and hands further apart (x)
 */
 
 const W = () => config.npc.walk;
@@ -29,8 +33,37 @@ const lerp3 = (a, b, k) => a.clone().lerp(b, k);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 /*
-  Attack poses, in body space: x = their left, y = height above the floor (metres), z = forward.
-  Each returns hand/foot targets and a lean for local progress u (0..1) through the attack.
+  Fighting stances, in body space (x = their left, y = height above the floor, z = towards the
+  target), for loop progress u (0..1): they bounce lightly from foot to foot. Besides hands:
+    lFoot / rFoot  where the feet go (y = lifted)        drop   knees bent (m lower)
+    turn           the hips turned side-on (radians)     shift  the weight forward/back (m)
+    lean           the upper body forward (+) / back (-)
+*/
+const TAU = Math.PI * 2;
+export const STANCES = {
+  // Side-on, left foot forward, knees bent; the lead hand open and forward, the rear hand guarding the chin
+  karate: (u) => {
+    const w = Math.sin(u * TAU);
+    return {
+      lFoot: V(0.13, Math.max(0, -w) * 0.035, 0.24), rFoot: V(-0.15, Math.max(0, w) * 0.035, -0.2),
+      drop: 0.09 + 0.025 * Math.abs(w), turn: 0.5, shift: 0.045 * w, lean: 0.06,
+      l: V(0.16, 1.34 - 0.02 * Math.abs(w), 0.5), r: V(-0.14, 1.22 - 0.02 * Math.abs(w), 0.2),
+    };
+  },
+  // Old-fashioned bare-knuckle boxing: upright, leaning back a little, fists out in front, rolling in small circles
+  boxing: (u) => {
+    const w = Math.sin(u * TAU), c = Math.cos(u * TAU);
+    return {
+      lFoot: V(0.11, Math.max(0, -w) * 0.03, 0.17), rFoot: V(-0.12, Math.max(0, w) * 0.03, -0.12),
+      drop: 0.03 + 0.02 * Math.abs(w), turn: 0.3, shift: 0.035 * w, lean: -0.1,
+      l: V(0.15, 1.2 + 0.06 * w, 0.52 + 0.06 * c), r: V(-0.11, 1.3 - 0.06 * w, 0.3 - 0.06 * c),
+    };
+  },
+};
+
+/*
+  Attack poses, in body space (as above). Each returns hand/foot targets and a lean for local progress
+  u (0..1) through the attack, starting from and returning to R (the stance's hands; GUARD without one).
   Wind up until 0.45, strike until 0.6, recover after.
 */
 const GUARD = { l: V(0.2, 1.05, 0.15), r: V(-0.2, 1.05, 0.15) };
@@ -43,22 +76,35 @@ const ATTACK_POSES = {
   // Held poses (the 'hold' step): fists up, or one fist pumping in the air (u loops 0..1)
   guard: () => ({ l: GUARD.l, r: GUARD.r, lean: 0 }),
   cheer: (u) => ({ l: GUARD.l, r: V(-0.2, 1.62 + 0.14 * Math.sin(u * Math.PI * 2), 0.12), lean: -0.04 }),
-  slap: (u) => ({ l: GUARD.l, r: phase3(u, GUARD.r, V(-0.45, 1.35, -0.05), V(0.25, 1.4, 0.5)), lean: leanOf(u, -0.05, 0.15) }),
-  shove: (u) => ({
-    l: phase3(u, GUARD.l, V(0.14, 1.1, 0.05), V(0.16, 1.25, 0.62)),
-    r: phase3(u, GUARD.r, V(-0.14, 1.1, 0.05), V(-0.16, 1.25, 0.62)),
+  slap: (u, R = GUARD) => ({ l: R.l, r: phase3(u, R.r, V(-0.45, 1.35, -0.05), V(0.25, 1.4, 0.5)), lean: leanOf(u, -0.05, 0.15) }),
+  shove: (u, R = GUARD) => ({
+    l: phase3(u, R.l, V(0.14, 1.1, 0.05), V(0.16, 1.25, 0.62)),
+    r: phase3(u, R.r, V(-0.14, 1.1, 0.05), V(-0.16, 1.25, 0.62)),
     lean: leanOf(u, -0.1, 0.3),
   }),
-  punch: (u) => ({ l: GUARD.l, r: phase3(u, GUARD.r, V(-0.22, 1.25, -0.15), V(-0.05, 1.45, 0.72)), lean: leanOf(u, -0.05, 0.2) }),
-  kick: (u) => ({
+  punch: (u, R = GUARD) => ({ l: R.l, r: phase3(u, R.r, V(-0.22, 1.25, -0.15), V(-0.05, 1.45, 0.72)), lean: leanOf(u, -0.05, 0.2) }),
+  kick: (u, R = GUARD) => ({
     l: V(0.32, 1.1, 0.0), r: V(-0.32, 1.1, 0.0),
-    rFoot: phase3(u, V(-0.1, 0, 0), V(-0.1, 0.25, -0.25), V(-0.1, 0.75, 0.72)),
+    rFoot: phase3(u, R.rFoot ?? V(-0.1, 0, 0), V(-0.1, 0.25, -0.25), V(-0.1, 0.75, 0.72)),
     lean: leanOf(u, -0.05, -0.3),
   }),
+  // Karate: the knife hand raised high beside the head, brought down on the neck
+  chop: (u, R = GUARD) => ({ l: R.l, r: phase3(u, R.r, V(-0.28, 1.85, -0.02), V(-0.02, 1.3, 0.62)), lean: leanOf(u, -0.08, 0.25) }),
+  // Karate: the back leg swings round in an arc, the hips turning through
+  roundhouse: (u, R = GUARD) => ({
+    l: V(0.3, 1.2, 0.12), r: V(-0.25, 1.05, -0.05),
+    rFoot: u < 0.45 ? lerp3(R.rFoot ?? V(-0.1, 0, 0), V(-0.45, 0.55, -0.1), smooth(u / 0.45))
+      : u < 0.6 ? lerp3(V(-0.45, 0.55, -0.1), V(0.05, 1.0, 0.68), smooth((u - 0.45) / 0.15))
+        : lerp3(V(0.05, 1.0, 0.68), R.rFoot ?? V(-0.1, 0, 0), smooth((u - 0.6) / 0.4)),
+    turn: (R.turn ?? 0) + leanOf(u, 0.5, -0.6),
+    lean: leanOf(u, -0.1, -0.35),
+  }),
+  // Boxing: the lead hand, straight out and straight back
+  jab: (u, R = GUARD) => ({ l: phase3(u, R.l, V(0.1, 1.22, 0.32), V(0.06, 1.42, 0.78)), r: R.r, lean: leanOf(u, 0, 0.12) }),
   // The receptionist's phone: hand to her hip pocket, then held up in front of her face, filming
   pocket: () => ({ l: V(0.22, 0.95, 0.12), r: V(-0.34, 0.92, 0.02), lean: 0.04 }),
   film: (u) => ({ l: V(0.07, 1.5, 0.55), r: V(-0.07, 1.52 + 0.01 * Math.sin(u * Math.PI * 2), 0.56), lean: -0.03 }),
-  radio: (u) => ({
+  radio: (u, R = GUARD) => ({
     l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
     r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),
     lean: leanOf(u, -0.15, 0.35),
@@ -236,7 +282,9 @@ export class Walker {
         const seq = def.sequence ?? [S.kind];
         const k = Math.min(seq.length - 1, Math.floor(u * seq.length));
         const sub = u * seq.length - k;
-        pose = ATTACK_POSES[A[seq[k]]?.pose ?? seq[k]](Math.min(1, sub));
+        // From their fighting stance (in the brawl), feet planted where the stance has them
+        const stance = h.isFighting?.() ? STANCES[h.stance?.() ?? 'karate'](0) : null;
+        pose = { ...(stance ?? {}), ...ATTACK_POSES[A[seq[k]]?.pose ?? seq[k]](Math.min(1, sub), stance ?? undefined) };
         S.done ??= 0;
         if (S.done <= k && sub >= 0.55) { S.done = k + 1; S.onHit?.(seq[k]); }
         if (u >= 1) this._next();
@@ -250,9 +298,23 @@ export class Walker {
           look = tgt.clone();
           turnTowards(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
         }
-        if (S.pose) pose = ATTACK_POSES[S.pose](S.poseAt ?? ((this.t / this.speedMul) * 1.6) % 1);
+        // 'stance': their fighting stance (config.brawl.stances), bouncing from foot to foot
+        if (S.pose === 'stance') pose = STANCES[h.stance?.() ?? 'karate'](((this.t / this.speedMul) * config.brawl.bounceRate + (this.bouncePhase ??= Math.random())) % 1);
+        else if (S.pose) pose = ATTACK_POSES[S.pose](S.poseAt ?? ((this.t / this.speedMul) * 1.6) % 1);
         if (S.expression) expressionOverride ??= S.expression;
         if (this.t / this.speedMul >= S.seconds || S.until?.()) this._next();
+        break;
+      }
+      case 'getUp': {
+        // Up off the floor: from a deep crouch, hands on her knees, to standing (a shake of the head)
+        const k = smooth(Math.min(1, this.t / cfg.getUpTime));
+        pose = {
+          drop: 0.75 * (1 - k), lean: 0.9 * (1 - k),
+          l: V(0.2, 0.55 + 0.5 * k, 0.25), r: V(-0.2, 0.55 + 0.5 * k, 0.25),
+        };
+        look = this.pos.clone().add(new THREE.Vector3(Math.sin(this.yaw) + Math.sin(this.t * 9) * 0.3 * (1 - k), 1.2 - (1 - k), Math.cos(this.yaw)));
+        expressionOverride = k < 0.6 ? 'surprised' : 'furious';
+        if (this.t >= cfg.getUpTime) this._next();
         break;
       }
       case 'sit':
@@ -263,21 +325,26 @@ export class Walker {
     }
     if (!this.steps) return;
 
-    // Stomping once they're angry (positional)
-    if (this.anger > 0 && this.moving > 0.5 && Math.floor(this.phase / Math.PI) !== this.lastStep) {
+    // Stomping once they're angry (positional); a heavy walker's every step is heard
+    const G = h.gait ?? {};
+    if ((this.anger > 0 || G.steps != null) && this.moving > 0.5 && Math.floor(this.phase / Math.PI) !== this.lastStep) {
       this.lastStep = Math.floor(this.phase / Math.PI);
-      h.sfx.stomp(this.pos, this.anger);
+      h.sfx.stomp(this.pos, Math.max(this.anger, G.steps ?? 0));
     }
 
     // --- body: between the seat and standing ---
     const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const left = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const bob = -Math.abs(Math.sin(this.phase)) * 0.02 * this.moving;
-    const standRoot = this.pos.clone().setY(-0.03 + bob);
+    const bob = -Math.abs(Math.sin(this.phase)) * 0.02 * (G.bob ?? 1) * this.moving;
+    const standRoot = this.pos.clone().setY(-0.03 + bob - (pose?.drop ?? 0) * rig.scale);
+    if (pose?.shift) standRoot.addScaledVector(fwd, pose.shift * rig.scale);
     root.position.lerpVectors(standRoot, h.seatRoot, sit);
-    const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw);
+    // A stance turns the hips side-on (the chest turns back halfway, towards the target)
+    const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw + (pose?.turn ?? 0));
+    // Waddle: rolling onto each foot in turn
+    if (G.waddle) standQuat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.cos(this.phase) * G.waddle * this.moving));
     root.quaternion.copy(standQuat).slerp(h.seatQuat, sit);
-    j.spine.rotation.set(bend + (pose?.lean ?? 0), 0, 0);
+    j.spine.rotation.set(bend + (pose?.lean ?? 0), -(pose?.turn ?? 0) * 0.5, 0);
     root.updateMatrixWorld(true);
     const bodyPoint = (p) => this.pos.clone().addScaledVector(left, p.x).addScaledVector(fwd, p.z).setY(p.y * rig.scale);
 
@@ -290,7 +357,8 @@ export class Walker {
         .addScaledVector(fwd, Math.sin(ph) * stride);
       foot.y = Math.max(0, Math.cos(ph)) * 0.06 * this.moving;
       foot.lerp(h.seatedFoot(side), sit);
-      if (side === -1 && pose?.rFoot) foot.copy(bodyPoint(pose.rFoot));
+      const planted = side === 1 ? pose?.lFoot : pose?.rFoot;
+      if (planted) foot.copy(bodyPoint(planted));
       const [hip, knee] = side === 1 ? [j.lHip, j.lKnee] : [j.rHip, j.rKnee];
       solveTwoBone(hip, knee, foot, L.upperLeg, L.lowerLeg, fwd.clone().add(new THREE.Vector3(0, 0.3, 0)).normalize());
     }

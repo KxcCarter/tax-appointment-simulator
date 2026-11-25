@@ -7,7 +7,9 @@ import { config } from '../config.js';
 
   Each fighter runs an endless walker routine; when one round ends, plan() hands them the next:
     attacker:   approach -> wind up (a readable telegraph) -> attack -> (next round: hang back)
-    hanging back: walk to a spot a couple of metres from the player, stand there cheering / in guard
+    hanging back: walk to a spot a couple of metres from the player, stand there in their fighting
+                  stance (bouncing from foot to foot) or cheering
+    throwing:     (sometimes, instead of hanging back) fetch something nearby, step out, throw it at him
   Only config.brawl.maxAttackers attack at once; the rest hang back and shout.
 */
 
@@ -41,9 +43,10 @@ export class Brawl {
   start(instigator, opening = this.shouts.opening) {
     if (this.started) return;
     this.started = true;
+    this.beforeStart?.(); // (the level: the sitter gets back up)
     this.fighters = this.npcs().filter((n) => !n.down);
     for (const n of this.fighters) {
-      if (n === instigator) continue;
+      if (n === instigator || n.walker.current?.type === 'getUp') continue; // (already on her way up)
       // Get up (staggered), cheer for a moment, then join in
       n.startBrawl([
         { type: 'hold', seconds: rand(...B().openingStagger), target: this.target, expression: 'surprised' },
@@ -94,14 +97,41 @@ export class Brawl {
       };
       return [
         { type: 'approach', target: tgt, at, distance: B().approachDistance, timeout: 8 },
-        { type: 'hold', seconds: B().windUp, target: tgt, pose: 'guard', expression: 'furious' },
+        { type: 'hold', seconds: B().windUp, target: tgt, pose: 'stance', expression: 'furious' },
         { type: 'attack', kind: pick(moves), target: tgt, onHit: (kind) => this.onHit(npc, kind) },
       ];
     }
     npc.justAttacked = false;
+    // Sometimes: something to throw at him instead (config.brawl.throwing)
+    if (this.throws && !npc.carrying && Math.random() < B().throwing.chance) {
+      const item = this.throws.find(npc);
+      if (item) return this._throwRound(npc, item);
+    }
     return [
       { type: 'walk', to: this._hangBackSpot(npc) },
-      { type: 'hold', seconds: rand(...B().hangBackHold), target: tgt, pose: Math.random() < 0.5 ? 'cheer' : 'guard' },
+      { type: 'hold', seconds: rand(...B().hangBackHold), target: tgt, pose: Math.random() < B().cheerChance ? 'cheer' : 'stance' },
+    ];
+  }
+
+  /** Fetch `item`, step out to a few metres from the player, throw it at him. */
+  _throwRound(npc, item) {
+    const tgt = this.target;
+    const where = () => item.object.getWorldPosition(new THREE.Vector3());
+    const p = where(), from = npc.walker.pos ?? npc.rig.root.position;
+    const d = new THREE.Vector3(p.x - from.x, 0, p.z - from.z);
+    const spot = d.length() > 0.5 ? new THREE.Vector3(p.x, 0, p.z).addScaledVector(d.normalize(), -0.45) : from.clone().setY(0);
+    return [
+      { type: 'walk', to: spot, pushThrough: true },
+      {
+        type: 'reach', target: where,
+        onReach: () => {
+          // Gone (the player got there first): this round ends here, and they're handed the next
+          if (!this.throws.take(npc, item)) npc.walker.steps.length = npc.walker.i + 1;
+        },
+      },
+      { type: 'walk', to: this._hangBackSpot(npc, rand(...B().throwing.from)), pushThrough: true },
+      { type: 'hold', seconds: 0.3, target: tgt, expression: 'furious' },
+      { type: 'attack', kind: 'throw', target: tgt, onHit: () => this.throws.release(npc, this.target()) },
     ];
   }
 
@@ -132,12 +162,11 @@ export class Brawl {
    * Somewhere a couple of metres from the player to wait their turn: in a direction nobody else
    * is (so they spread out round him instead of queueing behind each other), inside the room.
    */
-  _hangBackSpot(npc) {
+  _hangBackSpot(npc, dist = rand(...B().hangBack)) {
     const taken = this.fighters
       .filter((n) => n !== npc && !n.down && n.angle !== undefined)
       .map((n) => n.angle);
     const mine = this._angleOf(npc);
-    const dist = rand(...B().hangBack);
     let best = null;
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;

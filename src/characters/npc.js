@@ -5,6 +5,7 @@ import { RAPIER } from '../physics.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
+import { Damage } from './damage.js';
 
 /** Animations a scene can play on a waiting person besides attend/resume (see _sceneMove). */
 const SCENE_ANIMS = new Set(['standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
@@ -19,13 +20,18 @@ const SCENE_ANIMS = new Set(['standUp', 'confront', 'slap', 'shove', 'shoveHard'
   CHAIR's local frame (origin on the floor at the chair centre, +z = where they face,
   +x = their left) and smoothed, so transitions ease in and out.
 
-  Personalities: cougher | watchChecker | reader | jiggler | sitter
+  Personalities: cougher | watchChecker | reader | jiggler | sitter | gamer
+    gamer: a bag of chips on his left knee, an energy drink on his right; every few seconds a handful of
+    chips, a sip (sometimes a burp), or the bag upended over his mouth for the crumbs (config.gamer.snack).
 */
 
 const N = config.npc;
 const rand = (a, b) => a + Math.random() * (b - a);
 const smooth = (x) => x * x * (3 - 2 * x);
 const SEAT_TOP = 0.485; // chair seat surface (waitingRoom.js)
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const CHIP_CYCLE = 1.5;  // seconds per chip: into the bag, up to the mouth
+const BAG_H = 0.24, CAN_H = 0.13;
 
 export class Npc {
   constructor({ scene, physics, def, chair, sfx, clockPos, receptionistHead }) {
@@ -44,6 +50,8 @@ export class Npc {
     this.restExpression = def.expression ?? 'bored';
     this.face?.setExpression(this.restExpression, 100);
     scene.add(this.rig.root);
+    // Bruises, cuts, torn clothes... (the brawl)
+    this.damage = new Damage({ rig: this.rig, look, physics, scene });
 
     // Claim and lock the chair: nobody shoves it out from under them (unlocked in the brawl)
     chair.occupant = def.id;
@@ -71,6 +79,8 @@ export class Npc {
 
     if (def.props?.includes('magazine')) this._makeMagazine(scene);
     if (def.props?.includes('briefcase')) this._makeBriefcase(scene, physics);
+    if (def.props?.includes('chips')) this._makeChips(scene);
+    if (def.props?.includes('energyDrink')) this._makeCan(scene);
   }
 
   // ------------------------------------------------------------------ setup
@@ -142,6 +152,125 @@ export class Npc {
     scene.add(g);
     physics.addDynamic(g, [{ type: 'box', half: { x: 0.05, y: 0.165, z: 0.21 } }], { density: 450 });
     this.briefcase = g;
+  }
+
+  _makeChips(scene) {
+    // A family-size bag: a puffed-out pillow, crimped flat at the top and bottom, a band across the front
+    const W = 0.19, D = 0.075;
+    const pillow = (h, d, y0) => {
+      const geo = new THREE.BoxGeometry(W, h, d, 8, 6, 2);
+      const p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i) / (W / 2), y = (p.getY(i) + y0) / (BAG_H / 2);
+        p.setZ(i, p.getZ(i) * Math.max(0.08, (1 - 0.5 * x * x) * (1 - y ** 4)));
+      }
+      geo.computeVertexNormals();
+      return geo;
+    };
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(pillow(BAG_H, D, 0), theme.material('chipsBag')));
+    const band = new THREE.Mesh(pillow(0.07, D * 1.06, 0.01), theme.material('chipsBagBand'));
+    band.position.y = 0.01;
+    g.add(band);
+    for (const y of [1, -1]) {
+      const crimp = new THREE.Mesh(new THREE.BoxGeometry(W, 0.02, 0.01), theme.material('chipsBagCrimp'));
+      crimp.position.y = y * (BAG_H / 2 - 0.01);
+      g.add(crimp);
+    }
+    scene.add(g);
+    this.chips = g;
+    this.bagTilt = 0;
+    // The chip on its way to his mouth
+    this.chip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.004, 10), theme.material('chip'));
+    this.chip.scale.z = 0.75;
+    this.chip.visible = false;
+    scene.add(this.chip);
+  }
+
+  _makeCan(scene) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, CAN_H, 18), theme.material('canBody'));
+    g.add(body);
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.0335, 0.0335, 0.05, 18), theme.material('canStripe'));
+    stripe.position.y = 0.005;
+    g.add(stripe);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.029, 0.033, 0.008, 18), theme.material('canTop'));
+    top.position.y = CAN_H / 2 + 0.004;
+    g.add(top);
+    scene.add(g);
+    this.can = g;
+    this.canTilt = 0;
+    this.canInHand = false;
+  }
+
+  /** Chair-local point on top of their thigh: side +1 = left; along 0 = hip .. 1 = knee; above the top (m). */
+  _onThigh(side, along, above = 0) {
+    const j = this.rig.joints;
+    const [hip, knee] = side === 1 ? [j.lHip, j.lKnee] : [j.rHip, j.rKnee];
+    const p = hip.getWorldPosition(new THREE.Vector3()).lerp(knee.getWorldPosition(new THREE.Vector3()), along);
+    p.y += this.rig.proportions.upperLeg.thick * 0.5 * this.rig.scale + above;
+    return this.local(p);
+  }
+
+  /** Chair-local point just in front of their mouth. */
+  _mouth(forward = 0.06, up = 0) {
+    const H = this.rig.proportions.head;
+    return this.local(this.rig.joints.head.localToWorld(V(0, H.h * 0.3 + up, H.d * 0.5 + forward)));
+  }
+
+  /**
+   * Where the snacks are: in his hands, or resting on his knees. After posing, every frame.
+   * (Once he's knocked down they're loose physics props: see _knockDown.)
+   */
+  _placeSnacks(dt) {
+    if (this.snacksLoose) return;
+    const k = 1 - Math.exp(-6 * dt);
+    const hand = (side) => this.rig.hands[side].getWorldPosition(new THREE.Vector3());
+    const q = this.rig.root.quaternion;
+    const tilt = (a) => q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), a));
+    if (this.chips) {
+      this.bagTilt += ((this.bagTiltTarget ?? 0) - this.bagTilt) * k;
+      // Held by the side of the bag near the top, the opening tipped towards him
+      this.chips.position.copy(hand('l')).add(V(0, -0.03, 0));
+      this.chips.quaternion.copy(tilt(-0.25 - this.bagTilt));
+      this.chip.visible = !!this.chipInHand && !this.walker.active;
+      if (this.chip.visible) this.chip.position.copy(hand('r')).add(V(0, 0.03, 0));
+    }
+    if (this.can) {
+      this.canTilt += ((this.canTiltTarget ?? 0) - this.canTilt) * k;
+      if (this.canInHand || this.walker.active || !this.down && this.brawling) {
+        this.can.position.copy(hand('r'));
+        this.can.quaternion.copy(tilt(-this.canTilt));
+      } else {
+        // Standing on his right knee
+        this.can.position.copy(this.w(...this._onThigh(-1, 0.92, CAN_H / 2).toArray()));
+        this.can.quaternion.copy(this.chair.object.quaternion);
+      }
+    }
+  }
+
+  /** Knocked down: the snacks fly (loose physics props, thrown along the blow). */
+  _dropSnacks(dir) {
+    if (this.snacksLoose) return;
+    this.snacksLoose = true;
+    if (this.chip) this.chip.visible = false;
+    const throwIt = (obj, shapes, density) => {
+      this.physics.addDynamic(obj, shapes, { density, restitution: 0.3 });
+      const b = obj.userData.body;
+      b.wakeUp();
+      b.setLinvel({ x: dir.x * 2.5 + rand(-0.6, 0.6), y: rand(1.5, 2.8), z: dir.z * 2.5 + rand(-0.6, 0.6) }, true);
+      b.setAngvel({ x: rand(-8, 8), y: rand(-8, 8), z: rand(-8, 8) }, true);
+    };
+    if (this.chips) throwIt(this.chips, [{ type: 'box', half: { x: 0.095, y: BAG_H * 0.45, z: 0.035 } }], 60);
+    if (this.can) throwIt(this.can, [{ type: 'cylinder', halfHeight: CAN_H / 2, radius: 0.033 }], 400);
+  }
+
+  _restoreSnacks() {
+    if (!this.snacksLoose) return;
+    this.snacksLoose = false;
+    for (const o of [this.chips, this.can]) if (o) this.physics.remove(o);
+    this.canInHand = false;
+    this.bagTilt = this.canTilt = 0;
   }
 
   // ------------------------------------------------------------------ events from the level
@@ -285,6 +414,13 @@ export class Npc {
   // ------------------------------------------------------------------ per frame
 
   update(dt, camera) {
+    this._update(dt, camera);
+    this.damage.update(dt);
+    if (this.chips || this.can) this._placeSnacks(dt);
+    this.rig.jiggle(dt); // the belly wobbles (builds with P.jiggle)
+  }
+
+  _update(dt, camera) {
     this._camera = camera; // for scripted moves towards the player
     this.time += dt;
     if (this._flashT > 0) {
@@ -334,6 +470,16 @@ export class Npc {
       this.jiggleStop = Math.max(0, (this.jiggleStop ?? 0) - dt);
       this.jigglePhase = (this.jigglePhase ?? 0) + dt * N.jiggle.rate * (this.jiggleRate ?? 1);
       footLift = this.jiggleStop > 0 ? 0 : Math.max(0, Math.sin(this.jigglePhase * Math.PI * 2)) * N.jiggle.height;
+    }
+
+    if (this.personality === 'gamer') {
+      // The bag on his left knee, his right hand resting on his thigh by the can
+      desired.lHand.copy(this._onThigh(1, 0.95, 0.06)).add(V(0, 0, 0.04));
+      desired.rHand.copy(this._onThigh(-1, 0.55, 0.02));
+      this.bagTiltTarget = 0;
+      this.canTiltTarget = 0;
+      this.chipInHand = false;
+      this.canInHand &&= this.action?.name === 'sip'; // (a sip cut short: the can goes back on his knee)
     }
 
     // --- talking to the player: look at them, hands down, no fidgeting ---
@@ -418,6 +564,18 @@ export class Npc {
     } else if (p === 'sitter') {
       this.action = { name: 'shift', t: 0, dur: N.shift.duration, sounded: false, dir: Math.random() < 0.5 ? -1 : 1 };
       this.nextAction = rand(...N.shift.every);
+    } else if (p === 'gamer') {
+      const S = config.gamer.snack, c = S.chances, r = Math.random() * (c.chip + c.sip + c.tip);
+      if (r < c.chip) {
+        const bites = Math.round(rand(...S.bites));
+        this.action = { name: 'chip', t: 0, bites, dur: bites * CHIP_CYCLE + 1.4, rustled: -1, crunched: -1 };
+      } else if (r < c.chip + c.sip) {
+        const burp = Math.random() < S.burpChance;
+        this.action = { name: 'sip', t: 0, dur: burp ? 5 : 3.9, burp };
+      } else {
+        this.action = { name: 'tip', t: 0, dur: 3.6 };
+      }
+      this.nextAction = this.action.dur + rand(...S.every);
     } else {
       this.nextAction = 999;
     }
@@ -473,6 +631,51 @@ export class Npc {
       d.look.set(0, 0.9 + 3 * k, 3 - 1.5 * k);
       if (!a.sounded && u > 0.15) { a.sounded = true; this.sfx.sigh(this.voicePosition()); }
       expr = { lids: 0.5 + 0.3 * k, brows: { angle: 0.15 }, mouth: { open: 0.2 * k, smile: -0.2 } };
+    } else if (a.name === 'chip') {
+      // Into the bag, a rustle; up to the mouth, a crunch. A few times. Then chewing.
+      const i = Math.floor(a.t / CHIP_CYCLE), ct = a.t - i * CHIP_CYCLE;
+      if (i < a.bites) {
+        if (ct < 0.6) {
+          const bagMouth = this.local(this.chips.position).add(V(0, BAG_H * 0.4, 0));
+          d.rHand.copy(bagMouth);
+          d.look.copy(bagMouth);
+          if (a.rustled !== i && ct > 0.25) { a.rustled = i; this.sfx.bagRustle(this.chips.position, 0.4); }
+        } else {
+          d.rHand.copy(this._mouth(0.05, -0.03));
+          if (a.crunched !== i && ct > 1.05) { a.crunched = i; this.sfx.crunch(this.voicePosition(), 3); }
+        }
+        this.chipInHand = ct > 0.45 && ct < 1.05;
+      }
+      if (a.crunched >= 0) {
+        const chew = Math.abs(Math.sin(a.t * 10));
+        expr = { lids: 0.45, brows: { raise: -0.002 }, mouth: { open: 0.04 + 0.14 * chew, width: 0.85, smile: -0.05 } };
+        if (i >= a.bites && !a.lastCrunch && a.t > a.bites * CHIP_CYCLE + 0.5) { a.lastCrunch = true; this.sfx.crunch(this.voicePosition(), 2, 0.5); }
+      }
+    } else if (a.name === 'sip') {
+      // Pick up the can from his knee, tip it right back, three gulps, put it back (sometimes a burp)
+      const grab = this._onThigh(-1, 0.92, CAN_H / 2);
+      if (a.t < 0.6) d.rHand.copy(grab);
+      else if (a.t < 2.7) {
+        d.rHand.copy(this._mouth(0.11, -0.04));
+        this.canTiltTarget = a.t < 1.2 ? 0.6 : 1.75;
+        if (a.t > 1.2) d.look.y += 1.2;
+        if (!a.gulped && a.t > 1.4) { a.gulped = true; this.sfx.gulp(this.voicePosition(), 3); }
+      } else if (a.t < 3.3) d.rHand.copy(grab);
+      this.canInHand = a.t > 0.5 && a.t < 3.3;
+      if (a.burp && a.t > 3.9) {
+        if (!a.burped) { a.burped = true; this.sfx.burp(this.voicePosition()); }
+        if (a.t < 4.4) expr = { lids: 0.4, brows: { raise: 0.003 }, mouth: { open: 0.35, width: 0.75 } };
+      }
+    } else if (a.name === 'tip') {
+      // The bag upended over his open mouth, for the crumbs
+      if (a.t < 2.6) {
+        d.lHand.copy(this._mouth(0.16, 0.1));
+        this.bagTiltTarget = a.t < 0.7 ? 0.8 : 2.3;
+        if (a.t > 0.7) d.look.y += 1.6;
+        if (!a.rustled && a.t > 0.9) { a.rustled = true; this.sfx.bagRustle(this.chips.position, 1.2); }
+        if (!a.crunched && a.t > 1.8) { a.crunched = true; this.sfx.crunch(this.voicePosition(), 4); }
+        expr = { lids: 0.3, brows: { raise: 0.002 }, mouth: { open: a.t > 0.8 && a.t < 1.9 ? 0.45 : 0.1 + 0.12 * Math.abs(Math.sin(a.t * 10)), width: 0.8 } };
+      }
     } else if (a.name === 'shift') {
       const k = Math.sin(Math.min(1, u) * Math.PI);
       d.twist = a.dir * 0.12 * k;
@@ -634,16 +837,18 @@ export class Npc {
    * Arrive from outside: walk in through `door` (outside -> inside), take a ticket from the
    * dispenser (onTicket at the moment of taking it), then walk to their chair and sit.
    */
-  arrive({ door, dispenserSpot, dispenserTarget, onTicket }) {
-    this.walker.start([
-      { type: 'walk', to: door.inside },
-      { type: 'walk', to: dispenserSpot },
-      { type: 'face', yaw: Math.PI }, // facing the counter (north)
-      { type: 'reach', target: dispenserTarget, onReach: onTicket },
-      { type: 'walk', to: 'front' },
-      { type: 'turn', yaw: 'chair' },
-      { type: 'sit' },
-    ], { startPos: door.outside, startYaw: Math.PI });
+  arrive({ door, dispenserSpot, dispenserTarget, onTicket, speedMul = 1 }) {
+    const steps = [{ type: 'walk', to: door.inside }];
+    // (no dispenserSpot: straight past the ticket dispenser)
+    if (dispenserSpot) {
+      steps.push(
+        { type: 'walk', to: dispenserSpot },
+        { type: 'face', yaw: Math.PI }, // facing the counter (north)
+        { type: 'reach', target: dispenserTarget, onReach: onTicket },
+      );
+    }
+    steps.push({ type: 'walk', to: 'front' }, { type: 'turn', yaw: 'chair' }, { type: 'sit' });
+    this.walker.start(steps, { startPos: door.outside, startYaw: Math.PI, speedMul });
   }
 
   /** Flash white for a moment (being hit). */
@@ -662,6 +867,9 @@ export class Npc {
   resetToSeat() {
     if (this._flashT > 0) { this._flashT = 0; for (const [o, m] of this._flashSaved) o.material = m; }
     if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
+    this._restoreSnacks();
+    this.carrying?.drop?.(this.rig.root.position.clone()); // something they were about to throw
+    if (config.damage.healOnRetry) this.damage.heal();
     this.down = false;
     this.health = config.brawl.health;
     this.brawling = false;
@@ -688,10 +896,16 @@ export class Npc {
     this._seat();
   }
 
-  /** Hit by the player (fist, weapon or something thrown). Flinch; at 0 health, go down and stay down. */
-  takeHit(dir, { damage = config.combat.punchDamage, knock = 1 } = {}) {
+  /**
+   * Hit by the player (fist, weapon or something thrown). Flinch; at 0 health, go down and stay down.
+   * hit: the raycast intersection (where it landed), source: 'fist' | 'kick' | 'weapon' | 'thrown': for the marks.
+   */
+  takeHit(dir, { damage = config.combat.punchDamage, knock = 1, hit = null, source = 'fist' } = {}) {
     if (this.down) return;
-    this.health = (this.health ?? config.brawl.health) - damage;
+    if (damage > 0) this.damage.add({ hit, dir, knock, source }); // (before the flash, which swaps materials)
+    // The sitter, before the brawl (the radio war): tougher (config.radio.toughness)
+    const tough = this.id === config.radio.who && !this.brawling ? config.radio.toughness ?? 1 : 1;
+    this.health = (this.health ?? config.brawl.health * tough) - damage;
     const heavy = knock >= 1.5;
     this.walker.stun = heavy ? config.combat.heavyStun : 0.35;
     this.flinch = 0.35;
@@ -710,11 +924,37 @@ export class Npc {
     this.rig.root.visible = true;
     this.walker.steps = null; // abandon whatever they were doing
     if (this.carrying) { this.carrying.drop(this.rig.root.position.clone()); this.carrying = null; }
+    if (this.chips || this.can) this._dropSnacks(dir);
     if (this.chair?.occupant === this.id) this.chair.occupant = null;
     // Full physics ragdoll from the current pose, thrown along the blow
     this.ragdoll = new Ragdoll(this.physics, this.rig);
     this.ragdoll.push(dir, config.ragdoll.hitImpulse * knock);
     this.face?.setExpression({ lids: 1, brows: { angle: 0.2 }, mouth: { open: 0.35, width: 0.8 } }, 6);
+  }
+
+  /**
+   * Back on her feet (the sitter, knocked down in the radio war, when the brawl starts): the ragdoll
+   * goes, she's crouched where her body lay, and stands up, fully recovered (bruises and all).
+   * The brawl then hands her her rounds like everyone else.
+   */
+  getUp(brawl) {
+    if (!this.down) return;
+    const at = this.rig.joints.pelvis.getWorldPosition(new THREE.Vector3()).setY(0);
+    const spine = this.rig.joints.spine.getWorldPosition(new THREE.Vector3());
+    if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
+    this.down = false;
+    this.health = config.brawl.health;
+    this.scripted = null;
+    // Facing the way her head was lying (she sits up and gets to her feet that way)
+    const yaw = Math.atan2(spine.x - at.x, spine.z - at.z);
+    this.walker.steps = null;
+    this.brawling = true;
+    this.called = true;
+    this.attending = false; this.action = null; this.reaction = null;
+    this.walker.start([{ type: 'getUp' }], {
+      speedMul: 1, anger: 2, refill: () => brawl.plan(this),
+      startPos: at, startYaw: Number.isFinite(yaw) ? yaw : this.chairYaw,
+    });
   }
 
   _updateDown(dt) {
@@ -729,6 +969,9 @@ export class Npc {
       rig: this.rig, sfx: this.sfx, face: this.face,
       seatRoot: this.seatRoot, seatQuat: this.chair.object.quaternion.clone(), chairYaw: this.chairYaw,
       frontOffset: 0.34,
+      stance: () => config.brawl.stances[self.id] ?? config.brawl.stances.default,
+      isFighting: () => self.brawling,
+      gait: this.def.gait, hipWidth: this.def.gait?.hipWidth, shoulderWidth: this.def.gait?.shoulderWidth, // (the gamer's heavy walk)
       w: (x, y, z) => self.w(x, y, z),
       seatedFoot: (side) => self.w(side * 0.11, 0, 0.44),
       seatedHand: (side) => self.w(side * 0.13, 0.6, 0.24),

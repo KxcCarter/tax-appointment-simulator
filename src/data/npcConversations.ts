@@ -584,6 +584,7 @@ export const onlookers: Scene = {
   speakers: {
     ...Object.fromEntries(Object.entries(people).map(([id, p]) => [id, { name: p.name, pitch: p.pitch, actor: id }])),
     newcomer: { name: 'MAN IN TRENCH COAT', pitch: 140, actor: 'newcomer' },
+    gamer: { name: 'MAN WITH CHIPS', pitch: 95, actor: 'gamer' }, // (brawl shouts; no lines of his own yet)
     voice: { name: 'VOICE BEHIND THE DOOR', pitch: 110 },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
   },
@@ -616,7 +617,7 @@ export const onlookers: Scene = {
   joins in. `opening` plays first, in order, one person each; after that, people on the
   sidelines shout something from `anytime` (or their own `byPerson` lines) every few seconds.
 */
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -649,6 +650,13 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Oo, get him!',
     'Ouch!',
     "Mmhmm, that's what you get!",
+  ],
+  // Someone hit by a thing one of the others threw at the player (PROPOSAL; config.brawl.throwing.friendlyFire)
+  friendlyFire: [
+    'Hey!',
+    'Watch it!',
+    'Whose side are you on?',
+    'Thanks a lot.',
   ],
   byPerson: {
     sitter: ["I've been here since nine!"], // (from the brief)
