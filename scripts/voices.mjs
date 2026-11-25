@@ -57,6 +57,11 @@ const DEFAULT_VOICE = { model: 'eleven_multilingual_v2', settings: { stability: 
 export const DIRECTIONS = {
   receptionist: {
     'Oh Lawd he violent!!': { say: '[scared]Oh Lawd he violent!!', model: 'eleven_v3', settings: { stability: 0 } },
+    "Shhh, momma's gotta play her game.": { say: 'Shhh, momma gotta play her game.' },
+    'This man boutta make me lose my game...': { say: 'This man boutta make me lose my gaaame!' },
+    "Mamma playin' her game...": { say: 'Mamma playin her gaaaame...' },
+    'Ooo, this is a good angle.': { say: 'Ooo, this a good angle.' },
+    'Mmm, from over here. Yes.': { say: 'Mmm, from over here. Yaaas.' },
   },
 };
 

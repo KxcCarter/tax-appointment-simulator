@@ -7,7 +7,7 @@
     }
   },
   "Shhh, momma's gotta play her game.": {
-    "text": "Shhh, momma's gotta play her game.",
+    "text": "Shhh, momma gotta play her game.",
     "model_id": "eleven_multilingual_v2",
     "voice_settings": {
       "stability": 0.45,
@@ -17,7 +17,7 @@
     }
   },
   "Mamma playin' her game...": {
-    "text": "Mamma playin' her game...",
+    "text": "Mamma playin her gaaaame...",
     "model_id": "eleven_multilingual_v2",
     "voice_settings": {
       "stability": 0.45,
@@ -27,7 +27,7 @@
     }
   },
   "Ooo, this is a good angle.": {
-    "text": "Ooo, this is a good angle.",
+    "text": "Ooo, this a good angle.",
     "model_id": "eleven_multilingual_v2",
     "voice_settings": {
       "stability": 0.45,
@@ -37,7 +37,7 @@
     }
   },
   "Mmm, from over here. Yes.": {
-    "text": "Mmm, from over here. Yes.",
+    "text": "Mmm, from over here. Yaaas.",
     "model_id": "eleven_multilingual_v2",
     "voice_settings": {
       "stability": 0.45,
@@ -57,7 +57,7 @@
     }
   },
   "This man boutta make me lose my game...": {
-    "text": "This man boutta make me lose my game...",
+    "text": "This man boutta make me lose my gaaame!",
     "model_id": "eleven_multilingual_v2",
     "voice_settings": {
       "stability": 0.45,
