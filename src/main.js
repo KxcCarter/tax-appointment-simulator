@@ -4,6 +4,7 @@ import { state } from './state.js';
 import { initRapier, Physics } from './physics.js';
 import { PlayerController } from './player/controller.js';
 import { setupWaitingRoom } from './level/waitingRoomLevel.js';
+import { loadCharacterModels } from './characters/realBody.js';
 import { Sfx } from './audio/sfx.js';
 import { UI } from './ui/ui.js';
 import { theme } from './theme.js';
@@ -89,7 +90,8 @@ let skipper = null; // debug ?beat=: fast-forwarding to a beat
 async function boot() {
   // Debug: ?charstyle=soft previews a character style without editing theme.js
   if (params.get('charstyle')) theme.look.characterStyle = params.get('charstyle');
-  await initRapier();
+  if (params.get('realistic') === '0') theme.look.realistic.enabled = false;
+  await Promise.all([initRapier(), loadCharacterModels()]);
   physics = new Physics();
   player = new PlayerController(physics, camera);
   // Debug: ?radio=10 makes the radio come on after 10 s instead of config.radio.at

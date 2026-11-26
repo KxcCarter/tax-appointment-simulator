@@ -230,6 +230,34 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 export const look = {
   materialStyle: 'lambert',     // 'lambert' | 'toon'
+  // EXPERIMENT (branch realistic-receptionist): realistic versions of the receptionist and five of the waiting people. Rigged glTF models built with
+  // MakeHuman (CC0; see tools/makehuman/README.md) that copies the primitive rig's pose (characters/realBody.js).
+  // Her primitive body stays as an invisible hitbox. ?realistic=0 turns it off.
+  realistic: {
+    enabled: true,
+    models: {
+      receptionist: new URL('./models/characters/mh-receptionist.glb', import.meta.url).href,
+      sitter: new URL('./models/characters/mh-sitter.glb', import.meta.url).href,
+      cougher: new URL('./models/characters/mh-cougher.glb', import.meta.url).href,
+      jiggler: new URL('./models/characters/mh-jiggler.glb', import.meta.url).href,
+      watchChecker: new URL('./models/characters/mh-watchChecker.glb', import.meta.url).href,
+      reader: new URL('./models/characters/mh-reader.glb', import.meta.url).href,
+      newcomer: new URL('./models/characters/mh-newcomer.glb', import.meta.url).href,
+    },
+    jiggleGain: 0.8, // how much a model's belly, breasts and double chin bounce, x her figure's wobble (config.characters.jiggle)
+    // Colour multiplied over a model, or over materials whose name contains a key
+    tint: {
+      // Each character's look from characterPalettes. A value is a colour or [colour, brightness gain]
+      // (gain > 1 brightens a dark texture), or { recolor: colour } to change only the dark fabric of a texture
+      // and leave the shirt and tie alone (realBody.js recolor). The keys match parts of material or mesh names.
+      receptionist: { dress: [0x6b7a3a, 4.5], hair: [0x8a3a1a, 2.2] }, // olive (her cardigan), auburn hair
+      sitter: { dress: [0x9a1a2c, 1.6], booties: [0xc01020, 1.2] }, // wine-red dress, red heels
+      cougher: { suit: { recolor: 0x6a5038 }, fedora: [0x9a8060, 1.8], short04: [0xd8d2c8, 2.0] }, // brown suit and hat, grey hair
+      jiggler: { cap: 0x8a2a3a }, // the white newsboy cap -> maroon
+      reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
+      newcomer: { suit: { recolor: 0xc8ae7c }, short02: [0x8a6a4a, 1.3] }, // a tan suit (his trench coat), brown hair
+    },
+  },
   characterStyle: 'natural',    // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' | 'sculpted' | 'natural' (see characters/partShapes.js)
   toonSteps: [90, 170, 255],    // gradient for 'toon'
   background: 0x1a1612,

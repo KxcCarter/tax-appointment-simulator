@@ -1,0 +1,30 @@
+{
+  "name": "newcomer",
+  "_note": "The newcomer: about 45, tan suit (there's no trench coat in the free MakeHuman clothes: the suit with tie and jacket, tinted tan), glasses, short brown hair.",
+  "phenotype": {
+    "gender": 1.0,
+    "age": 0.66,
+    "muscle": 0.45,
+    "weight": 0.55,
+    "height": 0.6,
+    "proportions": 0.5,
+    "race": {
+      "caucasian": 1.0,
+      "african": 0.0,
+      "asian": 0.0
+    }
+  },
+  "rig": "game_engine",
+  "skin": "middleage_caucasian_male",
+  "eyebrows": "eyebrow003",
+  "eyelashes": "eyelashes02",
+  "hair": "short02",
+  "clothes": [
+    "toigo_male_suit_tie_and_jacket",
+    "shoes01",
+    "frankyaye_glasses_library_male"
+  ],
+  "faceunits": true,
+  "cover_erode": 2,
+  "poke_reach": 0.02
+}

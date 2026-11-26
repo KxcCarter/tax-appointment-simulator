@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
+import { realBodyFor } from './realBody.js';
 
 /*
   The receptionist. Sits behind the desk playing solitaire.
@@ -39,6 +40,7 @@ export class Receptionist {
     const root = this.rig.root;
     root.position.copy(seat.position);
     root.quaternion.copy(seat.quaternion);
+    this.realBody = realBodyFor('receptionist', this.rig); // experiment: realistic body (theme.look.realistic)
     scene.add(root);
     this.root = root;
 

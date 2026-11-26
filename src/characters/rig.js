@@ -580,7 +580,7 @@ function makeJiggle(root, soft, J) {
     .filter((p) => (J.parts?.[p.part] ?? 0) > 0)
     .map((p) => ({ ...p, amount: J.parts[p.part], base: p.mesh.position.clone(), scale: p.mesh.scale.clone(), lag: null, vel: new THREE.Vector3() }));
   const anchor = new THREE.Vector3(), off = new THREE.Vector3(), local = new THREE.Vector3();
-  return (dt) => {
+  const jiggle = (dt) => {
     if (!dt) return;
     dt = Math.min(dt, 1 / 30);
     root.updateMatrixWorld(true);
@@ -598,6 +598,10 @@ function makeJiggle(root, soft, J) {
       p.mesh.position.copy(p.base).add(local);
       const sq = local.y * (J.squash ?? 0);
       p.mesh.scale.set(p.scale.x * (1 - sq * 0.5), p.scale.y * (1 + sq), p.scale.z * (1 - sq * 0.5));
+      p.squashNow = sq;
     }
   };
+  // (a realistic body copies the wobble: each part's mesh, its rest position, and how much it's squashed)
+  jiggle.parts = st;
+  return jiggle;
 }

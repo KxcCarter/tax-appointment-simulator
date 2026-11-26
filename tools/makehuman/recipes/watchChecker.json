@@ -1,0 +1,25 @@
+{
+  "name": "watchChecker",
+  "_note": "The man with the briefcase: tall, about 40, navy suit and tie, black shoes (the briefcase and watch are game props).",
+  "phenotype": {
+    "gender": 1.0,
+    "age": 0.62,
+    "muscle": 0.55,
+    "weight": 0.5,
+    "height": 0.75,
+    "proportions": 0.6,
+    "race": { "african": 1.0, "caucasian": 0.0, "asian": 0.0 }
+  },
+  "rig": "game_engine",
+  "skin": "middleage_african_male",
+  "eyebrows": "eyebrow001",
+  "eyelashes": "eyelashes02",
+  "hair": "short04",
+  "clothes": [
+    "toigo_male_suit_3",
+    "shoes04"
+  ],
+  "faceunits": true,
+  "cover_erode": 2,
+  "poke_reach": 0.02
+}

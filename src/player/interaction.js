@@ -60,7 +60,7 @@ export class Interaction {
     const hits = this.raycaster.intersectObjects(this.scene.children, true);
     let found = null;
     for (const hit of hits) {
-      if (!hit.object.visible || hit.object.isLight || hit.object.userData.heldMesh) continue; // not what's in your hands
+      if ((!hit.object.visible && !hit.object.userData.hitbox) || hit.object.isLight || hit.object.userData.heldMesh) continue; // not what's in your hands
       let o = hit.object;
       while (o && !o.userData.interactable) o = o.parent;
       if (o && hit.distance <= (o.userData.interactable.range ?? config.interaction.maxDistance)) found = o.userData.interactable;

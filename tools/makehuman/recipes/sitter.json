@@ -1,0 +1,63 @@
+{
+  "name": "sitter",
+  "_note": "The woman in red: early 30s, hourglass figure, wine-red halter dress with a plunging neckline (knee length), red stiletto heels, long dark hair.",
+  "phenotype": {
+    "gender": 0.0,
+    "age": 0.55,
+    "muscle": 0.45,
+    "weight": 0.6,
+    "height": 0.5,
+    "proportions": 0.95,
+    "cupsize": 0.85,
+    "firmness": 0.7,
+    "race": {
+      "african": 0.55,
+      "caucasian": 0.45,
+      "asian": 0.0
+    }
+  },
+  "targets": [
+    {
+      "target": "measure-hips-circ-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-waist-circ-decr",
+      "value": 0.6
+    },
+    {
+      "target": "buttocks-volume-incr",
+      "value": 0.6
+    },
+    {
+      "target": "measure-thigh-circ-incr",
+      "value": 0.3
+    }
+  ],
+  "rig": "game_engine",
+  "skin": "young_african_female",
+  "eyebrows": "eyebrow007",
+  "eyelashes": "eyelashes03",
+  "hair": "culturalibre_hair_01",
+  "clothes": [
+    "toigo_halter_dress_knee_length",
+    "toigo_stiletto_booties"
+  ],
+  "faceunits": true,
+  "clothes_masks": false,
+  "cover_erode": 2,
+  "poke_reach": 0.03,
+  "tube_amount": 0.5,
+  "skirt_leg_keep": 0.45,
+  "jiggle": {
+    "breasts": {
+      "radius": [
+        0.13,
+        0.14,
+        0.12
+      ],
+      "inset": 0.6,
+      "weight": 0.85
+    }
+  }
+}
