@@ -123,11 +123,9 @@ export class RealDamage extends Damage {
     if (!spot) return;
     const { layer, pos } = spot;
     if (layer.kind === 'cloth') {
-      // A ragged hole in their clothes, showing the shirt (under a jacket) or the skin underneath
-      const look = this.look, top = look.jacket ?? look.shirt;
-      const underShirt = region !== 'leg' && look.shirt !== undefined && look.shirt !== top;
+      // A ragged hole in their clothes, showing the skin underneath (owner: always skin, even under a jacket)
       const r = rand(...D().tearSize) * (0.8 + 0.2 * Math.min(2, knock));
-      this._tear(layer, pos, r, underShirt ? css(look.shirt) : this._skinColour());
+      this._tear(layer, pos, r, this._skinColour());
     } else {
       this._blob(layer, pos, rand(0.025, 0.04), 'bruise', 0.9, { sy: 0.8 });
     }
@@ -214,12 +212,7 @@ export class RealDamage extends Damage {
     const g = A.userData.base.clone();
     g.setIndex(keep);
     A.geometry = g;
-    const look = this.look, top = look.jacket ?? look.shirt;
-    if (look.shirt !== undefined && look.shirt !== top) {
-      A.userData.material ??= A.material;
-      A.material = theme.material(look.shirt);
-    }
-    A.visible = true;
+    A.visible = true; // (bare skin: owner)
     return true;
   }
 

@@ -290,6 +290,17 @@ def cut_garment(o):
             bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=inv @ Vector((0, 0, knee)), plane_no=n, clear_inner=True)
             bm.to_mesh(o.data); bm.free(); o.data.update()
             print("CUT", o.name, "at", round(knee, 3))
+    # Recipe "sleeveless": {"part of a garment's name": metres}: its sleeves go (everything the upper and lower
+    # arms move), and the shoulders out past that far from the middle: a T-shirt into a tank top
+    for k, strap in (recipe.get("sleeveless") or {}).items():
+        if k in o.name:
+            out = []
+            for v in o.data.vertices:
+                b = dominant(o, v)
+                if "upperarm" in b or "lowerarm" in b or ("clavicle" in b and abs((o.matrix_world @ v.co).x) > strap):
+                    out.append(v.index)
+            print("SLEEVELESS", o.name, len(out), "vertices")
+            return out
     return []
 
 def make_coat(body):

@@ -20,6 +20,7 @@ export function addExtras(body, look = {}) {
   const out = {};
   if (look.watch) out.watch = addWatch(model, skinned);
   if (look.headset !== undefined) out.headphones = addHeadphones(model, skinned, look);
+  if (look.chain) out.chain = addChain(model, skinned);
   const skinMesh = skinned.find((o) => /\.body$/.test(o.material?.name ?? '') && o.material.map && !/armskin/.test(o.name)); // (not the arm skin: same material)
   if (look.stubble !== undefined && skinMesh) paintStubble(model, skinMesh, look.stubble);
   model.traverse((o) => { if (o.isMesh && /moustache/.test(o.material?.name ?? '')) moustacheHairs(o); });
@@ -134,6 +135,27 @@ function addHeadphones(model, skinned, look) {
   noHits(group);
   neckBone.attach(group);
   return group;
+}
+
+/** A gold chain round the neck, hanging down onto the chest at the front. */
+function addChain(model, skinned) {
+  const neckBone = model.getObjectByName('neck_01') ?? model.getObjectByName('neck');
+  if (!neckBone) return null;
+  const pts = pointsOf(skinned.filter(isSkin), (b) => /neck/.test(b)).map((x) => x.p);
+  if (pts.length < 20) return null;
+  const ys = pts.map((p) => p.y).sort((a, b) => a - b);
+  const yLow = ys[Math.floor(ys.length * 0.1)], yMid = [ys[Math.floor(ys.length * 0.2)], ys[Math.floor(ys.length * 0.45)]];
+  const box = new THREE.Box3().setFromPoints(pts.filter((p) => p.y >= yMid[0] && p.y <= yMid[1]));
+  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  const rx = size.x / 2 + 0.018, rz = size.z / 2 + 0.03, avg = (rx + rz) / 2;
+  const chain = new THREE.Mesh(new THREE.TorusGeometry(1, 0.0032 / avg, 6, 64), theme.surface('gold'));
+  chain.scale.set(rx, rz, avg); // (an oval round the neck; the wire itself stays round and thin)
+  chain.position.set(c.x, yLow - 0.005, c.z + 0.012);
+  chain.rotation.x = Math.PI / 2 - 0.55; // lying round the neck, the front dipping onto the chest
+  chain.name = 'chain';
+  noHits(chain);
+  neckBone.attach(chain);
+  return chain;
 }
 
 // ------------------------------------------------------------------ stubble

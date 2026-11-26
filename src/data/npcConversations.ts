@@ -339,7 +339,7 @@ export const people: Record<string, Person> = {
       },
     ],
   },
-  // The man in the trench coat: talkable once he's sat down with 848, until 848 is called (PROPOSAL)
+  // The newcomer (the bro in the tank top): talkable once he's sat down with 848, until 848 is called (PROPOSAL)
   newcomer: {
     name: 'MAN IN TRENCH COAT', pitch: 140,
     greeting: ['Yeah?', 'Yeah.'],

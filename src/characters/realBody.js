@@ -138,6 +138,15 @@ export class RealBody {
             if (c.recolor !== undefined) recolor(o.material, c);
             // { tie: [u0, v0, u1, v1] }: the tie printed in the suit's texture repainted in their tie's colour
             if (c.tie && look.tie !== undefined) paintTie(o.material, c.tie, look.tie);
+          } else if (c?.dark !== undefined) {
+            // { color, dark }: sunglasses: see-through parts of the texture (the lenses) at least `dark` opaque
+            o.material = o.material.clone();
+            o.material.color.set(c.color ?? 0x202020);
+            const dark = c.dark;
+            o.material.onBeforeCompile = (shader) => {
+              shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `diffuseColor.a = max( diffuseColor.a, ${dark.toFixed(3)} );\n#include <alphatest_fragment>`);
+            };
+            o.material.customProgramCacheKey = () => 'sunglasses' + dark;
           } else if (c !== undefined) {
             const [colour, gain = 1] = Array.isArray(c) ? c : [c];
             o.material = o.material.clone();

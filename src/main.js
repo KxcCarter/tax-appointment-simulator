@@ -26,6 +26,8 @@ document.getElementById('app').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 theme.applyScene(scene, renderer);
 const camera = new THREE.PerspectiveCamera(config.render.fov, 1, config.render.near, config.render.far);
+// (the theme decides how a frame is drawn: post-processing such as contact shadows; ?ao=0 turns that off)
+const pipeline = theme.renderPipeline(renderer, scene, camera, { off: params.get('ao') === '0' });
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -33,11 +35,12 @@ function resize() {
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.render.maxPixelRatio));
   renderer.setSize(w, h);
+  pipeline.setSize(w, h);
 }
 window.addEventListener('resize', resize);
 
 function render() {
-  renderer.render(scene, camera);
+  pipeline.render();
 }
 
 // ---------- pointer lock / pause ----------

@@ -1,38 +1,48 @@
 {
   "name": "newcomer",
-  "_note": "The newcomer: about 45, a tan trench coat (made by the build: recipe 'coat') over a grey suit and tie, glasses, short brown hair.",
+  "_note": "The newcomer: a 'bro', about 28, athletic, a white tank top (the T-shirt, sleeves cut off: 'sleeveless'), navy cargo shorts (cargo trousers cut off below the knee), white sneakers, dark sunglasses, short hair (and a gold chain, added by the game: look.chain).",
   "phenotype": {
     "gender": 1.0,
-    "age": 0.66,
-    "muscle": 0.45,
+    "age": 0.53,
+    "muscle": 0.85,
     "weight": 0.55,
-    "height": 0.6,
-    "proportions": 0.5,
+    "height": 0.65,
+    "proportions": 0.75,
     "race": {
       "caucasian": 1.0,
       "african": 0.0,
       "asian": 0.0
     }
   },
+  "targets": [
+    {
+      "target": "measure-upperarm-circ-incr",
+      "value": 0.5
+    },
+    {
+      "target": "measure-bust-circ-incr",
+      "value": 0.3
+    }
+  ],
   "rig": "game_engine",
-  "skin": "middleage_caucasian_male",
+  "skin": "young_caucasian_male2",
   "eyebrows": "eyebrow003",
   "eyelashes": "eyelashes02",
   "hair": "short02",
   "clothes": [
-    "toigo_male_suit_tie_and_jacket",
-    "shoes01",
-    "frankyaye_glasses_library_male"
+    "elvs_crude_t-shirt_male",
+    "cortu_cargo_pants",
+    "shoes05",
+    "spamrakuen_sagerfrogs_glasses_01"
   ],
+  "sleeveless": {
+    "t-shirt": 0.1
+  },
   "faceunits": true,
+  "clothes_masks": false,
   "cover_erode": 2,
   "poke_reach": 0.02,
-  "coat": {
-    "margin": 0.012,
-    "cuff": 0.06,
-    "hem": 0.0,
-    "flare": 0.06,
-    "v_depth": 0.06,
-    "v_width": 0.085
+  "cut": {
+    "cargo_pants": -0.05
   }
 }
