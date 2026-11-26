@@ -230,7 +230,7 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 export const look = {
   materialStyle: 'lambert',     // 'lambert' | 'toon'
-  // EXPERIMENT (branch realistic-receptionist): realistic versions of the receptionist and five of the waiting people. Rigged glTF models built with
+  // EXPERIMENT (branch realistic-receptionist): realistic versions of the whole cast. Rigged glTF models built with
   // MakeHuman (CC0; see tools/makehuman/README.md) that copies the primitive rig's pose (characters/realBody.js).
   // Her primitive body stays as an invisible hitbox. ?realistic=0 turns it off.
   realistic: {
@@ -243,6 +243,7 @@ export const look = {
       watchChecker: new URL('./models/characters/mh-watchChecker.glb', import.meta.url).href,
       reader: new URL('./models/characters/mh-reader.glb', import.meta.url).href,
       newcomer: new URL('./models/characters/mh-newcomer.glb', import.meta.url).href,
+      gamer: new URL('./models/characters/mh-gamer.glb', import.meta.url).href,
     },
     jiggleGain: 0.8, // how much a model's belly, breasts and double chin bounce, x her figure's wobble (config.characters.jiggle)
     // Colour multiplied over a model, or over materials whose name contains a key
@@ -256,6 +257,7 @@ export const look = {
       jiggler: { cap: 0x8a2a3a }, // the white newsboy cap -> maroon
       reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
       newcomer: { suit: { recolor: 0xc8ae7c }, short02: [0x8a6a4a, 1.3] }, // a tan suit (his trench coat), brown hair
+      gamer: { 't-shirt': 0x3a3a42, shorts: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.08 }, cap: 0x4a7aa8 }, // charcoal T-shirt, khaki shorts (the denim, recoloured), blue cap
     },
   },
   characterStyle: 'natural',    // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' | 'sculpted' | 'natural' (see characters/partShapes.js)

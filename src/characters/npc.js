@@ -7,6 +7,7 @@ import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
 import { Damage } from './damage.js';
 import { realBodyFor } from './realBody.js';
+import { RealDamage } from './realDamage.js';
 
 /** Animations a scene can play on a waiting person besides attend/resume (see _sceneMove). */
 const SCENE_ANIMS = new Set(['standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
@@ -64,6 +65,7 @@ export class Npc {
     this.chairHome = { pos: chair.object.position.clone(), quat: chair.object.quaternion.clone() };
     this._seat();
     this.realBody = realBodyFor(def.id, this.rig); // experiment: realistic body (theme.look.realistic)
+    if (this.realBody?.ok) this.damage = new RealDamage({ realBody: this.realBody, rig: this.rig, look, physics, scene }); // (painted onto the model)
     this.walker = new Walker(this._walkerHost());
 
     // Smoothed pose targets (chair-local)
@@ -911,7 +913,7 @@ export class Npc {
    */
   takeHit(dir, { damage = config.combat.punchDamage, knock = 1, hit = null, source = 'fist' } = {}) {
     if (this.down) return;
-    if (damage > 0 && !this.realBody?.ok) this.damage.add({ hit, dir, knock, source }); // (not on a realistic body yet) // (before the flash, which swaps materials)
+    if (damage > 0) this.damage.add({ hit, dir, knock, source }); // (before the flash, which swaps materials)
     // The sitter, before the brawl (the radio war): tougher (config.radio.toughness)
     const tough = this.id === config.radio.who && !this.brawling ? config.radio.toughness ?? 1 : 1;
     this.health = (this.health ?? config.brawl.health * tough) - damage;
