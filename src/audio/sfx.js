@@ -420,6 +420,38 @@ export class Sfx {
     this._tone(t + 0.45, 1.2, out, 'triangle', 622, 0.6, 0.005);
   }
 
+  /** A sheet of glass shattering: a crash, then pieces tinkling down. */
+  glassBreak(position = null, strength = 1) {
+    if (!this.ctx) return;
+    if (this._play('glass_break', 0.9 * strength, position, { refDistance: 3, rolloff: 0.8 })) return;
+    const t = this.ctx.currentTime, out = this._out(0.9 * strength, position, { refDistance: 3, rolloff: 0.8 });
+    this._noise(t, 0.25, out, 'highpass', 3000, 0.7, 1, 0.001);
+    this._noise(t, 0.12, out, 'bandpass', 1800, 1, 0.6, 0.001);
+    for (let i = 0; i < 14; i++) {
+      const dt = 0.05 + Math.random() * 0.7;
+      this._tone(t + dt, 0.06, out, 'sine', 3000 + Math.random() * 4000, 0.15 * (1 - dt), 0.001);
+    }
+  }
+
+  /** The player's heart, pounding (the argument): a low lub-dub. Not positional: it's in his chest. */
+  heartbeat(volume = 0.4) {
+    if (!this.ctx) return;
+    if (this._play('heartbeat', volume, null)) return;
+    const t = this.ctx.currentTime, out = this._out(volume, null);
+    for (const [dt, v] of [[0, 1], [0.17, 0.7]]) {
+      this._tone(t + dt, 0.14, out, 'sine', 62, v, 0.004, 38);
+      this._noise(t + dt, 0.07, out, 'lowpass', 120, 1, v * 0.5, 0.003);
+    }
+  }
+
+  /** The player breathing hard (the argument): in, or out (a longer, rougher breath). */
+  breath(out_ = false, volume = 0.3, seconds = 0.8) {
+    if (!this.ctx) return;
+    if (this._play(out_ ? 'breath_out' : 'breath_in', volume, null)) return;
+    const t = this.ctx.currentTime, o = this._out(volume, null);
+    this._noise(t, seconds, o, 'bandpass', out_ ? 900 : 1500, out_ ? 0.8 : 1.4, out_ ? 0.9 : 0.6, seconds * 0.4);
+  }
+
   /** Her cellphone ringing: a bright trilling ringtone, three rings. */
   phoneRing(position = null) {
     if (!this.ctx) return;
@@ -495,6 +527,8 @@ export class Sfx {
     out.gain.exponentialRampToValueAtTime(volume, t + 1.5);
     src.start(0, (offset ?? 0) % buffer.duration);
     return {
+      /** Louder or quieter, smoothly (e.g. Free Bird swelling into the brawl). */
+      setVolume: (v) => { out.gain.setTargetAtTime(Math.max(0.0001, v), this.ctx.currentTime, 0.3); },
       stop: () => {
         const now = this.ctx.currentTime;
         out.gain.cancelScheduledValues(now);
@@ -643,6 +677,11 @@ export class Sfx {
   propHit(position, strength = 0.5, kind = 'thud', mass = 2) {
     if (!this.ctx) return;
     // Small things (the bat, radio, keyboard, can, hats...): the debris recordings, if there are any
+    if (kind === 'glass') { // a shard landing: a little tinkle
+      const t = this.ctx.currentTime, out = this._out(0.08 + 0.25 * strength, position, A.hits);
+      this._tone(t, 0.05, out, 'sine', rand(3500, 6500), 0.3, 0.001);
+      return;
+    }
     const small = kind !== 'metal' && kind !== 'paper' && mass < config.physics.impact.debrisBelow;
     if (small && this._play('debris', 0.15 + 0.6 * strength, position, A.hits)) return;
     if (this._play(kind === 'metal' ? 'prop_metal' : kind === 'paper' ? 'prop_paper' : 'prop_thud', 0.15 + 0.6 * strength, position, A.hits)) return;

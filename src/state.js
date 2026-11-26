@@ -16,6 +16,7 @@ export const state = {
   clipboardOffered: false, // she slid the check-in sheet over (after "Did you sign the check-in sheet?")
   needsPen: false,         // tried to sign the check-in sheet without a pen
   askedForPen: false,      // asked her for a pen ("Do you have a pen?")
+  tension: 0,              // the argument heating up, 0..1 (beats' `tension`, and every line he picks): config.argument
   temper: 0,               // how aggressive the player has been: the sum of the aggression of every line he's picked
   lastAggression: 0,       // the aggression of the line he picked last (0 polite .. 3 hostile; Option.aggression)
   hadCoffee: false,        // the receptionist has been for her coffee

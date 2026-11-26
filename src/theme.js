@@ -132,6 +132,13 @@ export const palette = {
   handleBlack: 0x1e1d1b,
   labelCard: 0xf0ead8,
   chainGold: 0xd8ae48,
+  shelfGlassTint: 0xcfe9e0,      // the glass shelves (a faint green edge, like real glass)
+  binderNavy: 0x23365a,
+  binderBurgundy: 0x6a1f28,
+  binderBlack: 0x222222,
+  marbleBase: 0xe8e4da,
+  pencilYellow: 0xe0b020,
+  photoBeach: 0x6fa6c8,
   badgePlate: 0x16233a,          // the receptionist's name badge: engraved navy plastic...
   badgeText: 0xf2eee4,           // ...white letters...
   badgeEdge: 0xc8a54a,           // ...a gold edge
@@ -406,6 +413,14 @@ export const surfaces = {
   phone: { color: 'deskPhone', roughness: 0.35, texture: 'plastic', bump: 0.1 },
   brass: { color: 'brassKnob', roughness: 0.3, metalness: 1 },
   gold: { color: 'chainGold', roughness: 0.22, metalness: 1 },
+  shelfGlass: { color: 'shelfGlassTint', roughness: 0.05, transparent: true, opacity: 0.32 },
+  glassShard: { color: 'shelfGlassTint', roughness: 0.05, transparent: true, opacity: 0.5, side: 'double' },
+  binderBlue: { color: 'binderNavy', roughness: 0.5 },
+  binderRed: { color: 'binderBurgundy', roughness: 0.5 },
+  binderBlack: { color: 'binderBlack', roughness: 0.5 },
+  marble: { color: 'marbleBase', roughness: 0.3 },
+  pencil: { color: 'pencilYellow', roughness: 0.6 },
+  photo: { color: 'photoBeach', roughness: 0.4 },
   umbrellaStand: { color: 'umbrellaStand', roughness: 0.4, metalness: 0.3 },
 };
 /** Each look of surface texture is generated once (canvas), then shared. */
@@ -587,6 +602,28 @@ export const theme = {
   /** Material showing a texture as-is. lit=false for screens and printed signs. */
   textured(map, { lit = false } = {}) {
     return lit ? theme.material('white', { map }) : theme.unlit('white', { map });
+  },
+
+  /**
+   * Blood spatter (src/effects/blood.js): the droplets' material, and a few splat shapes (each a blob with
+   * smaller drops round it, drawn white on clear and tinted 'blood').
+   */
+  blood() {
+    if (theme._blood) return theme._blood;
+    const splats = [];
+    for (let v = 0; v < 4; v++) {
+      let seed = 17 + v * 101;
+      const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const tex = theme.canvasTexture(64, 64, (c, w, h) => {
+        c.fillStyle = '#fff';
+        const blob = (x, y, rad) => { c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2); c.fill(); };
+        c.globalAlpha = 0.9;
+        for (let i = 0; i < 6; i++) blob(w / 2 + (r() - 0.5) * 12, h / 2 + (r() - 0.5) * 12, 7 + r() * 7);
+        for (let i = 0; i < 9 + v * 2; i++) { const a = r() * Math.PI * 2, d = 14 + r() * 15; blob(w / 2 + Math.cos(a) * d, h / 2 + Math.sin(a) * d, 0.8 + r() * 2.6); }
+      });
+      splats.push(theme.material('blood', { map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    }
+    return (theme._blood = { drop: theme.material('blood'), splats });
   },
 
   /** Configure a CanvasTexture (or other texture) according to the look settings. */

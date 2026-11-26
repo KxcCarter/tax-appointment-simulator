@@ -207,5 +207,55 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "Yeah, that's what I thought.": {
+    "text": "Yeah, that's what I thought.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Nuh-uh. You ain't sittin' down.": {
+    "text": "Nuh-uh. You ain't sittin' down.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Oh, now he wants to sit down.": {
+    "text": "Oh, now he wants to sit down.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Don't you sit down on me!": {
+    "text": "Don't you sit down on me!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Did you just tell me to breathe?": {
+    "text": "Did you just tell me to breathe?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

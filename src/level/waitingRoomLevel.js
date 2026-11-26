@@ -10,6 +10,8 @@ import { appalledReplies, npcConversations, people, onlookers, brawlShouts, over
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
 import { Brawl } from './brawl.js';
+import { initBlood, updateBlood } from '../effects/blood.js';
+import { createGlass } from './glass.js';
 import { createNpcThrows } from './npcThrows.js';
 import { Npc } from '../characters/npc.js';
 import { waitingRoomCast, gamer as gamerDef } from '../data/waitingRoomCast.js';
@@ -50,12 +52,16 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   const director = new Director({
     data: waitingRoomBeats, state, ui, sfx, actors, player, config, name: 'receptionist',
+    onSay: (who, text) => shoutShake(who, text),
+    yieldTo: () => onlookerTalk?.talking, // (an interjection from the room: "Free bird!! Wooo!")
     isBlocked: () => anyActive(director),
     onEvent: (type, key) => {
       if (type === 'clipboardSmash' && config.brawl.enabled) smashWanted = true; // the end of the argument: he grabs the clipboard
       // "The creep's trying to run away! Get him!!": everyone goes for him (not switched off by config.brawl.enabled)
       if (type === 'freeBird') freeBird(); // (owner) the man with the watch changes the station
+      if (type === 'freeBirdSync') freeBirdSync();
       if (type === 'brawlStart' && !brawl.started) {
+        state.tension = 0; // (the first blow: the heart and the breathing stop; the crowd's in the fight now)
         state.phase = 'brawl';
         state.canFightBack = true;
         brawl.start(null);
@@ -95,6 +101,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // The bystanders' outburst when the player hits the sitter back (one shared scene)
   const onlookerTalk = new Director({
+    onSay: (who, text) => shoutShake(who, text),
     data: onlookers, state, ui, sfx, actors, player, config, name: 'onlookers',
     isBlocked: () => anyActive(onlookerTalk),
   });
@@ -185,12 +192,103 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       prompt: () => (canSit(c) ? '[E] Sit' : null),
       onInteract: () => {
         if (!canSit(c)) return;
+        if (state.tension > 0 && state.phase !== 'brawl' && state.phase !== 'doorOpen') return refuseSeat(c); // (the argument)
         c.occupant = 'player';
         player.sit(c.object);
         sfx.chairCreak(c.object.position);
         interaction.setOverride(standHandler);
       },
     });
+  }
+
+  // --- The argument (owner): the tension turned up, beat by beat (config.argument; state.tension) ---
+  const AR = config.argument;
+  const lerp = (a, b, k) => a + (b - a) * Math.min(1, Math.max(0, k));
+  const tenseNow = () => state.tension > 0 && state.phase !== 'brawl' && state.phase !== 'doorOpen';
+
+  /** A shouted line (with a "!") in the argument shakes the camera a little. */
+  function shoutShake(who, text) {
+    if (!tenseNow() || who === 'player' || !/!/.test(text ?? '')) return;
+    player.shake = Math.max(player.shake ?? 0, AR.shake * (0.5 + state.tension));
+  }
+
+  /** Trying to sit back down in the argument: someone kicks the chair away first. */
+  function refuseSeat(c) {
+    const body = c.object.userData.body;
+    if (body) {
+      const d = c.object.position.clone().sub(camera.position).setY(0).normalize();
+      body.setBodyType?.(0, true); // (dynamic)
+      body.applyImpulse({ x: d.x * 6, y: 1.5, z: d.z * 6 }, true);
+    }
+    sfx.propHit?.(c.object.position, 0.8, 'metal', 6);
+    if (!onlookerTalk.talking) onlookerTalk.runActions(waitingRoomBeats.sequences?.refuseSeat ?? []); // (the newcomer)
+  }
+
+  // The room closing in: people get up one by one and stand round him, closer and closer; seated ones stare
+  let closeInT = 0, freeBirdVolT = 0, heartT = 0, breathT = 0, breathOut = false;
+  function closeIn(dt) {
+    const C = AR.closeIn;
+    if ((closeInT -= dt) > 0) return;
+    closeInT = C.every;
+    const me = camera.position, R = lerp(C.radius[0], C.radius[1], state.tension);
+    const door = A.entrance?.threshold ?? new THREE.Vector3(0, 0, 5);
+    const bd = config.brawl.bounds;
+    for (const n of npcs) {
+      if (n.down || n.brawling || n.carrying || n.id === 'newcomer' || n.id === 'reader') continue;
+      const standAt = C.stand[n.id];
+      if (standAt == null || state.tension < standAt) {
+        // Still seated: staring at him (not the man with the watch while he's off to the radio)
+        if (!n.walker.active && !n.attending) n.play('attend');
+        continue;
+      }
+      const wk = n.walker, cur = wk.current;
+      if (wk.active && cur && cur.type !== 'hold') continue; // (in the middle of something the script asked for)
+      // Where: round him at radius R; the one blocking the exit between him and the door; the rest from their side
+      const from = wk.pos ?? n.rig.root.position;
+      let ang = n.id === C.blocksExit ? Math.atan2(door.x - me.x, door.z - me.z) : Math.atan2(from.x - me.x, from.z - me.z);
+      const spot = new THREE.Vector3(me.x + Math.sin(ang) * R, 0, me.z + Math.cos(ang) * R);
+      spot.x = THREE.MathUtils.clamp(spot.x, bd.minX, bd.maxX); spot.z = THREE.MathUtils.clamp(spot.z, bd.minZ, bd.maxZ);
+      if (wk.pos && wk.pos.distanceTo(spot) < 0.35) continue; // (close enough already)
+      const look = () => camera.position.clone();
+      n.attending = false; n.action = null; n.reaction = null;
+      const steps = [{ type: 'walk', to: spot, look }, { type: 'hold', seconds: Infinity, target: look }];
+      if (!wk.active) wk.start([{ type: 'rise' }, ...steps], { speedMul: C.speed });
+      else wk.start(steps, { speedMul: C.speed });
+    }
+  }
+
+  /** Every frame in the argument: the crowd, Free Bird swelling, his heart and his breathing. */
+  function argumentTick(dt) {
+    // Free Bird: background at first, swelling to `volumeAtBrawl` by the brawl (and staying there)
+    if (freeBirdOn && radioLoop?.setVolume && (freeBirdVolT -= dt) <= 0) {
+      freeBirdVolT = 0.25;
+      const FB = config.radio.freeBird, pos = sfx.ctx.currentTime - stationStart;
+      const k = state.phase === 'brawl' || state.phase === 'doorOpen' ? 1 : (pos - freeBirdFrom) / Math.max(1, FB.target - freeBirdFrom);
+      radioVolume = lerp(FB.volume, FB.volumeAtBrawl, k);
+      radioLoop.setVolume(radioVolume);
+    }
+    if (!tenseNow()) return;
+    // In his face, but never in him: anyone up and about is kept at least minDistance from the player
+    const me = camera.position, md = AR.closeIn.minDistance;
+    for (const n of npcs) {
+      const p = n.walker.active && n.walker.pos;
+      if (!p || n.down) continue;
+      const dx = p.x - me.x, dz = p.z - me.z, d = Math.hypot(dx, dz);
+      if (d < md) n.walker.nudge((d > 1e-3 ? dx / d : 1) * (md - d), (d > 1e-3 ? dz / d : 0) * (md - d));
+    }
+    closeIn(dt);
+    const H = AR.heartbeat, Br = AR.breathing, t = state.tension;
+    if (t >= H.from && (heartT -= dt) <= 0) {
+      const k = (t - H.from) / (1 - H.from);
+      heartT = 60 / lerp(H.bpm[0], H.bpm[1], k);
+      sfx.heartbeat(lerp(H.volume[0], H.volume[1], k));
+    }
+    if (t >= Br.from && (breathT -= dt) <= 0) {
+      const k = (t - Br.from) / (1 - Br.from), cycle = 60 / lerp(Br.perMinute[0], Br.perMinute[1], k);
+      breathOut = !breathOut;
+      breathT = cycle / 2;
+      sfx.breath(breathOut, lerp(Br.volume[0], Br.volume[1], k), cycle * 0.42);
+    }
   }
 
   // --- a newcomer: after the receptionist's coffee run, someone walks in, takes the next ticket, sits ---
@@ -253,13 +351,15 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
   const combat = new Combat({
     camera, player, sfx, physics, scene,
+    breakables: () => glass?.meshes() ?? [],
     // (the downed too: hitting them makes them flop, combat.js. The receptionist only with the fire extinguisher in
     // hand: config.brawl.receptionistHit)
     targets: () => (combat.held?.kind === config.brawl.receptionistHit.weapon ? [...npcs, receptionist] : npcs),
     onHit: (target) => {
       state.hitStop = config.combat.hitStop; // a tiny freeze on impact (main loop)
-      // The first punch that lands on the sitter: everyone else is appalled, at the player
-      if (target.id !== config.radio.who || state.foughtBack) return;
+      // The first punch that lands on the sitter: everyone else is appalled, at the player. Only before the brawl
+      // (the radio war): in the brawl everyone's at it, and she's just one of them (owner)
+      if (target.id !== config.radio.who || state.foughtBack || state.phase === 'brawl' || state.phase === 'doorOpen') return;
       state.foughtBack = true;
       for (const n of npcs) n.onPlayerFoughtBack();
       onlookerTalk.play('playerFoughtBack');
@@ -373,7 +473,26 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
    * radio and changes the station: the song comes in partway through, as if the station were already playing it,
    * so that it's about `target` seconds in when the brawl starts. Then, a while later, he yells.
    */
-  let radioVolume = config.radio.volume, freeBirdAt = null, freeBirdYell = null;
+  let radioVolume = config.radio.volume, freeBirdAt = null, freeBirdYell = null, freeBirdSyncAt = null, freeBirdOn = false, freeBirdFrom = 0;
+  /** Seconds until the brawl, best guess: from the last shove if that's happened, else from his line. */
+  const toBrawl = () => {
+    const FB = config.radio.freeBird, now = sfx.ctx.currentTime;
+    return freeBirdSyncAt != null ? FB.syncToBrawl - (now - freeBirdSyncAt) : FB.expectedToBrawl - (now - freeBirdAt);
+  };
+  /** Where the song should be now: `target` s in at the brawl. */
+  const freeBirdShouldBe = (buf) => THREE.MathUtils.clamp(config.radio.freeBird.target - Math.max(0, toBrawl()), 0, buf.duration - 1);
+  function freeBirdSync() {
+    if (freeBirdAt == null || !sfx.ctx) return;
+    freeBirdSyncAt = sfx.ctx.currentTime;
+    if (!freeBirdOn || !state.radioOn || !radioBuffer) return; // (not on yet: it'll start in the right place)
+    const should = freeBirdShouldBe(radioBuffer), is = sfx.ctx.currentTime - stationStart;
+    if (Math.abs(should - is) <= config.radio.freeBird.syncSlack) return;
+    // Interference: a crackle, and the song carries on from where it should be
+    sfx.radioClick(radioPos());
+    radioLoop?.stop();
+    stationStart = sfx.ctx.currentTime - should;
+    radioLoop = sfx.playLoop(radioBuffer, radioPos(), { ...config.radio, volume: radioVolume }, should);
+  }
   function freeBird() {
     const FB = config.radio.freeBird, who = npcs.find((n) => n.id === FB.who);
     if (freeBirdAt != null || !who || who.down || !sfx.ctx) return;
@@ -385,9 +504,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       onReach: async () => {
         const buf = await loading;
         if (!buf) return;
-        // Where the song is: `target` s in at the brawl, which is about (expectedToBrawl - so far) s away
-        const sinceEmit = sfx.ctx.currentTime - freeBirdAt;
-        const offset = THREE.MathUtils.clamp(FB.target - Math.max(0, FB.expectedToBrawl - sinceEmit), 0, buf.duration - 1);
+        // Where the song is: `target` s in at the brawl
+        const offset = freeBirdShouldBe(buf);
+        freeBirdOn = true;
+        freeBirdFrom = offset; // (the swell runs from here to `target`)
         radioLoop?.stop();
         radioBuffer = buf;
         radioVolume = FB.volume;
@@ -438,7 +558,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   const brawl = new Brawl({
     npcs: () => npcs,
     camera,
-    onHit: (npc, kind) => hitPlayer(npc, kind),
+    onHit: (npc, kind) => {
+      const landed = hitPlayer(npc, kind);
+      if (landed && kind === 'slap') slapRemark(npc);
+      return landed;
+    },
     say: (id, text) => onlookerTalk.runActions([{ do: 'say', who: id, text }]),
     shouts: brawlShouts,
   });
@@ -665,6 +789,19 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   registerWeapon(A.clipboard, 'clipboard');
   for (const w of A.backRoomWeapons ?? []) registerWeapon(w.object, w.kind);
   for (const n of npcs) if (n.briefcase) registerWeapon(n.briefcase, 'briefcase');
+  // The office things: on the table, her desk and the glass shelves (waitingRoom.js)
+  for (const it of A.officeItems ?? []) registerWeapon(it.object, it.kind);
+
+  // The glass shelves break (glass.js): swung at, or hit by anything fast, a body included
+  initBlood({ scene, physics }); // (blood spatter: src/effects/blood.js)
+  const glass = createGlass({
+    scene, physics, sfx, panels: A.glassPanels ?? [],
+    movers: () => [
+      ...physics.synced.map((e) => e.body),
+      ...npcs.flatMap((n) => n.ragdoll?.parts.map((p) => p.body) ?? []),
+      ...(receptionist.ragdoll?.parts.map((p) => p.body) ?? []),
+    ],
+  });
 
   // The waiting people throwing things at him in the brawl (config.brawl.throwing)
   const npcThrows = createNpcThrows({
@@ -687,6 +824,17 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     who.getUp(brawl);
     state.knockdowns = Math.max(0, state.knockdowns - 1);
   };
+
+  // One of the women slaps him in the brawl: she narrates it for her phone (the first time, then now and then)
+  let lastSlapRemark = -Infinity;
+  function slapRemark(npc) {
+    const S = config.brawl.receptionistSlap, now = performance.now() / 1000;
+    if (!S.who.includes(npc.id) || receptionist.down || onlookerTalk.active || onlookerTalk.talking) return;
+    if (now - lastSlapRemark < S.gap || (lastSlapRemark > -Infinity && Math.random() > S.chance)) return;
+    lastSlapRemark = now;
+    receptionistQuip = Math.max(receptionistQuip, 3);
+    onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: brawlShouts.receptionistSlap }]);
+  }
 
   // The EMPLOYEES ONLY door opens for the player too (the bat is back there)
   A.employeeDoor.playerNear = () => Math.hypot(camera.position.x - A.employeeDoor.threshold.x, camera.position.z - A.employeeDoor.threshold.z) < 1.3;
@@ -764,21 +912,26 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     restartTimer = F.restartAfter;
   }
 
-  // --- knockdowns: at config.brawl.knockdownsToOpen the accountant's door unlocks ---
+  // --- knockdowns: at config.brawl.knockdownsToOpen (everyone but her) the accountant's door unlocks ---
   for (const n of npcs) { n.onKnockedDown = onKnockedDown; n.hitPlayer = hitPlayer; } // hitPlayer: scripted slaps and shoves
   if (config.brawl.receptionistHit.countsAsKnockdown) receptionist.onKnockedDown = onKnockedDown; // (the fire extinguisher: config.brawl.receptionistHit)
+  // How many are needed, and how many are down: with 'all', every waiting person in the room (not her)
+  const allNeeded = () => B.knockdownsToOpen === 'all';
+  const knockdownsNeeded = () => (allNeeded() ? npcs.length : B.knockdownsToOpen);
+  const knockedDown = () => (allNeeded() ? npcs.filter((n) => n.down).length : state.knockdowns);
   function onKnockedDown() {
     state.knockdowns++;
-    if (state.knockdowns >= B.knockdownsToOpen && state.phase === 'brawl') {
+    if (knockedDown() >= knockdownsNeeded() && state.phase === 'brawl') {
       state.phase = 'doorOpen';
       sfx.doorUnlock?.(A.accountantDoor.pivot.getWorldPosition(new THREE.Vector3()));
       ui.toast('Click.', 1.5);
       // The fight's over, as far as she's concerned: one last remark, then back to her chair and her phone
-      if (!receptionist.down) afterRemark = onlookerTalk.runActions([
-        { do: 'wait', seconds: 1.2 },
-        { do: 'say', who: 'receptionist', text: brawlShouts.receptionistAfter },
-        { do: 'wait', seconds: 0.6 },
-      ]).then(() => receptionist.play('backToPhone'));
+      if (!receptionist.down) afterRemark = (async () => {
+        await new Promise((r) => setTimeout(r, 1200));
+        while (onlookerTalk.talking || onlookerTalk.active) await new Promise((r) => setTimeout(r, 200)); // (not over anyone)
+        await onlookerTalk.runActions([{ do: 'say', who: 'receptionist', text: brawlShouts.receptionistAfter }, { do: 'wait', seconds: 0.6 }]);
+        receptionist.play('backToPhone');
+      })();
     }
     // Everyone's down (owner's line): after whatever she's saying, she lets him in
     if (!allDownSaid && !receptionist.down && (state.phase === 'brawl' || state.phase === 'doorOpen') && npcs.every((n) => n.down)) {
@@ -861,6 +1014,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     combat,
     brawl,
     npcThrows, // (exposed for tests)
+    glass,     // (exposed for tests)
+    officeItems: A.officeItems, // (exposed for tests)
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     takeTicket, // (for ?beat=, src/debug/skipToBeat.js)
     /** Debug (?fight): everyone in their seats (the newcomer and the gamer too), and the all-out brawl, now. */
@@ -909,12 +1064,15 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       }
       lastLine = ty;
       brawl.update(dt);
+      argumentTick(dt);
       // Free Bird: his yell, at the next gap in the talking once it's time (sequence freeBirdYell)
       if (freeBirdYell != null && (freeBirdYell -= dt) <= 0 && !director.talking && !onlookerTalk.talking && !onlookerTalk.active) {
         freeBirdYell = null;
         if (!npcs.find((n) => n.id === config.radio.freeBird.who)?.down) onlookerTalk.runActions(waitingRoomBeats.sequences?.freeBirdYell ?? []);
       }
       npcThrows.update(dt);
+      glass.update();
+      updateBlood(dt);
       // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended && state.phase === 'brawl') {
         // Bouncing with excitement; now and then off to a better angle, saying so
@@ -957,7 +1115,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         const low = fighting && !failing ? Math.max(0, (Hu.lowFrom - health) / Hu.lowFrom) * Hu.lowMax * (0.8 + 0.2 * Math.max(0, Math.sin(heartbeat)) ** 4) : 0;
         ui.setHurt(fighting ? Math.max(hurtLevel, low) : 0, Hu);
       }
-      ui.setKnockdowns(fighting ? Math.min(state.knockdowns, B.knockdownsToOpen) : null, B.knockdownsToOpen);
+      ui.setKnockdowns(fighting ? Math.min(knockedDown(), knockdownsNeeded()) : null, knockdownsNeeded());
       ui.setHeld(combat.held?.def.label ?? null);
       if (restartTimer != null && !failing) {
         restartTimer -= dt;

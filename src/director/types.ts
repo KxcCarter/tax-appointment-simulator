@@ -46,7 +46,7 @@ export type SoundName =
     vary 'cycle':  round and round, in order
 */
 export type Action =
-  | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'any' | 'cycle' }
+  | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'any' | 'cycle'; cut?: Seconds } // cut: the next action starts after this long (talking over each other)
   | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number; untilDone?: boolean }
   | { do: 'notice'; text: string; seconds?: number }
   | { do: 'wait'; seconds: Seconds }
@@ -110,6 +110,9 @@ export interface Beat {
   /** While this beat is current: these actions every `every` seconds (the first after `first`), whenever nobody is
    *  talking or choosing. E.g. her side of a phone call. */
   during?: { every: Seconds; first?: Seconds; actions: Action[] };
+  /** The argument's tension (0..1) from this beat on (state.tension): faster pacing, the choice timer, the crowd
+   *  closing in, the heartbeat (config.argument). */
+  tension?: number;
   /** Once this beat has been current for `after` seconds (and nothing's going on): run `actions`, then move to
    *  `goto` (null = the exchange is over), gated for `unlockAfter`. */
   timeout?: { after: Seconds; actions?: Action[]; goto: string | null; unlockAfter?: Seconds };
@@ -137,5 +140,7 @@ export interface Scene {
   /** Pressing E while a beat is still gated and has nothing to offer (no lockedOptions or lockedResponse): these
    *  alerts, one per press, in order; the last one repeats. Starts over at each new gate. */
   lockedNotices?: string[];
+  /** When the choice timer runs out and he has nothing aggressive to say: he says nothing, and this fills the silence. */
+  timerSilence?: Action[];
   onLeave?: Action[];
 }

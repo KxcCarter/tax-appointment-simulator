@@ -112,6 +112,9 @@ export const waitingRoomBeats: Scene = {
 
   // (owner) Talking to her while she's making you wait (a beat's gate, with no brush-off of its own): one alert per
   // press, in order; the last one stays
+  // The choice timer ran out with nothing aggressive on offer: he says nothing, and someone fills the silence
+  timerSilence: [{ do: 'say', who: 'newcomer', text: "Yeah, that's what I thought." }],
+
   lockedNotices: ["She's busy.", "It's rude to interrupt.", 'Just let her finish.'],
 
   speakers: {
@@ -144,6 +147,8 @@ export const waitingRoomBeats: Scene = {
     // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
     // Proposal from the brief; the wording is easy to change.
     // Free Bird (owner): the man with the watch, a while after changing the station (config.radio.freeBird.yellAfter)
+    // (owner) Trying to sit back down in the argument: the chair gets kicked away first (config.argument)
+    refuseSeat: [{ do: 'say', who: 'newcomer', text: ["Nuh-uh. You ain't sittin' down.", 'Oh, now he wants to sit down.', "Don't you sit down on me!"] }],
     freeBirdYell: [{ do: 'say', who: 'watchChecker', text: 'Free bird!! Wooo!' }],
     call: [
       { do: 'goto', beat: null }, // whatever stage the reception exchange reached, it's over
@@ -918,11 +923,17 @@ export const waitingRoomBeats: Scene = {
     // Every reply opens by itself: it's an argument. It ends with the newcomer grabbing the clipboard.
     {
       id: 'argument_1',
+      tension: 0.15, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
         { text: "Excuse me? I've been here since 1:55. Sit down.", aggression: 2, advance: true }, // (the aggressive way: same replies)
+        { // (owner: trying to calm it down backfires)
+          text: "Okay, let's everybody take a breath.",
+          advance: true,
+          actions: [{ do: 'face', who: 'newcomer', expression: 'furious' }, { do: 'say', who: 'newcomer', text: 'Did you just tell me to breathe?' }],
+        },
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -949,6 +960,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_2',
+      tension: 0.25, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -969,6 +981,7 @@ export const waitingRoomBeats: Scene = {
     {
       // (owner's addition) Why didn't he check in? Politely, or blaming her solitaire
       id: 'argument_2_checkin',
+      tension: 0.32, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -996,10 +1009,16 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_3',
+      tension: 0.4, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: "I'm not yelling. I'm just saying I was here first.", advance: true },
+        { // (owner: trying to calm it down backfires)
+          text: "I'm sorry.",
+          advance: true,
+          actions: [{ do: 'face', who: 'reader', expression: 'appalled' }, { do: 'say', who: 'reader', text: 'Oh, so you admit it.' }],
+        },
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -1023,6 +1042,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_4',
+      tension: 0.5, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // (whose E reopens the choices if they're closed: her, or the reader it's asked of)
       autoOpen: true,
       options: [
@@ -1034,12 +1054,16 @@ export const waitingRoomBeats: Scene = {
         pleaEveryone,
       ],
       lockedOptions: [],
-      onAdvance: [pause, { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." }],
+      onAdvance: [
+        pause,
+        { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." },
+      ],
       next: 'argument_5',
       nextUnlockAfter: 0,
     },
     {
       id: 'argument_5',
+      tension: 0.6, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // ("Okay, well do you have a number?": to the reader too)
       autoOpen: true,
       options: [
@@ -1065,10 +1089,16 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_6',
+      tension: 0.7, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: "I wasn't asking for her phone number!", advance: true },
+        { // (owner: trying to calm it down backfires)
+          text: 'Can we talk about this like adults?',
+          advance: true,
+          actions: [{ do: 'face', who: 'cougher', expression: 'angry' }, { do: 'say', who: 'cougher', text: 'Oh, now he wants to talk.' }],
+        },
         {
           // (the aggressive way)
           text: 'Nobody wants your phone number!',
@@ -1084,7 +1114,7 @@ export const waitingRoomBeats: Scene = {
       lockedOptions: [],
       onAdvance: [
         pause,
-        { do: 'say', who: 'receptionist', text: 'Sir, I need you to calm down.' },
+        { do: 'say', who: 'receptionist', text: 'Sir, I need you to calm down.', cut: 1.1 }, // (the shove cuts her off)
         // The sitter stands up, marches over and shoves him back several feet
         // (if the radio war put her on the floor, the young man does it)
         {
@@ -1105,6 +1135,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_7',
+      tension: 0.8, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -1136,6 +1167,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'fighting_words',
+      tension: 0.88, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -1160,6 +1192,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'calm_down',
+      tension: 0.92, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true, // (it's an argument: no walking up and pressing E)
       onOpen: [{ do: 'say', who: 'receptionist', text: 'Sir you need to calm down.' }],
@@ -1180,6 +1213,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'you_calling_me_a_liar',
+      tension: 0.96, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
       options: [
@@ -1187,20 +1221,20 @@ export const waitingRoomBeats: Scene = {
           text: 'No',
           goto: null, // the scene ends in the brawl
           actions: [
+            // (owner) About 40 s before the brawl: he's seen where this is going. Off to the radio, to put on Free Bird
+            // (config.radio.freeBird: timed so the song is about 58 s in when the brawl starts)
+            { do: 'say', who: 'watchChecker', text: 'Oh, I know where this is going...' },
+            { do: 'emit', event: 'freeBird' },
             { do: 'say', who: 'newcomer', text: 'You want me to be calm?' },
             { do: 'say', who: 'player', text: 'That would be great, yeah' },
             { do: 'say', who: 'newcomer', text: 'Yeah? Yeah?!' },
             { do: 'anim', who: 'newcomer', name: 'lookAtPlayer' },
-            { do: 'say', who: 'player', text: 'If we could all just be calm that would be...' },
+            { do: 'say', who: 'player', text: 'If we could all just be calm that would be...', cut: 1.7 }, // (cut off by the shove)
             // He cuts him off with a shove
             { do: 'face', who: 'newcomer', expression: 'furious' },
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'say', who: 'newcomer', text: 'Is this calm enough for you??' },
             { do: 'say', who: 'player', text: 'Uh, not really.' },
-            // (owner) About 40 s before the brawl: he's seen where this is going. Off to the radio, to put on Free Bird
-            // (config.radio.freeBird: timed so the song is about 58 s in when the brawl starts)
-            { do: 'say', who: 'watchChecker', text: 'Oh, I know where this is going...' },
-            { do: 'emit', event: 'freeBird' },
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'say', who: 'newcomer', text: 'Am I calm enough for you now? Am I?' },
             // The old man gets up out of his chair
@@ -1212,6 +1246,7 @@ export const waitingRoomBeats: Scene = {
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            { do: 'emit', event: 'freeBirdSync' }, // (from here to the brawl it's all lines: Free Bird checks it's on time)
             { do: 'anim', who: 'newcomer', name: 'shove' }, // still at it while she talks
             { do: 'face', who: 'receptionist', expression: 'pleased' },
             { do: 'say', who: 'receptionist', text: 'Oooo, Imma put this on Instagram! Hold up, lemme get my phone.' },

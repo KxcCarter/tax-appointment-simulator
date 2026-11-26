@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bloodSpray } from '../effects/blood.js';
 import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
@@ -285,6 +286,7 @@ export class Receptionist {
         : new Damage({ rig: this.rig, look, physics: this.physics, scene: this.rig.root.parent });
     }
     if (damage > 0) this.damage?.add({ hit, dir, knock, source });
+    if (damage > 0) bloodSpray(hit?.point ?? this.rig.parts.head?.getWorldPosition(new THREE.Vector3()), dir, { damage, source });
     this.health -= damage;
     this.face?.setExpression('surprised', 3);
     if (this.health <= 0) this._knockDown(dir, knock);

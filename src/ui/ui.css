@@ -215,3 +215,8 @@ html, body {
   padding: 3px 12px; margin-left: 8px; cursor: pointer; }
 .style-pick button:hover { background: var(--phosphor-hover); color: var(--phosphor); }
 .style-pick button.on { color: var(--phosphor); border-color: var(--phosphor); text-shadow: 0 0 6px var(--phosphor-glow); }
+
+/* The choice timer in the argument (ui.setChoiceTimer): a bar draining under the choices */
+#dlg-timer { height: 4px; margin-top: 8px; background: var(--hud-bg); border: 1px solid var(--dialogue-border); }
+#dlg-timer-fill { height: 100%; width: 100%; background: var(--amber); }
+#dlg-timer.low #dlg-timer-fill { background: var(--health-low); }

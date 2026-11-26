@@ -365,5 +365,45 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "Ooo, hold up. Y'all gotta see this.": {
+    "text": "Ooo, hold up. Y'all gotta see this.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Y'all see that? She slapped him!": {
+    "text": "Y'all see that? She slapped him!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Mmhmm. Here it comes, y'all.": {
+    "text": "Mmhmm. Here it comes, y'all.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Oooo, this goin' straight on Instagram!": {
+    "text": "Oooo, this goin' straight on Instagram!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

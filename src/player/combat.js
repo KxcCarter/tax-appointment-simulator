@@ -30,7 +30,8 @@ export class Combat {
    * @param physics the level's Physics wrapper (for dropping/throwing things)
    * @param scene   where dropped things go back to
    */
-  constructor({ camera, player, sfx, targets, onHit, physics, scene }) {
+  constructor({ camera, player, sfx, targets, onHit, physics, scene, breakables }) {
+    this.breakables = breakables ?? (() => []); // meshes a swing can break (glass shelves): mesh.userData.onBreak(dir, point)
     this.onHit = onHit ?? (() => {});
     this.camera = camera;
     this.player = player;
@@ -363,6 +364,22 @@ export class Combat {
     }
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
+    // Glass in the way (nearer than anyone it would hit): it breaks
+    const glass = this.breakables();
+    if (glass.length) {
+      let gHit = null;
+      for (const [x, y] of [[0, 0], [0.12, 0], [-0.12, 0], [0, -0.12]]) {
+        this.raycaster.setFromCamera(new THREE.Vector2(x, y + aimY), cam);
+        const h = this.raycaster.intersectObjects(glass, false)[0];
+        if (h && (!gHit || h.distance < gHit.distance)) gHit = h;
+      }
+      if (gHit && (!hit || gHit.distance < hit.distance)) {
+        gHit.object.userData.onBreak?.(dir, gHit.point);
+        this.player.shake = Math.max(this.player.shake, 0.2);
+        this._wear();
+        return;
+      }
+    }
     if (!hit) { if (!(source === 'weapon' && this.held?.def.swingSound)) this.sfx.whoosh(); return; } // (the bat swished already)
     const target = list.find((t) => t.rig.root === hit.object.userData.rigRoot);
     if (!target) return;

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { bloodSpray } from '../effects/blood.js';
 import { config } from '../config.js';
+import { state } from '../state.js';
 import { theme, characterPalettes } from '../theme.js';
 import { RAPIER } from '../physics.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
@@ -436,7 +438,8 @@ export class Npc {
       steps.push({ type: 'hold', seconds: Infinity, until: () => { resolve(); return true; } }); // arrived / the blow landed
       steps.push({ type: 'hold', seconds: Infinity, target }); // stand there, facing him
       this.attending = false; this.action = null; this.reaction = null;
-      const opts = { speedMul: 1.6, anger: 1 }; // marching over
+      // marching over (faster as the argument heats up: state.tension)
+      const opts = { speedMul: 1.6 * (1 + (config.argument?.walkFaster ?? 0) * (state.tension ?? 0)), anger: 1 };
       const wk = this.walker;
       if (!wk.active) wk.start([{ type: 'rise' }, ...steps], opts);
       else wk.start(steps, opts);
@@ -947,6 +950,7 @@ export class Npc {
   takeHit(dir, { damage = config.combat.punchDamage, knock = 1, hit = null, source = 'fist' } = {}) {
     if (this.down) return;
     if (damage > 0) this.damage.add({ hit, dir, knock, source }); // (before the flash, which swaps materials)
+    if (damage > 0) bloodSpray(hit?.point ?? this._bloodPoint(), dir, { damage, source });
     // The sitter, before the brawl (the radio war): tougher (config.radio.toughness)
     const tough = this.id === config.radio.who && !this.brawling ? config.radio.toughness ?? 1 : 1;
     this.health = (this.health ?? config.brawl.health * tough) - damage;
@@ -962,7 +966,13 @@ export class Npc {
     if (this.health <= 0) { this._knockDown(dir, knock); this.onKnockedDown?.(this); }
   }
 
+  /** Where blood comes from when there's no exact spot (thrown things): the head. */
+  _bloodPoint() {
+    return this.rig.parts.head?.getWorldPosition(new THREE.Vector3()) ?? this.rig.root.position.clone().setY(1.5);
+  }
+
   _knockDown(dir, knock = 1) {
+    bloodSpray(this._bloodPoint(), dir, { damage: 25 * knock, source: 'knockdown' });
     this.down = true;
     this.scripted = null;
     this.rig.root.visible = true;

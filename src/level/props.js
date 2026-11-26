@@ -363,6 +363,24 @@ export function buildDrawer(g, w, h) {
   rbox(0.06, 0.026, 0.002, 0.001, S('paper'), 0, h * 0.2, 0.0145, g);
 }
 
+/**
+ * A free-standing filing cabinet, w x h x d, with `drawers` drawers: the group at the floor under its middle, front +z.
+ * Returns the cabinet's body (for [E] on it).
+ */
+export function buildFilingCabinet(g, { w = 0.46, h = 1.32, d = 0.6, drawers = 4 } = {}) {
+  const body = rbox(w, h - 0.03, d, 0.008, S('cabinetMetal'), 0, 0.03 + (h - 0.03) / 2, 0, g);
+  rbox(w - 0.03, 0.03, d - 0.04, 0.004, S('plasticBlack'), 0, 0.015, 0, g); // the plinth, set back
+  rbox(w + 0.006, 0.012, d + 0.006, 0.004, S('cabinetMetal'), 0, h - 0.006, 0, g); // the top's lip
+  const dh = (h - 0.06) / drawers;
+  for (let i = 0; i < drawers; i++) {
+    const dr = new THREE.Group();
+    dr.position.set(0, h - 0.03 - dh * (i + 0.5), d / 2 + 0.005);
+    g.add(dr);
+    buildDrawer(dr, w, dh);
+  }
+  return body;
+}
+
 // ------------------------------------------------------------------ second pass: fittings and small things
 
 /** A moulded door casing round an opening w x h (the group at the floor, at the opening's middle, facing +z). */
@@ -510,4 +528,118 @@ export function buildSprinkler(g) {
   cylinder(0.025, 0.025, 0.006, S('chrome'), 0, -0.003, 0, g, 20);
   cylinder(0.006, 0.008, 0.03, S('brass'), 0, -0.02, 0, g, 10);
   cylinder(0.016, 0.016, 0.003, S('brass'), 0, -0.037, 0, g, 16);
+}
+
+// ------------------------------------------------------------------ office things to fight with (pick up, swing, throw)
+// Each builds into an empty group, roughly centred on its origin (waitingRoom.js recentres it exactly, for physics).
+
+/** A chrome-and-black stapler (long side along x). */
+export function buildStapler(g) {
+  rbox(0.16, 0.012, 0.04, 0.004, S('plasticBlack'), 0, -0.018, 0, g);
+  const top = rbox(0.17, 0.022, 0.035, 0.008, S('chrome'), 0.005, 0.006, 0, g);
+  top.rotation.z = 0.06;
+  rbox(0.03, 0.03, 0.03, 0.006, S('plasticBlack'), -0.07, -0.004, 0, g);
+}
+/** A tape dispenser: a heavy black shell with a roll of tape. */
+export function buildTapeDispenser(g) {
+  const shell = taperBox(0.15, 0.06, 0.06, 0.8, S('plasticBlack'));
+  shell.rotation.y = Math.PI / 2;
+  g.add(shell);
+  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.008, 8, 20), S('bottle'));
+  roll.position.set(-0.01, 0.025, 0);
+  g.add(roll);
+  rbox(0.02, 0.012, 0.03, 0.002, S('steel'), 0.07, 0.03, 0, g);
+}
+/** A two-hole punch. */
+export function buildHolePunch(g) {
+  rbox(0.15, 0.025, 0.1, 0.008, S('plasticBlack'), 0, -0.02, 0, g);
+  const lever = rbox(0.14, 0.02, 0.06, 0.008, S('steel'), 0, 0.012, -0.01, g);
+  lever.rotation.z = 0.1;
+  for (const x of [-0.04, 0.04]) cylinder(0.012, 0.012, 0.03, S('steel'), x, 0, 0.02, g, 12);
+}
+/** A desk calculator with a paper roll (an adding machine). */
+export function buildCalculator(g) {
+  const body = taperBox(0.2, 0.05, 0.24, 1, S('crtPlastic'));
+  const p = body.geometry.attributes.position;
+  for (let i = 0; i < p.count; i++) if (p.getZ(i) < 0 && p.getY(i) > 0) p.setY(i, p.getY(i) + 0.03);
+  body.geometry.computeVertexNormals();
+  g.add(body);
+  const keys = new THREE.InstancedMesh(new RoundedBoxGeometry(0.026, 0.012, 0.024, 2, 0.004), S('keycapDark'), 16);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < 16; i++) keys.setMatrixAt(i, m.makeTranslation(-0.05 + (i % 4) * 0.033, 0.03 + 0.004 * Math.floor(i / 4), 0.07 - Math.floor(i / 4) * 0.03));
+  g.add(keys);
+  cylinder(0.03, 0.03, 0.12, S('paper'), 0, 0.075, -0.1, g, 16).rotation.z = Math.PI / 2; // the paper roll
+}
+/** A ring binder, standing on its edge (spine along y). colour: a surface name. */
+export function buildBinder(g, colour = 'binderBlue') {
+  rbox(0.05, 0.3, 0.26, 0.006, S(colour), 0, 0, 0, g);
+  rbox(0.042, 0.29, 0.25, 0.004, S('paper'), 0.003, 0, 0.004, g);
+  rbox(0.002, 0.1, 0.07, 0.001, S('paper'), -0.026, 0.06, 0, g); // the label on the spine
+}
+/** A bowling trophy: a marble base, a column, a gold figure. */
+export function buildTrophy(g) {
+  rbox(0.1, 0.04, 0.1, 0.005, S('marble'), 0, -0.12, 0, g);
+  cylinder(0.02, 0.02, 0.12, S('gold'), 0, -0.04, 0, g, 16);
+  cylinder(0.045, 0.03, 0.03, S('gold'), 0, 0.035, 0, g, 20);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), S('gold'));
+  ball.position.set(0, 0.08, 0);
+  g.add(ball);
+}
+/** A swing-arm desk lamp on a heavy base. */
+export function buildDeskLamp(g) {
+  cylinder(0.07, 0.08, 0.025, S('paintedMetal'), 0, -0.18, 0, g, 24);
+  g.add(bentTube([V(0, -0.17, 0), V(0, 0.05, -0.04), V(0.1, 0.16, 0)], 0.008, S('paintedMetal'), { bend: 0.03 }));
+  const shade = lathe([[0.012, 0.0], [0.03, -0.01], [0.06, -0.07], [0.055, -0.072], [0.025, -0.012], [0.008, -0.004]], S('paintedMetal'), 24);
+  shade.position.set(0.12, 0.17, 0);
+  shade.rotation.z = -0.6;
+  g.add(shade);
+}
+/** A pencil cup with pencils and a pen in it. */
+export function buildPencilCup(g) {
+  cylinder(0.035, 0.032, 0.1, S('ceramic'), 0, 0, 0, g, 20);
+  const rnd = seeded(13);
+  for (let i = 0; i < 5; i++) {
+    const p = cylinder(0.004, 0.004, 0.17, S(i % 2 ? 'pencil' : 'plasticBlack'), (rnd() - 0.5) * 0.03, 0.05, (rnd() - 0.5) * 0.03, g, 6);
+    p.rotation.set((rnd() - 0.5) * 0.4, 0, (rnd() - 0.5) * 0.4);
+  }
+}
+/** A framed photo on a stand (a slightly blurry beach). */
+export function buildPhotoFrame(g) {
+  const f = rbox(0.16, 0.12, 0.015, 0.004, S('woodDark'), 0, 0, 0, g);
+  f.rotation.x = -0.2;
+  const pic = rbox(0.13, 0.09, 0.003, 0.001, S('photo'), 0, 0.002, 0.008, g);
+  pic.rotation.x = -0.2;
+}
+/** An office laser printer: a beige box with a paper tray, an output slot and a little panel. */
+export function buildPrinter(g) {
+  rbox(0.42, 0.22, 0.36, 0.02, S('crtPlastic'), 0, 0, 0, g);
+  rbox(0.36, 0.015, 0.2, 0.004, S('crtPlasticDark'), 0, 0.11, 0.02, g); // the output tray on top
+  for (let i = 0; i < 4; i++) rbox(0.21, 0.003, 0.29, 0.001, S('paper'), 0, 0.12 + i * 0.003, 0.02, g);
+  rbox(0.34, 0.05, 0.12, 0.008, S('crtPlasticDark'), 0, -0.07, 0.22, g); // the paper cassette, sticking out
+  rbox(0.08, 0.03, 0.01, 0.004, S('plasticBlack'), 0.14, 0.06, 0.181, g);
+  cylinder(0.003, 0.003, 0.004, S('ledGreen'), 0.12, 0.06, 0.188, g, 8).rotation.x = Math.PI / 2;
+}
+
+/**
+ * A chrome shelving unit with glass shelves, against a wall (front +z; the group at the floor, at its middle).
+ * Returns the glass shelves: [{ mesh, y (top), half: { x, y, z } }] (the level gives them colliders and makes them breakable).
+ */
+export function buildGlassShelf(g, { w = 1.0, d = 0.38, h = 1.7, levels = [0.35, 0.8, 1.25, 1.65] } = {}) {
+  for (const x of [-w / 2 + 0.012, w / 2 - 0.012]) for (const z of [-d / 2 + 0.012, d / 2 - 0.012]) cylinder(0.012, 0.012, h, S('chrome'), x, h / 2, z, g, 12);
+  const panels = [];
+  for (const y of levels) {
+    // a chrome rail front and back holds each sheet
+    for (const z of [-d / 2 + 0.012, d / 2 - 0.012]) rbox(w, 0.012, 0.012, 0.003, S('chrome'), 0, y - 0.012, z, g);
+    const mesh = rbox(w - 0.03, 0.008, d - 0.02, 0.002, S('shelfGlass'), 0, y, 0, g);
+    mesh.name = 'shelfGlass';
+    panels.push({ mesh, y: y + 0.004, half: { x: (w - 0.03) / 2, y: 0.006, z: (d - 0.02) / 2 } });
+  }
+  return panels;
+}
+
+/** A plain office table (laminate top, metal legs): front +z, the group at the floor, at its middle. */
+export function buildOfficeTable(g, { w = 1.8, d = 0.7, h = 0.74 } = {}) {
+  rbox(w, 0.035, d, 0.008, S('laminate', { repeat: [3, 1] }), 0, h - 0.018, 0, g);
+  rbox(w - 0.06, 0.06, d - 0.06, 0.004, S('paintedMetal'), 0, h - 0.065, 0, g); // the apron
+  for (const x of [-w / 2 + 0.04, w / 2 - 0.04]) for (const z of [-d / 2 + 0.04, d / 2 - 0.04]) rbox(0.035, h - 0.04, 0.035, 0.006, S('paintedMetal'), x, (h - 0.04) / 2, z, g);
 }

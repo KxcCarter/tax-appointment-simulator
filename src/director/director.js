@@ -44,7 +44,9 @@
 const pick = (v) => (Array.isArray(v) ? v[0] + Math.random() * (v[1] - v[0]) : v ?? 0);
 
 export class Director {
-  constructor({ data, state, ui, sfx, actors, player, config, onEvent, isBlocked, name = 'scene' }) {
+  constructor({ data, state, ui, sfx, actors, player, config, onEvent, onSay, yieldTo, isBlocked, name = 'scene' }) {
+    this.yieldTo = yieldTo ?? null; // (): true while someone else's interjection is being said (this scene waits for it)
+    this.onSay = onSay ?? null; // (who, text): every line as it starts (e.g. a shout shakes the camera)
     this.name = name; // shown by the debug beat readout
     // isBlocked(): true while another conversation owns the dialogue box (one at a time)
     this.isBlocked = isBlocked ?? (() => false);
@@ -77,6 +79,15 @@ export class Director {
     return !(beat.options ?? []).some((o) => o.advance || 'goto' in o);
   }
 
+  /**
+   * The argument's tension (state.tension, 0..1; beats set it with `tension`, every line picked adds to it): the
+   * higher it is, the shorter every pause, hold and reaction (config.argument.pace), down to `min` of normal.
+   */
+  paceFactor() {
+    const t = this.state.tension ?? 0, P = this.config.argument?.pace;
+    return t > 0 && P ? 1 - (1 - P.min) * Math.min(1, t) : 1;
+  }
+
   get current() {
     return this.beats.get(this.currentId) ?? null;
   }
@@ -104,6 +115,7 @@ export class Director {
     this.timers = this.timers.filter((t) => t.at > this.time);
     for (const t of due) t.resolve();
     this._timedBeat();
+    this._runChoiceTimer();
     // typewriter
     const ty = this.typing;
     if (ty) {
@@ -203,17 +215,27 @@ export class Director {
     this.choosing = true;
     this.player.block('dialogue', true);
     this.runActions(beat.onOpen ?? []);
+    // In the heat of the argument there's no time to think: a draining bar, then something gets said for him
+    const CT = this.config.argument?.choiceTimer, tension = this.state.tension ?? 0;
+    if (CT && beat.autoOpen && !locked && tension >= CT.from && !this.autoPick) {
+      const k = Math.min(1, (tension - CT.from) / Math.max(0.01, 1 - CT.from));
+      const seconds = CT.seconds[0] + (CT.seconds[1] - CT.seconds[0]) * k;
+      this.choiceTimer = { start: this.time, until: this.time + seconds, beat, options };
+      this.ui.setChoiceTimer?.(1);
+    }
     this.ui.showChoices(options, {
       context,
       canInput: () => !this.state.paused,
       onPick: (i) => {
         this.choosing = false;
         this.player.block('dialogue', false);
+        this._stopChoiceTimer();
         this.choose(beat, options[i], locked);
       },
       onCancel: () => {
         this.choosing = false;
         this.player.block('dialogue', false);
+        this._stopChoiceTimer();
         // Walking away mid-conversation: start over next time (data.resetOnLeave)
         if (this.data.resetOnLeave) {
           this.moveTo(this.data.start, 0);
@@ -231,6 +253,9 @@ export class Director {
     const aggression = option.aggression ?? option.src?.aggression ?? 0;
     this.state.lastAggression = aggression;
     this.state.temper = (this.state.temper ?? 0) + aggression;
+    // Whatever he says in an argument makes it worse: calm lines a little, rude ones more (config.argument)
+    const A = this.config.argument;
+    if ((this.state.tension ?? 0) > 0 && A) this.state.tension = Math.min(1, this.state.tension + A.perLine + A.perAggression * aggression);
     try {
       if (!option.silent) await this.say('player', option.text);
       if (option.advance && !wasLocked) {
@@ -296,6 +321,41 @@ export class Director {
     this.currentId = id;
     this.lockedUntil = this.time + pick(unlockAfter);
     this.noticeIndex = 0; // (a new gate: "She's busy." first again)
+    // The argument heating up: a beat's `tension` is the least it is from there on (Beat.tension)
+    const tb = this.beats.get(id)?.tension;
+    if (tb != null) this.state.tension = Math.max(this.state.tension ?? 0, tb);
+  }
+
+  _stopChoiceTimer() {
+    this.choiceTimer = null;
+    this.ui.setChoiceTimer?.(null);
+  }
+
+  /**
+   * The choice timer: when it runs out, he says the most aggressive thing on offer (he snaps); with nothing
+   * aggressive to say, he says nothing, someone fills the silence against him (data.timerSilence), and the story
+   * goes on as if he'd picked the line that moves it on (silently).
+   */
+  _runChoiceTimer() {
+    const T = this.choiceTimer;
+    if (!T) return;
+    if (!this.choosing) return this._stopChoiceTimer();
+    this.ui.setChoiceTimer?.(Math.max(0, (T.until - this.time) / (T.until - T.start)));
+    if (this.time < T.until) return;
+    this._stopChoiceTimer();
+    this.ui.closeChoices();
+    this.choosing = false;
+    this.player.block('dialogue', false);
+    const { beat, options } = T;
+    const angry = options.filter((o) => (o.aggression ?? 0) > 0).sort((a, b) => (b.aggression ?? 0) - (a.aggression ?? 0))[0];
+    if (angry) return this.choose(beat, angry, false);
+    const onward = options.find((o) => o.advance || 'goto' in o);
+    this.busy = true;
+    this.runActions(this.data.timerSilence ?? []).finally(() => {
+      this.busy = false;
+      if (onward) this.choose(beat, { ...onward, silent: true }, false);
+      else if (beat.autoOpen) this.openChoices(beat);
+    });
   }
 
   /**
@@ -346,7 +406,10 @@ export class Director {
         // A list of lines: one of them each time (variations; see types.ts)
         const text = Array.isArray(a.text) ? this.variant(a) : a.text;
         // text may be (state) => string for live values, e.g. the time on the clock
-        return this.say(a.who, typeof text === 'function' ? text(this.state) : text);
+        const line = this.say(a.who, typeof text === 'function' ? text(this.state) : text);
+        // cut: the next action starts this long after the line does (cutting it off: people talking over each other)
+        if (a.cut != null) return Promise.race([line, this.wait(pick(a.cut))]);
+        return line;
       }
       case 'anim': {
         const done = this.actors[a.who]?.play(a.name);
@@ -358,7 +421,7 @@ export class Director {
         this.ui.toast(a.text, a.seconds ?? 3);
         return;
       case 'wait':
-        return this.wait(a.seconds);
+        return this.wait(pick(a.seconds) * this.paceFactor()); // (shorter as the argument heats up)
       case 'setPhase':
         this.state.phase = a.phase;
         this.onEvent('phase', a.phase);
@@ -395,12 +458,18 @@ export class Director {
    * The box clears itself after the hold time unless something replaced it.
    */
   async say(who, text) {
+    while (this.yieldTo?.()) await this.wait(0.1); // (an interjection, e.g. "Free bird!!": let it be said)
     const sp = this.data.speakers[who] ?? { name: who.toUpperCase(), pitch: 250 };
     const actor = sp.actor ? this.actors[sp.actor] : null;
     const T = this.config.timings.dialogue;
     const token = {};
     this.lineToken = token;
     this.typing?.voice?.stop(); // (a line cut off by this one)
+    // ...and whoever was waiting for that line to finish carries on (else their action list would wait forever,
+    // and anything waiting on it: the brawl's shouts, her last lines)
+    const cut = this.typing;
+    if (cut && !cut.finished) { cut.finished = true; cut.resolve(); }
+    this.onSay?.(who, text);
     // Its recording, if there is one (src/audio/voice/<who>/; config.audio.voices)
     const length = this.sfx.voiceLength?.(who, text) ?? 0;
     const voice = length ? this.sfx.voiceLine(who, text, actor?.voicePosition() ?? null) : null;
@@ -415,11 +484,11 @@ export class Director {
       actor?.setTalking?.(true);
     });
     actor?.setTalking?.(false);
-    this.wait(T.holdBase + T.holdPerChar * text.length).then(() => {
+    this.wait((T.holdBase + T.holdPerChar * text.length) * this.paceFactor()).then(() => {
       if (this.lineToken !== token) return; // a newer line took over
       this.typing = null;
       if (!this.choosing) this.ui.hideDialogue();
     });
-    await this.wait(T.reactionDelay);
+    await this.wait(T.reactionDelay * this.paceFactor());
   }
 }

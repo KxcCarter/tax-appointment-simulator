@@ -37,6 +37,7 @@ export class UI {
         <div id="dlg-speaker"></div>
         <div id="dlg-text"></div>
         <ol id="dlg-choices" class="hidden"></ol>
+        <div id="dlg-timer" class="hidden"><div id="dlg-timer-fill"></div></div>
         <div id="dlg-hint" class="hidden">1–4, or move the mouse and click · E to step away</div>
       </div>
       <div id="fps" class="hidden"></div>
@@ -208,6 +209,15 @@ export class UI {
   }
 
   _closeChoices() {}
+
+  /** The choice timer (the argument): how much time is left, 1..0, or null to hide it. */
+  setChoiceTimer(f) {
+    const el = this.$('dlg-timer');
+    el.classList.toggle('hidden', f == null);
+    if (f == null) return;
+    this.$('dlg-timer-fill').style.width = `${Math.max(0, f) * 100}%`;
+    el.classList.toggle('low', f < 0.35);
+  }
 
   setTicket(n) {
     const el = this.$('ticket');

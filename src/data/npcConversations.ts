@@ -646,7 +646,7 @@ export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'This man a perv!', pose: 'pointAt', expression: 'angry' },
 ];
 
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistAfter: string; receptionistAllDown: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistSlap: string; receptionistAfter: string; receptionistAllDown: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -679,7 +679,13 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Oo, get him!',
     'Ouch!',
     "Mmhmm, that's what you get!",
+    "Oooo, this goin' straight on Instagram!",   // (these three were her argument narration; moved here)
+    "Ooo, hold up. Y'all gotta see this.",
+    "Mmhmm. Here it comes, y'all.",
   ],
+  // The receptionist, filming, when the woman with the magazine or the woman in red slaps him (the first time, then
+  // now and then: config.brawl.receptionistSlap)
+  receptionistSlap: "Y'all see that? She slapped him!",
   // The receptionist, moving to a better spot behind the counter, still filming (the first two are the
   // owner's; in order, then at random)
   receptionistMoving: [

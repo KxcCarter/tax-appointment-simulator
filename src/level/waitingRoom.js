@@ -45,6 +45,26 @@ export function buildWaitingRoom(scene, physics) {
     parent.add(m);
     return m;
   };
+  /**
+   * Something to pick up and fight with (or throw): built by `build` into a group, centred, set down with its bottom
+   * at (x, y, z), turned by yaw, and given a physics body its size (anchors.officeItems; the level makes it a weapon).
+   * density: kg/m³ (heavier things hurt more and fly less); sound: what it sounds like landing (sfx.propHit).
+   */
+  anchors.officeItems = [];
+  const office = (kind, build, x, y, z, yaw = 0, { density = 400, sound } = {}) => {
+    const g = new THREE.Group();
+    build(g);
+    g.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    for (const ch of g.children) ch.position.sub(c);
+    g.position.set(x, y + size.y / 2 + 0.002, z);
+    g.rotation.y = yaw;
+    scene.add(g);
+    physics.addDynamic(g, [{ type: 'box', half: { x: Math.max(0.01, size.x / 2), y: Math.max(0.01, size.y / 2), z: Math.max(0.01, size.z / 2) } }], { density, angularDamping: 0.6 });
+    if (sound) g.userData.impactSound = sound;
+    anchors.officeItems.push({ object: g, kind });
+    return g;
+  };
   const staticBox = (cx, cy, cz, hx, hy, hz, yaw = 0) =>
     physics.addStaticBox({ x: cx, y: cy, z: cz }, { x: hx, y: hy, z: hz }, yaw);
 
@@ -395,8 +415,8 @@ export function buildWaitingRoom(scene, physics) {
       box(0.3, 0.035, 0.008, k, 0, 0.018, 0.176, tray);
       for (let i = 0; i < 4; i++) box(0.21, 0.005, 0.29, surf('paper'), 0, 0.012 + i * 0.006, 0, tray).rotation.y = (i - 1.5) * 0.04;
     }
-    { const mug = new THREE.Group(); mug.position.set(-1.7, 0.81, -3.4); scene.add(mug); P.buildMug(mug); }
-    { const phone = new THREE.Group(); phone.position.set(-1.35, 0.76, -3.9); phone.rotation.y = 0.5; scene.add(phone); P.buildDeskPhone(phone); }
+    office('mug', P.buildMug, -1.7, 0.76, -3.4, 0, { density: 600 });                     // (hers: you can grab it in the brawl)
+    office('phone', P.buildDeskPhone, -1.35, 0.76, -3.9, 0.5, { density: 500 });
 
     // Check-in sheet on a clipboard, on her left. She slides it onto the counter if you're on time.
     // The clip end points at her, so the sheet reads the right way up for the player.
@@ -712,6 +732,113 @@ export function buildWaitingRoom(scene, physics) {
     at(plate('outlet'), hw, 0.3, 1.7, -Math.PI / 2);
     at(plate('outlet'), 2.2, 0.3, -hd, 0);
     at(plate('thermostat'), -0.95, 1.5, hd, Math.PI);
+  }
+
+  // ---------- the office table (south wall, west of the door): a spare computer, a printer, office things ----------
+  {
+    const tx = -3.6, tz = hd - 0.4, TH = 0.74;
+    const table = new THREE.Group();
+    table.position.set(tx, 0, tz);
+    table.rotation.y = Math.PI; // (its front faces into the room)
+    scene.add(table);
+    P.buildOfficeTable(table, { w: 1.9, d: 0.7, h: TH });
+    staticBox(tx, TH / 2, tz, 0.95, TH / 2, 0.35);
+    // A spare PC, switched on, showing a spreadsheet
+    const sheetTex = theme.canvasTexture(256, 192, (c, w, h) => {
+      c.fillStyle = theme.css('ledBackground'); c.fillRect(0, 0, w, h);
+      c.fillStyle = theme.css('ledGreen'); c.font = '11px monospace';
+      c.fillText('A1: QUARTERLY ESTIMATES', 8, 16);
+      for (let r = 0; r < 12; r++) for (let k = 0; k < 4; k++) c.fillText(String((r * 37 + k * 113) % 997).padStart(5, ' '), 12 + k * 60, 36 + r * 13);
+    });
+    office('computer', (g) => P.buildComputer(g, theme.textured(sheetTex)), tx + 0.55, TH, tz - 0.02, Math.PI, { density: 300 });
+    office('keyboard', P.buildKeyboard, tx + 0.55, TH, tz - 0.22, Math.PI, { density: 500 });
+    office('printer', P.buildPrinter, tx - 0.55, TH, tz - 0.02, Math.PI, { density: 260 });
+    office('phone', P.buildDeskPhone, tx - 0.1, TH, tz + 0.05, Math.PI + 0.3, { density: 500 });
+    office('calculator', P.buildCalculator, tx - 0.15, TH, tz - 0.2, Math.PI - 0.2, { density: 500 });
+    office('stapler', P.buildStapler, tx + 0.12, TH, tz - 0.18, 0.4, { density: 1500, sound: 'metal' });
+    office('mug', P.buildMug, tx + 0.22, TH, tz + 0.05, 0, { density: 600 });
+    office('pencilCup', P.buildPencilCup, tx + 0.86, TH, tz + 0.05, 0, { density: 500 });
+    office('tape', P.buildTapeDispenser, tx - 0.85, TH, tz - 0.22, 0.3, { density: 1200 });
+    office('holePunch', P.buildHolePunch, tx + 0.02, TH, tz + 0.1, -0.3, { density: 1300, sound: 'metal' });
+  }
+
+  // ---------- filing cabinets (north and south walls) and a glass shelf (west wall), things on all of them ----------
+  // (owner: the cabinets make it look more like an accountant's office; the shelf's glass breaks)
+  anchors.glassPanels = [];
+  {
+    const shelves = [
+      { x: -hw + 0.21, z: 2.7, yaw: Math.PI / 2 },        // west wall, past the chairs
+    ];
+    const cabinetBanks = [
+      { x: 1.05, z: -hd + 0.3, yaw: 0, drawers: [4, 4] },         // north wall, under the clock and NOW SERVING
+      { x: 3.0, z: hd - 0.3, yaw: Math.PI, drawers: [4, 3] },     // south wall, east of the door
+    ];
+    const rnd = seeded(41);
+    // What's on them (a few things per shelf, at random)
+    const stock = [
+      ['binder', (g) => P.buildBinder(g, 'binderBlue'), 300], ['binder', (g) => P.buildBinder(g, 'binderRed'), 300],
+      ['binder', (g) => P.buildBinder(g, 'binderBlack'), 300], ['trophy', P.buildTrophy, 1400], ['photoFrame', P.buildPhotoFrame, 500],
+      ['mug', P.buildMug, 600], ['lamp', P.buildDeskLamp, 700], ['calculator', P.buildCalculator, 500], ['stapler', P.buildStapler, 1500],
+    ];
+    for (const [k, s] of shelves.entries()) {
+      const g = new THREE.Group();
+      g.position.set(s.x, 0, s.z);
+      g.rotation.y = s.yaw;
+      scene.add(g);
+      const panels = P.buildGlassShelf(g, { w: 1.0, d: 0.38 });
+      g.updateMatrixWorld(true);
+      // The frame's posts are solid; each sheet of glass is its own collider (gone when it breaks)
+      for (const px of [-0.49, 0.49]) for (const pz of [-0.18, 0.18]) {
+        const p = g.localToWorld(new THREE.Vector3(px, 0.85, pz));
+        staticBox(p.x, p.y, p.z, 0.014, 0.85, 0.014, s.yaw);
+      }
+      for (const [i, pn] of panels.entries()) {
+        const c = pn.mesh.getWorldPosition(new THREE.Vector3());
+        const collider = staticBox(c.x, c.y, c.z, pn.half.x, pn.half.y, pn.half.z, s.yaw);
+        pn.mesh.userData.glass = true;
+        anchors.glassPanels.push({ mesh: pn.mesh, collider, center: c, half: pn.half, yaw: s.yaw, shelf: k, level: i });
+        // Two or three things on each shelf
+        const n = 2 + Math.floor(rnd() * 2);
+        for (let j = 0; j < n; j++) {
+          const [kind, build, density] = stock[Math.floor(rnd() * stock.length)];
+          const lx = -0.32 + (j / Math.max(1, n - 1)) * 0.64 + (rnd() - 0.5) * 0.06;
+          const at = g.localToWorld(new THREE.Vector3(lx, pn.y, (rnd() - 0.5) * 0.06));
+          office(kind, build, at.x, at.y, at.z, s.yaw + (kind === 'binder' ? Math.PI / 2 : (rnd() - 0.5) * 0.6), { density, sound: kind === 'stapler' ? 'metal' : undefined });
+        }
+      }
+    }
+    // The cabinets: two side by side, solid, with office things on top (all of them can be picked up)
+    const onTop = [
+      ...stock,
+      ['phone', P.buildDeskPhone, 700], ['pencilCup', P.buildPencilCup, 500], ['tape', P.buildTapeDispenser, 1200],
+      ['holePunch', P.buildHolePunch, 1300],
+    ];
+    const CW = 0.46, CD = 0.6;
+    for (const b of cabinetBanks) {
+      const g = new THREE.Group();
+      g.position.set(b.x, 0, b.z);
+      g.rotation.y = b.yaw;
+      scene.add(g);
+      for (const [i, drawers] of b.drawers.entries()) {
+        const c = new THREE.Group();
+        c.position.x = (i - (b.drawers.length - 1) / 2) * (CW + 0.01);
+        g.add(c);
+        (anchors.cabinets ??= []).push(P.buildFilingCabinet(c, { w: CW, h: 0.34 * drawers - 0.04 + 0.06, d: CD, drawers }));
+      }
+      g.updateMatrixWorld(true);
+      // One collider per cabinet (they're different heights), and three or four things on top of each
+      for (const [i, drawers] of b.drawers.entries()) {
+        const h = 0.34 * drawers + 0.02, lx = (i - (b.drawers.length - 1) / 2) * (CW + 0.01);
+        const p = g.localToWorld(new THREE.Vector3(lx, h / 2, 0));
+        staticBox(p.x, p.y, p.z, CW / 2, h / 2, CD / 2, b.yaw);
+        const n = 2 + Math.floor(rnd() * 2);
+        for (let j = 0; j < n; j++) {
+          const [kind, build, density] = onTop[Math.floor(rnd() * onTop.length)];
+          const at = g.localToWorld(new THREE.Vector3(lx + (j - (n - 1) / 2) * 0.15, h, -0.08 + (j % 2) * 0.16));
+          office(kind, build, at.x, at.y, at.z, b.yaw + (kind === 'binder' ? Math.PI / 2 : (rnd() - 0.5) * 0.6), { density, sound: kind === 'stapler' || kind === 'holePunch' ? 'metal' : undefined });
+        }
+      }
+    }
   }
 
   // ---------- wall decor ----------

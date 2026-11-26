@@ -11,6 +11,9 @@ export const config = {
   },
 
   physics: {
+    // Glass shelves (src/level/waitingRoom.js): a swing at one, or anything (a thrown thing, a body) hitting one faster
+    // than breakSpeed (m/s), breaks the glass: shards fly, and what was on that shelf drops
+    glass: { breakSpeed: 3, shards: 9, shardSpeed: 2.5 },
     gravity: -9.81,
     fixedStep: 1 / 60,
     maxSubSteps: 4,
@@ -85,6 +88,8 @@ export const config = {
     receptionistQuipEvery: [8, 14], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
     // The receptionist can be hit, but ONLY with the fire extinguisher (owner): anything else goes straight through her.
     // health: out of the weapons' damage (config.weapons.extinguisher.damage is 65: one blow puts her down).
+    // She narrates a slap (brawlShouts.receptionistSlap): the first one that lands, then this often, at least `gap` s apart
+    receptionistSlap: { who: ['reader', 'sitter'], chance: 0.4, gap: 25 },
     receptionistHit: { weapon: 'extinguisher', health: 60, countsAsKnockdown: true },
     // Her, filming the brawl (owner): bouncing with excitement, and now and then moving to a better angle
     // behind the counter (saying so: brawlShouts.receptionistMoving)
@@ -103,7 +108,9 @@ export const config = {
     // your health some stays (more the lower you are), pulsing like a heartbeat.
     hurt: { perHit: 0.06, fade: 2.2, lowFrom: 0.6, lowMax: 0.55, blur: 6, desaturate: 0.7, heartbeat: 1.1 },
     afterCalled: 4,              // seconds after his number is called before they get up (the 847 route)
-    knockdownsToOpen: 4,         // knocked-down people (the sitter from the radio war counts) to unlock the door
+    // Knocked-down people needed to unlock the door: 'all' (owner: everyone in the room, the newcomer and the gamer
+    // included, not the receptionist), or a number (then her knockdown with the extinguisher counts too)
+    knockdownsToOpen: 'all',
     // Losing: the screen fades, the player wakes up in a chair with an even higher ticket, and it starts again
     failure: {
       ticketMultiplier: 2,       // 847 -> 1694 -> 3388 ...
@@ -170,7 +177,8 @@ export const config = {
     // Never the bat (or anything else from the back room), the radio, or her keyboard.
     throwing: {
       chance: 0.6,              // each time someone at a distance picks what to do next
-      kinds: ['magazine', 'umbrella', 'plant', 'coolerBottle', 'briefcase', 'clipboard'], // (config.weapons names)
+      kinds: ['magazine', 'umbrella', 'plant', 'coolerBottle', 'briefcase', 'clipboard', // (config.weapons names)
+        'mug', 'phone', 'stapler', 'tape', 'holePunch', 'calculator', 'pencilCup', 'binder', 'trophy', 'photoFrame', 'lamp', 'keyboard'],
       search: 5,                // metres: only things this close to them...
       keepAway: 3,              // ...and no closer than this to the player (things thrown at him land at his
                                 // feet: they're his to throw back; fetching them would crowd him)
@@ -224,6 +232,33 @@ export const config = {
       grip: [0, 0.05, 0], axis: [0, 1, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.32, -0.42] },
     mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'swing',
       grip: [0, -0.1, 0], axis: [0, -1, 0], out: [-0.1, 0.1, -1], at: [0.26, -0.3, -0.35] },
+    // ---- office things (owner: anything can be a weapon). Small ones: one hand, swung; big ones: raised and smashed ----
+    mug:          { label: 'coffee mug', damage: 18, reach: 1.2, swingTime: 0.35, knock: 0.8, sound: 'punch',
+      breaksAfter: 2, breakLine: 'The mug shatters.', grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    phone:        { label: 'desk phone', damage: 28, reach: 1.3, swingTime: 0.5, knock: 1.1, sound: 'kick',
+      grip: [0, 0, 0], at: [0.25, -0.26, -0.45] },
+    stapler:      { label: 'stapler', damage: 22, reach: 1.2, swingTime: 0.35, knock: 0.9, sound: 'punch',
+      grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    tape:         { label: 'tape dispenser', damage: 24, reach: 1.2, swingTime: 0.4, knock: 1.0, sound: 'punch',
+      grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    holePunch:    { label: 'hole punch', damage: 26, reach: 1.2, swingTime: 0.4, knock: 1.0, sound: 'kick',
+      grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    calculator:   { label: 'adding machine', damage: 32, reach: 1.3, swingTime: 0.55, knock: 1.2, sound: 'keyboard',
+      grip: [0, 0, 0], at: [0.25, -0.26, -0.48] },
+    pencilCup:    { label: 'pencil cup', damage: 10, reach: 1.2, swingTime: 0.3, knock: 0.6, sound: 'slap',
+      breaksAfter: 2, breakLine: 'Pencils everywhere.', grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    binder:       { label: 'binder', damage: 16, reach: 1.4, swingTime: 0.4, knock: 1.0, sound: 'slap', style: 'swing',
+      grip: [0, 0, 0], axis: [0, 1, 0], out: [0, 1, 0], at: [0.26, -0.28, -0.45] },
+    trophy:       { label: 'bowling trophy', damage: 40, reach: 1.3, swingTime: 0.5, knock: 1.4, sound: 'bat',
+      grip: [0, -0.05, 0], at: [0.25, -0.24, -0.45] },
+    photoFrame:   { label: 'photo frame', damage: 14, reach: 1.2, swingTime: 0.35, knock: 0.8, sound: 'slap',
+      breaksAfter: 2, breakLine: 'The frame comes apart.', grip: [0, 0, 0], at: [0.24, -0.26, -0.45] },
+    lamp:         { label: 'desk lamp', damage: 30, reach: 1.6, swingTime: 0.55, knock: 1.2, sound: 'chair', style: 'swing',
+      grip: [0, 0, 0], at: [0.26, -0.3, -0.45] },
+    printer:      { label: 'printer', damage: 60, reach: 1.3, swingTime: 1.0, knock: 1.9, style: 'overhead', sound: 'chair',
+      grip: [0, 0, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.34, -0.42, -0.62] },
+    computer:     { label: 'computer', damage: 65, reach: 1.3, swingTime: 1.05, knock: 2.0, style: 'overhead', sound: 'chair',
+      grip: [0, 0, 0], axis: [0, -1, 0], out: [0, -1, 0], at: [0.38, -0.46, -0.7] },
     extinguisher: { label: 'fire extinguisher', damage: 65, reach: 1.3, swingTime: 0.9, knock: 1.8, style: 'overhead', sound: 'chair',
       grip: [0, 0.02, 0], axis: [0, -1, 0], out: [0, -0.3, -1], at: [0.25, -0.25, -0.4] },
   },
@@ -244,6 +279,26 @@ export const config = {
     healOnRetry: false,         // the player's failure loop: they're back in their seats "as if nothing
                                 // happened", still bruised (true: the marks go too; hats stay where they fell)
     knuckles: 8,                // punches landed before the player's own knuckles are bloody (0: never)
+  },
+
+  // ---- Blood spatter (src/effects/blood.js; colours and splat shapes: theme.blood()) ----
+  // A landed blow sprays droplets from where it landed, along the blow; each leaves a splat where it lands.
+  blood: {
+    enabled: true,
+    drops: { fist: 12, kick: 14, weapon: 22, thrown: 12, knockdown: 32 }, // droplets per blow (x damage / 25)
+    maxPerHit: 60,
+    speed: [1.2, 4.2],          // m/s
+    spread: 0.8,                // how widely they fan out (0: a straight line)
+    lift: [0.1, 1.1],           // how much upward
+    backShare: 0.2,             // this many fly back towards whoever hit them
+    gravity: -9.81,
+    drag: 0.6,
+    dropSize: [0.006, 0.016],   // radius, metres
+    stretch: 0.6,               // drawn longer the faster they fly
+    splatScale: [6, 13],        // a splat's size: the drop's radius x this
+    life: 3,                    // seconds before a drop that never lands is gone
+    maxDrops: 400,
+    maxSplats: 400,             // splats stay; past this many the oldest go
   },
 
   // ---- Ragdolls (knocked-down characters; src/characters/ragdoll.js) ----
@@ -458,11 +513,39 @@ export const config = {
       file: new URL('./audio/free_bird.wav', import.meta.url).href,
       who: 'watchChecker',
       target: 58,
-      expectedToBrawl: 42.4,    // (measured with the recorded voices: his line to "Get him!!")
+      expectedToBrawl: 46.6,    // (measured with the recorded voices and the argument's pacing: his line to "Get him!!")
+      // After the newcomer's last shove ({ do: 'emit', event: 'freeBirdSync' }) the rest is lines of fixed length, so the
+      // song is checked there: more than `syncSlack` s off, a crackle of interference and it carries on from the right
+      // place. (The shoves take as long as his walks to the player: that's what makes the scene's length vary.)
+      syncToBrawl: 24.6,        // (measured: that emit to "Get him!!")
+      syncSlack: 2,
+      volumeAtBrawl: 0.85,      // it swells from `volume` (background) to this by the time the brawl starts
       yellAfter: 25,            // (his yell: sequence freeBirdYell in waitingRoomBeats.ts)
       volume: 0.3,              // (a little louder than the soft station: he turned it up)
       hurry: 3,                 // how fast he goes (as an angry person's errand: config.npc.anger)
     },
+  },
+
+  // ---- The argument before the brawl (owner): the tension turned up beat by beat ----
+  // state.tension (0..1): each argument beat sets its least value (`tension` in the beat data); every line the player
+  // picks adds perLine + perAggression x its aggression (calm lines backfire too). It drives all of this:
+  argument: {
+    perLine: 0.03,
+    perAggression: 0.03,
+    pace: { min: 0.4 },               // pauses, holds and reactions shrink to this share of normal at full tension
+    choiceTimer: { from: 0.6, seconds: [8, 4] }, // from this tension, a draining bar on the choices: 8 s down to 4 s
+    // The room closing in: who gets up, at what tension, and how close they stand (radius shrinks with tension).
+    // (The man with the watch stays seated, staring, until he goes to put on Free Bird; the reader, the newcomer and
+    // the sitter get up when the script has them.) blocksExit: who ends up between the player and the door.
+    closeIn: {
+      stand: { jiggler: 0.3, gamer: 0.5, cougher: 0.6, sitter: 0.75 },
+      radius: [2.6, 1.3], speed: 0.9, blocksExit: 'jiggler', every: 1.2,
+      minDistance: 0.65,              // nobody (the newcomer in his face included) stands closer to him than this
+    },
+    heartbeat: { from: 0.45, bpm: [70, 150], volume: [0.25, 0.75] },   // the player's heart (stops at the first blow)
+    breathing: { from: 0.55, perMinute: [16, 40], volume: [0.12, 0.45] }, // ...and his breathing
+    shake: 0.12,                      // a shouted line (with a "!") shakes the camera this much x (0.5 + tension)
+    walkFaster: 0.7,                  // scripted walks (marching over, shoving...) x (1 + this x tension)
   },
 
   interaction: {
