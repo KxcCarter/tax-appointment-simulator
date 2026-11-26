@@ -33,6 +33,8 @@ export const state = {
 
   checkInPleaded: false,   // during the argument: "Please, can I just check in...?" ("go find a pen")
   newcomerSentIn: false,   // ...and "Can't you just let me in?": "Number 848, you can go on in."
+  walkInExplained: false,  // ..."He didn't sign the check-in sheet!": "He was a walk-in."
+  attitudeWarned: false,   // ..."But you said everyone...": "Sir, you need to tone down the attitude, okay?"
   jiggleAsks: 0,           // times the player asked the young man to stop bouncing his leg
   timeAsks: 0,             // times the man with the watch has asked the player the time
   asked: /** @type {Record<string, boolean>} */ ({}), // small-talk questions already asked ('<person>.<topic>')

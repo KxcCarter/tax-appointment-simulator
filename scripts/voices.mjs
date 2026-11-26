@@ -185,6 +185,8 @@ async function collect() {
     addText(who, shouts);
     addText(who, convo.people?.[who]?.radioComplaints ?? []);
   }
+  // Brushing him off after he hit the woman in red
+  for (const [who, list] of Object.entries(convo.appalledReplies ?? {})) addText(who, list);
   // The sitter, caught being looked at (config.npc.eyesUp)
   addText('sitter', (convo.eyesUp ?? []).map((l) => l.text));
   for (const [who, list] of Object.entries(EXTRA)) addText(who, list);

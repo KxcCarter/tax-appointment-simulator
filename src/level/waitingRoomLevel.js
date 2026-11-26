@@ -6,7 +6,7 @@ import { Receptionist } from '../characters/receptionist.js';
 import { Director } from '../director/director.js';
 import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
 import { roomRemarks, trespassLines } from '../data/roomRemarks.ts';
-import { npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice, eyesUp } from '../data/npcConversations.ts';
+import { appalledReplies, npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice, eyesUp } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
 import { Combat, weaponDef } from '../player/combat.js';
 import { Brawl } from './brawl.js';
@@ -43,7 +43,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // Small talk: one director per waiting person (each remembers where it stopped).
   // Only one conversation owns the dialogue box at a time.
   const smallTalk = [];
-  const anyActive = (except) => [director, ...smallTalk].some((d) => d !== except && d.active);
+  // Is any conversation going on? (Her coffee break doesn't count while nothing's being said: she's out of
+  // the room, so the player can knock, chat or wander about meanwhile.)
+  const onBreak = (d) => d === director && receptionist.onBreak && !d.choosing && !d.talking;
+  const anyActive = (except) => [director, ...smallTalk].some((d) => d !== except && d.active && !onBreak(d));
 
   const director = new Director({
     data: waitingRoomBeats, state, ui, sfx, actors, player, config, name: 'receptionist',
@@ -112,12 +115,22 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   const interaction = new Interaction(camera, scene, ui, player);
 
+  // After he's hit the woman in red, nobody chats with him: [E] gets a cold line (appalledReplies)
+  const brushOffs = {};
+  const canBrushOff = (n) => !!appalledReplies[n.id]?.length && !n.down;
+  function brushOff(n) {
+    if (!canBrushOff(n) || anyActive(null) || onlookerTalk.talking) return;
+    const lines = appalledReplies[n.id];
+    const i = brushOffs[n.id] = (brushOffs[n.id] ?? -1) + 1;
+    onlookerTalk.runActions([{ do: 'say', who: n.id, text: lines[Math.min(i, lines.length - 1)] }]);
+  }
+
   // --- waiting people: small talk until the player's number is called ---
   for (const n of npcs) {
     if (!n.conversation) continue;
     interaction.register(n.rig.root, {
-      prompt: () => (state.called || state.foughtBack || state.phase === 'brawl' || n.busyElsewhere ? null : '[E] Talk'),
-      onInteract: () => n.conversation.interact(n.id),
+      prompt: () => (state.called || state.phase === 'brawl' || n.busyElsewhere || (state.foughtBack && !canBrushOff(n)) ? null : '[E] Talk'),
+      onInteract: () => (state.foughtBack ? brushOff(n) : n.conversation.interact(n.id)),
     });
   }
 
@@ -203,9 +216,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       smallTalk.push(d);
       newcomer.conversation = d;
       interaction.register(newcomer.rig.root, {
-        prompt: () => (!state.newcomerArrived || state.called || state.foughtBack || state.phase === 'brawl'
-          || state.nowServing === config.ticket.number + 1 || newcomer.busyElsewhere ? null : '[E] Talk'),
-        onInteract: () => d.interact('newcomer'),
+        prompt: () => (!state.newcomerArrived || state.called || state.phase === 'brawl'
+          || state.nowServing === config.ticket.number + 1 || newcomer.busyElsewhere
+          || (state.foughtBack && !canBrushOff(newcomer)) ? null : '[E] Talk'),
+        onInteract: () => (state.foughtBack ? brushOff(newcomer) : d.interact('newcomer')),
       });
     }
     if (!walkIn) { state.newcomerArrived = true; return; } // (?fight: already in his seat)

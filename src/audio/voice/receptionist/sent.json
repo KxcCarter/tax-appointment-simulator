@@ -95,5 +95,25 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "He was a walk-in. Walk-ins don't sign the check-in sheet.": {
+    "text": "He was a walk-in. Walk-ins don't sign the check-in sheet.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Sir, you need to tone down the attitude, okay?": {
+    "text": "Sir, you need to tone down the attitude, okay?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

@@ -65,6 +65,25 @@ const pleaLetMeIn: Option = {
     { do: 'set', key: 'newcomerSentIn', value: true },
   ],
 };
+// ...then (owner's lines): "He didn't sign the check-in sheet!" -> walk-ins don't -> "But you said everyone..."
+const pleaWalkIn: Option = {
+  text: "Wait a minute! He didn't sign the check-in sheet!",
+  showIf: (state: GameState) => state.newcomerSentIn && !state.walkInExplained,
+  response: [
+    pause,
+    { do: 'say', who: 'receptionist', text: "He was a walk-in. Walk-ins don't sign the check-in sheet." },
+    { do: 'set', key: 'walkInExplained', value: true },
+  ],
+};
+const pleaEveryone: Option = {
+  text: 'But you said everyone has to sign the check-in sheet!',
+  showIf: (state: GameState) => state.walkInExplained && !state.attitudeWarned,
+  response: [
+    pause,
+    { do: 'say', who: 'receptionist', text: 'Sir, you need to tone down the attitude, okay?' },
+    { do: 'set', key: 'attitudeWarned', value: true },
+  ],
+};
 
 // On time (2:00-2:02), first the check-in runaround: "Did you check in already?" (beats checkin_already,
 // checkin_how, checkin_how_again, checkin_can_i). Only at the end does she ask about the sheet.
@@ -731,6 +750,8 @@ export const waitingRoomBeats: Scene = {
         { text: 'But how come he gets to go first? My number was before his!', advance: true },
         pleaCheckIn,
         pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
       ],
       lockedOptions: [],
       onAdvance: [
@@ -758,6 +779,8 @@ export const waitingRoomBeats: Scene = {
         { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
         pleaCheckIn,
         pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
       ],
       lockedOptions: [],
       onAdvance: [
@@ -799,6 +822,8 @@ export const waitingRoomBeats: Scene = {
         },
         pleaCheckIn,
         pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
       ],
       lockedOptions: [],
       onAdvance: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
@@ -813,6 +838,8 @@ export const waitingRoomBeats: Scene = {
         { text: "I'm not yelling. I'm just saying I was here first.", advance: true },
         pleaCheckIn,
         pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
       ],
       lockedOptions: [],
       onAdvance: [
@@ -834,7 +861,7 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_4',
       trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
-      options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
       lockedOptions: [],
       onAdvance: [pause, { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." }],
       next: 'argument_5',
@@ -844,7 +871,7 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_5',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: 'Okay, well do you have a number?', advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [{ text: 'Okay, well do you have a number?', advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -863,7 +890,7 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_6',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: "I wasn't asking for her phone number!", advance: true }, pleaCheckIn, pleaLetMeIn],
+      options: [{ text: "I wasn't asking for her phone number!", advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -898,6 +925,8 @@ export const waitingRoomBeats: Scene = {
         },
         pleaCheckIn,
         pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
       ],
       lockedOptions: [],
       onAdvance: [

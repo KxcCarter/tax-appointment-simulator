@@ -137,6 +137,7 @@ export class Receptionist {
   _coffeeBreak() {
     const D = this.door;
     const C = config.timings.reception;
+    this.onBreak = true; // (out of the room: the level lets the player get on with other things)
     return new Promise((resolve) => {
       this.state = 'solitaire';
       this.walker.start([
@@ -152,7 +153,7 @@ export class Receptionist {
         { type: 'walk', to: 'front' },
         { type: 'turn', yaw: 'chair' },
         { type: 'sit' },
-      ], { onDone: () => { this.cupInHand = false; resolve(); } });
+      ], { onDone: () => { this.cupInHand = false; this.onBreak = false; resolve(); } });
     });
   }
 

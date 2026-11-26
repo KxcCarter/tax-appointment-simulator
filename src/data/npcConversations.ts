@@ -627,6 +627,17 @@ export const onlookers: Scene = {
   'pointEyes' (two fingers at her eyes: "up HERE"), 'pointAt' (pointing at him, for the room's benefit).
   When and how often: config.npc.eyesUp.
 */
+// After the player has hit the woman in red (state.foughtBack), nobody makes small talk with him any more:
+// [E] gets one cold line instead, in order, then the last one again (PROPOSAL; edit freely)
+export const appalledReplies: Record<string, string[]> = {
+  cougher: ["Don't you talk to me.", 'Get away from me.'],
+  watchChecker: ['Please. Stay away from me.', 'I have nothing to say to you.'],
+  reader: ["Don't come near me!", 'Somebody help!'],
+  jiggler: ['Get away from me, man.', 'Nope.'],
+  sitter: ["Don't. Touch. Me.", 'Psycho.'],
+  newcomer: ['Keep walking, buddy.', "Don't even look at me."],
+};
+
 export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'Are you looking at my breasts??', pose: 'coverChest', expression: 'angry' },
   { text: 'Hey perv, my eyes are up HERE!', pose: 'pointEyes', expression: 'furious' },

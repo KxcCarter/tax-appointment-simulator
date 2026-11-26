@@ -117,5 +117,25 @@
     "voice_settings": {
       "stability": 0
     }
+  },
+  "Please. Stay away from me.": {
+    "text": "Please. Stay away from me.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "I have nothing to say to you.": {
+    "text": "I have nothing to say to you.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }
