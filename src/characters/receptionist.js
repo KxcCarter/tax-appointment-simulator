@@ -40,7 +40,7 @@ export class Receptionist {
     const root = this.rig.root;
     root.position.copy(seat.position);
     root.quaternion.copy(seat.quaternion);
-    this.realBody = realBodyFor('receptionist', this.rig); // experiment: realistic body (theme.look.realistic)
+    this.realBody = realBodyFor('receptionist', this.rig, characterPalettes.receptionist); // experiment: realistic body (theme.look.realistic)
     scene.add(root);
     this.root = root;
 
@@ -399,6 +399,9 @@ export class Receptionist {
       const reach = (L.upperArm + L.lowerArm) * 0.97;
       const aim = sh.clone().addScaledVector(this.signPos.clone().sub(sh).normalize(), reach);
       handOnKeys.lerp(aim, this.pointAmt);
+      // (her realistic body points its index finger at the sign: realBody.js)
+      this.rig.handShape = { 1: { shape: 'point', aim: this.signPos.clone(), amount: this.pointAmt } };
+      this.rig.handShapeT = performance.now();
     }
     // A sip of coffee: left hand to the cup, cup to the mouth, back down, back to the keys
     let sipping = 0;

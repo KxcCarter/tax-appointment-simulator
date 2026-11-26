@@ -734,6 +734,92 @@ if JIGGLE:
             if n:
                 print("JIGGLE WEIGHTS", o.name, name, n)
 
+# Recipe "fists": {"curl": [knuckle, middle, tip], "thumb": [base, middle, tip]} (radians): both hands clenched
+# into fists, made the rest pose (the player's first-person fists: src/player/realArms.js). Each finger bone turns
+# about the line across the knuckles, towards the palm (the side the thumb's tip is on).
+FISTS = recipe.get("fists")
+if FISTS:
+    from mathutils import Matrix, Vector
+    arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = arm; arm.select_set(True)
+    bpy.ops.object.mode_set(mode="POSE")
+    P = arm.pose.bones
+    head = lambda n: P[n].head.copy()  # armature space, as posed now
+    def turn(n, axis, angle):
+        pb = P[n]
+        h = pb.head.copy()
+        pb.matrix = Matrix.Translation(h) @ Matrix.Rotation(angle, 4, axis) @ Matrix.Translation(-h) @ pb.matrix
+        bpy.context.view_layer.update()
+    for s in ("l", "r"):
+        hand = head("hand_" + s)
+        along = (head("middle_01_" + s) - hand).normalized()
+        across = head("index_01_" + s) - head("pinky_01_" + s)
+        across = (across - along * across.dot(along)).normalized()
+        palm = along.cross(across).normalized()
+        if (head("thumb_03_" + s) - hand).dot(palm) < 0:
+            palm = -palm
+        for f in ("index", "middle", "ring", "pinky"):
+            # One bend axis per finger, from its straight rest direction: across it, in the hand's plane. (Worked
+            # out again after each bend it would come out nearly random once the finger points into the palm.)
+            d = (head(f"{f}_02_{s}") - head(f"{f}_01_{s}")).normalized()
+            axis = d.cross(palm).normalized()
+            for k, angle in zip((1, 2, 3), FISTS.get("curl", [1.5, 1.6, 1.1])):
+                turn(f"{f}_0{k}_{s}", axis, angle)
+        # The thumb: wrapped over the front of the curled index and middle fingers. Its base is turned (a small
+        # search over turns about the hand's three axes) to bring its tip there, then each joint bends
+        # whichever way gets it closer.
+        target = (head(f"index_02_{s}") + head(f"middle_02_{s}")) / 2 - palm * 0.012
+        tip = lambda: P["thumb_03_" + s].tail.copy()
+        base = P["thumb_01_" + s]
+        rest = base.matrix_basis.copy()
+        best = (1e9, None)
+        steps = [-1.2, -0.8, -0.4, 0, 0.4, 0.8, 1.2]
+        for ax in steps:
+            for ay in steps:
+                for az in steps:
+                    base.matrix_basis = rest.copy()
+                    bpy.context.view_layer.update()
+                    for axis, ang in ((along, ax), (across, ay), (palm, az)):
+                        if ang:
+                            turn("thumb_01_" + s, axis, ang)
+                    d = (tip() - target).length
+                    if d < best[0]:
+                        best = (d, base.matrix_basis.copy())
+        base.matrix_basis = best[1]
+        bpy.context.view_layer.update()
+        for n, angle in ((f"thumb_02_{s}", FISTS.get("thumb", [0, 0.5, 0.5])[1]), (f"thumb_03_{s}", FISTS.get("thumb", [0, 0.5, 0.5])[2])):
+            d = (P[n].tail - P[n].head).normalized()
+            axis = d.cross(palm).normalized()
+            before = (tip() - target).length
+            turn(n, axis, angle)
+            if (tip() - target).length > before:
+                turn(n, axis, -2 * angle)
+                if (tip() - target).length > before:
+                    turn(n, axis, angle)  # (neither way helps: left straight)
+        print("THUMB", s, "tip", round((tip() - target).length, 3), "m from the fingers")
+        if os.environ.get("HIDE_THUMB"):  # (diagnostic: which finger is which)
+            P["thumb_01_" + s].scale = (0.01, 0.01, 0.01); bpy.context.view_layer.update()
+    bpy.ops.object.mode_set(mode="OBJECT")
+    # Bake the pose into the meshes, and make it the rest pose
+    for o in bpy.data.objects:
+        if o.type != "MESH":
+            continue
+        mod = next((m for m in o.modifiers if m.type == "ARMATURE"), None)
+        if mod is None:
+            continue
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = o; o.select_set(True)
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+        o.modifiers.new("Armature", "ARMATURE").object = arm
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = arm; arm.select_set(True)
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.select_all(action="SELECT")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    print("FISTS clenched")
+
 # Material names carry the role (the game makes hair, brows and lashes cut-outs, glasses see-through)
 hair_name = (recipe.get("hair") or "").split("/")[0]
 for o in bpy.data.objects:
@@ -756,6 +842,12 @@ if preview:
     cam.location = (0, -4.2, 1.0)
     cam.rotation_euler = (math.radians(88), 0, 0)
     cam_data.lens = 50
+    if recipe.get("preview_hand"):  # a close look at the right hand (e.g. checking "fists")
+        arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+        h = arm.matrix_world @ arm.data.bones["hand_r"].head_local
+        cam.location = (h.x - 0.02, h.y - 0.75, h.z - 0.08)
+        cam.rotation_euler = (math.radians(85), 0, 0)
+        cam_data.lens = 60
     scene.camera = cam
     sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
     sun.rotation_euler = (math.radians(50), 0, math.radians(20))
@@ -766,6 +858,14 @@ if preview:
     scene.render.resolution_x, scene.render.resolution_y = 600, 800
     scene.render.filepath = preview
     bpy.ops.render.render(write_still=True)
+    if recipe.get("preview_hand"):  # ...and the hand from the side and from below too
+        from mathutils import Vector
+        for tag, loc in (("side", (h.x - 0.55, h.y, h.z - 0.1)), ("below", (h.x - 0.05, h.y - 0.05, h.z - 0.6))):
+            cam.location = loc
+            d = Vector((h.x, h.y, h.z - 0.08)) - Vector(loc)
+            cam.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+            scene.render.filepath = preview.replace(".png", "_" + tag + ".png")
+            bpy.ops.render.render(write_still=True)
 
 # Export: the armature and every mesh parented to it, modifiers applied (masks under clothes etc.)
 bpy.ops.object.select_all(action="DESELECT")

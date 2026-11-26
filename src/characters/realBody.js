@@ -38,6 +38,11 @@ export async function loadCharacterModels() {
   }));
 }
 
+/** A loaded model by character id (theme.look.realistic.models), or undefined. */
+export function characterModel(id) {
+  return loaded.get(theme.look.realistic?.models?.[id]);
+}
+
 /** The realistic body for a character id, or null (style off, or no model for them). look: their figure's look
  *  (characterPalettes), for the things the model gets added (realExtras.js) and its tie's colour. */
 export function realBodyFor(id, rig, look) {
@@ -55,6 +60,19 @@ const JIGGLE_BONES = {
   jiggle_breast_r: ['bust', 'chest'],
   jiggle_chin: ['jowls'],
 };
+
+// Hand shapes: how far each finger joint curls (radians: knuckle, middle, tip); 'fingers' is the default for the
+// four fingers. Used by _applyHands (rig.handShape).
+const FINGERS = ['index', 'middle', 'ring', 'pinky'];
+// (from the model's rest pose, whose fingers are already a little bent: STRAIGHT straightens them)
+const CURLED = [1.45, 1.45, 0.9], STRAIGHT = [-0.2, -0.25, -0.2], THUMB_IN = [0.2, 0.5, 0.4];
+const HAND_SHAPES = {
+  relaxed: { fingers: [0.1, 0.15, 0.1], thumb: [0, 0.05, 0.05] },
+  fist: { fingers: CURLED, thumb: THUMB_IN },
+  point: { fingers: CURLED, index: STRAIGHT, thumb: THUMB_IN },
+  two: { fingers: CURLED, index: STRAIGHT, middle: STRAIGHT, thumb: THUMB_IN },
+};
+const MAX_WRIST = 1.5, MAX_ROLL = 2.0; // (radians: how far a wrist bends and a forearm rolls to aim a hand)
 
 // Rig joint -> model bone, parents before children
 const MAP = [
@@ -112,6 +130,64 @@ function recolor(mat, { recolor: colour, below = 0.2, ref = 0.05, maxSat = 0.35 
   mat.needsUpdate = true;
 }
 
+/**
+ * A model's meshes made ready to draw: shadows, no hit tests (the invisible primitive parts take hits), the arm
+ * skin under sleeves hidden, the theme's tints (tint: a colour, or { 'part of a material or mesh name': ... }),
+ * matte clothes, and solid or cut-out materials instead of MakeHuman's see-through ones.
+ */
+export function prepareModel(model, tint, look = {}) {
+  model.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+      o.frustumCulled = false;
+      o.raycast = () => {}; // hits go to the invisible primitive parts
+      if (/armskin/.test(o.name)) o.visible = false; // the arms under the sleeves (shown when one's ripped off: realDamage.js)
+      // tint: a colour for the whole model, or { 'part of a material or mesh name': colour }
+      // A tint can be [colour, gain]: gain > 1 brightens a dark texture (multiplying can only darken)
+      if (tint !== undefined) {
+        const c = typeof tint === 'object' && !Array.isArray(tint) ? Object.entries(tint).find(([k]) => o.material.name.includes(k) || o.name.includes(k))?.[1] : tint;
+        if (c?.recolor !== undefined || c?.tie) {
+          o.material = o.material.clone();
+          if (c.recolor !== undefined) recolor(o.material, c);
+          // { tie: [u0, v0, u1, v1] }: the tie printed in the suit's texture repainted in their tie's colour
+          if (c.tie && look.tie !== undefined) paintTie(o.material, c.tie, look.tie);
+        } else if (c?.dark !== undefined) {
+          // { color, dark }: sunglasses: see-through parts of the texture (the lenses) at least `dark` opaque
+          o.material = o.material.clone();
+          o.material.color.set(c.color ?? 0x202020);
+          const dark = c.dark;
+          o.material.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `diffuseColor.a = max( diffuseColor.a, ${dark.toFixed(3)} );\n#include <alphatest_fragment>`);
+          };
+          o.material.customProgramCacheKey = () => 'sunglasses' + dark;
+        } else if (c !== undefined) {
+          const [colour, gain = 1] = Array.isArray(c) ? c : [c];
+          o.material = o.material.clone();
+          o.material.color.set(colour).multiplyScalar(gain);
+        }
+      }
+      // Matte, not plastic: exported clothes come out glossy
+      if (o.material.isMeshStandardMaterial) {
+        o.material.metalness = 0;
+        o.material.roughness = Math.max(o.material.roughness, 0.8);
+      }
+      // MakeHuman exports mark everything as see-through (BLEND), which sorts badly (eye sockets
+      // show through the face). Skin and eyes are solid; hair, brows, lashes and clothes are cut-outs
+      // (a garment's texture can have cut edges, e.g. the shift dress's neckline).
+      const mat = o.material;
+      if (mat && mat.transparent && !/glass/i.test(mat.name)) { // glasses stay see-through
+        const cutout = !/\.body$|low-poly|high-poly|eye/i.test(mat.name) || /eyebrow|eyelash/i.test(mat.name);
+        mat.transparent = false;
+        mat.depthWrite = true;
+        mat.alphaTest = cutout ? 0.5 : 0;
+        if (!cutout) mat.alphaMap = null;
+        mat.needsUpdate = true;
+      }
+    }
+  });
+}
+
 export class RealBody {
   constructor(rig, gltf, tint, jiggleGain = 1, look = {}) {
     this.rig = rig;
@@ -122,56 +198,7 @@ export class RealBody {
 
     const model = SkeletonUtils.clone(gltf.scene);
     this.model = model;
-    model.traverse((o) => {
-      if (o.isMesh) {
-        o.castShadow = true;
-        o.receiveShadow = true;
-        o.frustumCulled = false;
-        o.raycast = () => {}; // hits go to the invisible primitive parts
-        if (/armskin/.test(o.name)) o.visible = false; // the arms under the sleeves (shown when one's ripped off: realDamage.js)
-        // tint: a colour for the whole model, or { 'part of a material or mesh name': colour }
-        // A tint can be [colour, gain]: gain > 1 brightens a dark texture (multiplying can only darken)
-        if (tint !== undefined) {
-          const c = typeof tint === 'object' && !Array.isArray(tint) ? Object.entries(tint).find(([k]) => o.material.name.includes(k) || o.name.includes(k))?.[1] : tint;
-          if (c?.recolor !== undefined || c?.tie) {
-            o.material = o.material.clone();
-            if (c.recolor !== undefined) recolor(o.material, c);
-            // { tie: [u0, v0, u1, v1] }: the tie printed in the suit's texture repainted in their tie's colour
-            if (c.tie && look.tie !== undefined) paintTie(o.material, c.tie, look.tie);
-          } else if (c?.dark !== undefined) {
-            // { color, dark }: sunglasses: see-through parts of the texture (the lenses) at least `dark` opaque
-            o.material = o.material.clone();
-            o.material.color.set(c.color ?? 0x202020);
-            const dark = c.dark;
-            o.material.onBeforeCompile = (shader) => {
-              shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `diffuseColor.a = max( diffuseColor.a, ${dark.toFixed(3)} );\n#include <alphatest_fragment>`);
-            };
-            o.material.customProgramCacheKey = () => 'sunglasses' + dark;
-          } else if (c !== undefined) {
-            const [colour, gain = 1] = Array.isArray(c) ? c : [c];
-            o.material = o.material.clone();
-            o.material.color.set(colour).multiplyScalar(gain);
-          }
-        }
-        // Matte, not plastic: exported clothes come out glossy
-        if (o.material.isMeshStandardMaterial) {
-          o.material.metalness = 0;
-          o.material.roughness = Math.max(o.material.roughness, 0.8);
-        }
-        // MakeHuman exports mark everything as see-through (BLEND), which sorts badly (eye sockets
-        // show through the face). Skin and eyes are solid; hair, brows, lashes and clothes are cut-outs
-        // (a garment's texture can have cut edges, e.g. the shift dress's neckline).
-        const mat = o.material;
-        if (mat && mat.transparent && !/glass/i.test(mat.name)) { // glasses stay see-through
-          const cutout = !/\.body$|low-poly|high-poly|eye/i.test(mat.name) || /eyebrow|eyelash/i.test(mat.name);
-          mat.transparent = false;
-          mat.depthWrite = true;
-          mat.alphaTest = cutout ? 0.5 : 0;
-          if (!cutout) mat.alphaMap = null;
-          mat.needsUpdate = true;
-        }
-      }
-    });
+    prepareModel(model, tint, look);
     this.bones = {};
     for (const [, name] of MAP) this.bones[name] = findBone(model, name);
     if (MAP.some(([, n]) => !this.bones[n])) { console.warn('RealBody: missing bones'); return; }
@@ -255,6 +282,7 @@ export class RealBody {
       limb('leg', 'RightUpLeg', 'RightLeg', 'RightFoot', j.rHip, j.rKnee, P.lowerLeg.len * s),
     ].filter(Boolean);
     this._measureTorso(model);
+    this._setupHands(model);
     this.extras = addExtras(this, look); // (watch, headphones, stubble, moustache hairs, glasses that can go crooked)
 
     // Back to where the character was
@@ -297,6 +325,7 @@ export class RealBody {
       r.bone.updateMatrixWorld(true);
     }
     for (const l of this.limbs) this._solveLimb(l, root, rootInv);
+    if (this.hands) this._applyHands();
     if (this.wobble.length) this._applyWobble();
   }
 
@@ -333,6 +362,106 @@ export class RealBody {
       b.scale.set(w.scale.x * (1 - sq * 0.5), w.scale.y * (1 + sq), w.scale.z * (1 - sq * 0.5));
       b.updateMatrixWorld(true);
     }
+  }
+
+  /**
+   * The hands (at rest, set-up time): for each finger joint, the axis it curls about (in its own space), and the
+   * hand's own "along the fingers" and "out of the palm" directions, so it can be shaped and aimed.
+   */
+  _setupHands(model) {
+    this.hands = {};
+    const wp = (b) => b.getWorldPosition(new THREE.Vector3());
+    for (const [side, s] of [[1, 'l'], [-1, 'r']]) {
+      const b = (n) => model.getObjectByName(`${n}_${s}`);
+      const hand = b('hand'), lower = b('lowerarm');
+      if (!hand || !lower || !b('middle_01') || !b('index_01') || !b('pinky_01') || !b('thumb_03')) continue;
+      model.updateMatrixWorld(true);
+      const h = wp(hand);
+      const along = wp(b('middle_01')).sub(h).normalize();
+      const across = wp(b('index_01')).sub(wp(b('pinky_01'))).projectOnPlane(along).normalize();
+      const palm = new THREE.Vector3().crossVectors(along, across).normalize();
+      if (wp(b('thumb_03')).sub(h).dot(palm) < 0) palm.negate(); // (the palm is on the thumb tip's side)
+      const joints = {}; // finger -> [{ bone, rest, axis }] (knuckle to tip)
+      for (const f of [...FINGERS, 'thumb']) {
+        const list = [1, 2, 3].map((k) => b(`${f}_0${k}`)).filter(Boolean);
+        if (list.length < 2) continue;
+        // One hinge per finger, from its straight rest direction (re-working it per joint goes wrong once curled)
+        const d = wp(list[1]).sub(wp(list[0])).normalize();
+        const axisW = new THREE.Vector3().crossVectors(d, palm).normalize(); // (a positive turn curls towards the palm)
+        joints[f] = list.map((bone) => ({ bone, rest: bone.quaternion.clone(), axis: axisW.clone().applyQuaternion(bone.getWorldQuaternion(new THREE.Quaternion()).invert()) }));
+      }
+      const hq = hand.getWorldQuaternion(new THREE.Quaternion()).invert();
+      this.hands[side] = {
+        hand, lower, joints,
+        alongL: along.clone().applyQuaternion(hq), palmL: palm.clone().applyQuaternion(hq),
+        curl: {}, aimAmt: 0, // (eased towards the shape asked for)
+      };
+    }
+  }
+
+  /**
+   * Shape each hand (rig.handShape, set each frame by whatever's posing them: a pointing finger, two fingers, a
+   * fist; otherwise relaxed, fingers a little curled), and turn a pointing hand so its fingers point at its aim:
+   * the forearm rolls (as a real one does) so the palm faces down, and the wrist bends the rest of the way.
+   */
+  _applyHands() {
+    const fresh = this.rig.handShapeT && performance.now() - this.rig.handShapeT < 150;
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.1, Math.max(0, now - (this._handT ?? now)));
+    this._handT = now;
+    const ease = 1 - Math.exp(-12 * dt);
+    for (const side of [1, -1]) {
+      const H = this.hands[side];
+      if (!H) continue;
+      const want = fresh ? this.rig.handShape?.[side] : null;
+      const shape = HAND_SHAPES[want?.shape ?? 'relaxed'] ?? HAND_SHAPES.relaxed;
+      const amount = want?.amount ?? 1;
+      for (const [f, js] of Object.entries(H.joints)) {
+        const target = (shape[f] ?? shape.fingers).map((a, i) => a * amount + HAND_SHAPES.relaxed[f === 'thumb' ? 'thumb' : 'fingers'][i] * (1 - amount));
+        const cur = (H.curl[f] ??= target.slice());
+        js.forEach((J, i) => {
+          cur[i] += (target[i] - cur[i]) * ease;
+          J.bone.quaternion.copy(J.rest).multiply(_q.setFromAxisAngle(J.axis, cur[i]));
+        });
+      }
+      // Aiming the hand
+      H.aimAmt += ((want?.aim ? amount : 0) - H.aimAmt) * ease;
+      if (want?.aim) H.aimAt = want.aim.clone();
+      if (H.aimAmt > 0.01 && H.aimAt) this._aimHand(H, H.aimAt, H.aimAmt);
+      H.hand.updateMatrixWorld(true);
+    }
+  }
+
+  _aimHand(H, aim, k) {
+    const wq = (o) => o.getWorldQuaternion(new THREE.Quaternion());
+    const setWorld = (bone, q) => { bone.quaternion.copy(wq(bone.parent).invert().multiply(q)); bone.updateMatrixWorld(true); };
+    H.lower.updateMatrixWorld(true);
+    const elbow = H.lower.getWorldPosition(new THREE.Vector3()), wrist = H.hand.getWorldPosition(new THREE.Vector3());
+    const arm = wrist.clone().sub(elbow).normalize();
+    // Where the fingers should point: at the aim, but the wrist bends no more than MAX_WRIST from the forearm
+    let f = aim.clone().sub(wrist).normalize();
+    const bend = arm.angleTo(f);
+    if (bend > MAX_WRIST) f = arm.clone().applyAxisAngle(new THREE.Vector3().crossVectors(arm, f).normalize(), MAX_WRIST);
+    // The palm faces down (or, pointing straight up or down, towards the body's front)
+    const down = new THREE.Vector3(0, -1, 0);
+    let p = down.clone().projectOnPlane(f);
+    if (p.lengthSq() < 0.05) p = new THREE.Vector3(0, 0, -1).applyQuaternion(wq(this.rig.root)).projectOnPlane(f);
+    p.normalize();
+    // 1. The forearm rolls about itself so the palm comes round towards that (a real forearm turns, not the wrist)
+    const palmNow = H.palmL.clone().applyQuaternion(wq(H.hand)).projectOnPlane(arm).normalize();
+    const palmWant = p.clone().projectOnPlane(arm);
+    if (palmWant.lengthSq() > 1e-4) {
+      palmWant.normalize();
+      let roll = Math.atan2(new THREE.Vector3().crossVectors(palmNow, palmWant).dot(arm), palmNow.dot(palmWant));
+      roll = THREE.MathUtils.clamp(roll, -MAX_ROLL, MAX_ROLL) * k;
+      setWorld(H.lower, new THREE.Quaternion().setFromAxisAngle(arm, roll).multiply(wq(H.lower)));
+    }
+    // 2. The wrist: fingers along f, palm towards p
+    const x1 = H.alongL, y1 = H.palmL;
+    const A = new THREE.Matrix4().makeBasis(x1, y1, new THREE.Vector3().crossVectors(x1, y1));
+    const B = new THREE.Matrix4().makeBasis(f, p, new THREE.Vector3().crossVectors(f, p));
+    const desired = new THREE.Quaternion().setFromRotationMatrix(B.multiply(A.transpose()));
+    setWorld(H.hand, wq(H.hand).slerp(desired, k));
   }
 
   /** Two-bone IK for one arm/leg, in root space. */

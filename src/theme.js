@@ -132,6 +132,9 @@ export const palette = {
   handleBlack: 0x1e1d1b,
   labelCard: 0xf0ead8,
   chainGold: 0xd8ae48,
+  badgePlate: 0x16233a,          // the receptionist's name badge: engraved navy plastic...
+  badgeText: 0xf2eee4,           // ...white letters...
+  badgeEdge: 0xc8a54a,           // ...a gold edge
 
   // Clock
   clockFace: 0xf2eedf,
@@ -240,6 +243,7 @@ export const characterPalettes = {
     },
   },
   receptionist: {
+    badge: "D'ar-Tanyuh",  // her name badge, pinned on her left (realistic look: realExtras.js)
     skin: 0x6f4a32,
     hair: 0x8a3a1a,
     blouse: 0xd8a8a0,
@@ -280,6 +284,7 @@ export const look = {
       reader: new URL('./models/characters/mh-reader.glb', import.meta.url).href,
       newcomer: new URL('./models/characters/mh-newcomer.glb', import.meta.url).href,
       gamer: new URL('./models/characters/mh-gamer.glb', import.meta.url).href,
+      player: new URL('./models/characters/mh-player.glb', import.meta.url).href, // (his first-person fists and kicking leg: player/realArms.js)
     },
     jiggleGain: 0.8, // how much a model's belly, breasts and double chin bounce, x her figure's wobble (config.characters.jiggle)
     // Colour multiplied over a model, or over materials whose name contains a key
@@ -296,6 +301,7 @@ export const look = {
       reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
       watchChecker: { suit: { tie: [0.85, 0.03, 0.935, 0.265] } }, // his mustard tie
       newcomer: { cargo: { recolor: 0x2d3a4a, below: 0.6, maxSat: 1, ref: 0.05 }, glasses: { color: 0x141414, dark: 0.88 }, short02: [0x6a4a2a, 1.3] }, // white tank top, navy cargo shorts, dark sunglasses, brown hair
+      player: { suit: { recolor: 0x4a4a48, below: 0.35, maxSat: 1, ref: 0.05 } }, // his grey suit (the fists' sleeves)
       gamer: { 't-shirt': 0x3a3a42, cargo: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.05 }, cap: [0x2d4a6a, 1.25] }, // charcoal T-shirt, khaki cargo shorts (recoloured), navy cap
     },
   },

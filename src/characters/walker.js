@@ -117,9 +117,11 @@ const ATTACK_POSES = {
   // Caught looking (the sitter: eyesUp): arms crossed over her chest, leaning back, affronted
   coverChest: () => ({ l: V(-0.12, 1.38, 0.32), r: V(0.12, 1.43, 0.34), lean: -0.12 }),
   // "My eyes are up HERE!": two fingers at her eyes, jabbing on the word; the other hand on her hip
-  pointEyes: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.08, 1.75 + 0.015 * Math.sin(u * TAU * 2), 0.26 + 0.05 * Math.max(0, Math.sin(u * TAU * 2))), lean: -0.06 }),
+  // (hands: the hand's shape; aim: what its fingers point at: 'eyes' = her own, 'look' = whoever she's facing.
+  // Realistic bodies only: characters/realBody.js)
+  pointEyes: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.08, 1.72 + 0.015 * Math.sin(u * TAU * 2), 0.33 + 0.05 * Math.max(0, Math.sin(u * TAU * 2))), lean: -0.06, hands: { r: 'two' }, aim: { r: 'eyes' }, elbows: { r: V(0.1, -1, 0.5) } }),
   // Pointing at him, for everyone's benefit; the other hand on her hip
-  pointAt: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.12, 1.6 + 0.03 * Math.sin(u * TAU * 2), 0.7), lean: -0.08 }),
+  pointAt: (u) => ({ l: V(0.26, 0.98, 0.02), r: V(-0.12, 1.6 + 0.03 * Math.sin(u * TAU * 2), 0.7), lean: -0.08, hands: { r: 'point' }, aim: { r: 'look' } }),
   radio: (u, R = GUARD) => ({
     l: phase3(u, V(0.12, 1.0, 0.3), V(0.12, 1.9, -0.05), V(0.12, 1.1, 0.62)),
     r: phase3(u, V(-0.12, 1.0, 0.3), V(-0.12, 1.9, -0.05), V(-0.12, 1.1, 0.62)),
@@ -478,7 +480,22 @@ export class Walker {
       (this.hands ??= {})[side] = hand.clone();
       const [sh, el] = side === 1 ? [j.lShoulder, j.lElbow] : [j.rShoulder, j.rElbow];
       const pole = left.clone().multiplyScalar(side * 0.6).addScaledVector(fwd, -1).add(new THREE.Vector3(0, -0.4, 0)).normalize();
+      // (a pose can say which way an elbow goes, in body space: e.g. down and in front, under a hand at the face)
+      const ep = pose?.elbows?.[side === 1 ? 'l' : 'r'];
+      if (ep) pole.copy(left).multiplyScalar(ep.x).addScaledVector(fwd, ep.z).add(new THREE.Vector3(0, ep.y, 0)).normalize();
       solveTwoBone(sh, el, hand, L.upperArm, L.lowerArm, pole);
+    }
+
+    // Hand shapes (pointing...) for a realistic body to show: { 1 (left) | -1 (right): { shape, aim (world) } }
+    if (pose?.hands) {
+      const eyes = () => j.head.localToWorld(new THREE.Vector3(0, rig.proportions.head.h * 0.58, 0.04));
+      rig.handShape = {};
+      for (const [k, side] of [['l', 1], ['r', -1]]) {
+        if (!pose.hands[k]) continue;
+        const a = pose.aim?.[k];
+        rig.handShape[side] = { shape: pose.hands[k], aim: a === 'eyes' ? eyes() : a === 'look' ? look?.clone() ?? null : null };
+      }
+      rig.handShapeT = performance.now();
     }
 
     // --- head and face ---

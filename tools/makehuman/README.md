@@ -67,3 +67,7 @@ texture are repainted in the figure's tie colour (`tie` in `theme.look.realistic
   under it stays (the garment is cut before the skin it covers is worked out).
 - `sleeveless`: `{"part of a garment's name": metres}`: its sleeves cut off, and the shoulders out past that far from
   the middle (a T-shirt into a tank top).
+- `fists`: `{"curl": [1.6, 1.75, 1.2], "thumb": [0.9, 0.5, 0.5]}` (radians): both hands clenched into fists and made the
+  rest pose (the player's model: his first-person fists, `src/player/realArms.js`). `curl`: each finger's knuckle,
+  middle and end joints; `thumb`: its base (swung across towards the middle finger), middle and end.
+- `preview_hand`: true = the preview render is a close-up of the right hand (for checking `fists`).

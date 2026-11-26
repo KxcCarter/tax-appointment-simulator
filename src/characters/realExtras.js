@@ -21,6 +21,7 @@ export function addExtras(body, look = {}) {
   if (look.watch) out.watch = addWatch(model, skinned);
   if (look.headset !== undefined) out.headphones = addHeadphones(model, skinned, look);
   if (look.chain) out.chain = addChain(model, skinned);
+  if (look.badge) out.badge = addBadge(model, skinned, look.badge);
   const skinMesh = skinned.find((o) => /\.body$/.test(o.material?.name ?? '') && o.material.map && !/armskin/.test(o.name)); // (not the arm skin: same material)
   if (look.stubble !== undefined && skinMesh) paintStubble(model, skinMesh, look.stubble);
   model.traverse((o) => { if (o.isMesh && /moustache/.test(o.material?.name ?? '')) moustacheHairs(o); });
@@ -156,6 +157,54 @@ function addChain(model, skinned) {
   noHits(chain);
   neckBone.attach(chain);
   return chain;
+}
+
+/**
+ * A name badge pinned on the left of the chest, above the bust: an engraved plastic plate with a gold edge,
+ * lying flat on the clothes there and moving with them.
+ */
+function addBadge(model, skinned, name) {
+  const clav = model.getObjectByName('clavicle_l');
+  if (!clav) return null;
+  const top = clav.getWorldPosition(new THREE.Vector3());
+  // The front of the clothes on her left, a hand's width under the collarbone
+  const wear = skinned.filter(isWear);
+  const pts = pointsOf(wear.length ? wear : skinned.filter(isSkin), (b) => /spine|clavicle|breast/.test(b));
+  // (halfway out to the shoulder, a little under the collarbone: above the bust, clear of the neckline)
+  const shoulder = (model.getObjectByName('upperarm_l') ?? clav).getWorldPosition(new THREE.Vector3());
+  const want = new THREE.Vector3(shoulder.x * 0.62, top.y - 0.05, 0);
+  let best = null;
+  for (const q of pts) {
+    if (Math.abs(q.p.x - want.x) > 0.025 || Math.abs(q.p.y - want.y) > 0.02) continue;
+    if (!best || q.p.z > best.p.z) best = q;
+  }
+  if (!best) return null;
+  // The surface's slope there: from the frontmost points a little above and below
+  const near = (dy) => pts.filter((q) => Math.abs(q.p.x - best.p.x) < 0.02 && Math.abs(q.p.y - (best.p.y + dy)) < 0.012).reduce((a, q) => (!a || q.p.z > a.p.z ? q : a), null);
+  const up = near(0.03), down = near(-0.03);
+  const normal = new THREE.Vector3(0, 0, 1);
+  if (up && down) { const t = up.p.clone().sub(down.p).normalize(); normal.set(0, -t.z, t.y).normalize(); }
+  // The plate
+  const W = 0.085, H = 0.026;
+  const tex = theme.canvasTexture(512, 156, (c, w, h) => {
+    c.fillStyle = theme.css('badgeEdge'); c.fillRect(0, 0, w, h);
+    c.fillStyle = theme.css('badgePlate'); c.fillRect(8, 8, w - 16, h - 16);
+    c.fillStyle = theme.css('badgeText'); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = 'bold 72px Georgia, "Times New Roman", serif';
+    c.fillText(name, w / 2, h / 2 + 4, w - 40);
+  });
+  const badge = new THREE.Group();
+  badge.name = 'badge';
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.003), [
+    theme.material('badgeEdge'), theme.material('badgeEdge'), theme.material('badgeEdge'), theme.material('badgeEdge'),
+    theme.textured(tex, { lit: true }), theme.material('badgeEdge'),
+  ]);
+  badge.add(plate);
+  badge.position.copy(best.p).addScaledVector(normal, 0.004);
+  badge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  noHits(badge);
+  (model.getObjectByName(best.bone) ?? clav).attach(badge);
+  return badge;
 }
 
 // ------------------------------------------------------------------ stubble
