@@ -68,6 +68,7 @@ const pleaLetMeIn: Option = {
 // ...then (owner's lines): "He didn't sign the check-in sheet!" -> walk-ins don't -> "But you said everyone..."
 const pleaWalkIn: Option = {
   text: "Wait a minute! He didn't sign the check-in sheet!",
+  aggression: 1,
   showIf: (state: GameState) => state.newcomerSentIn && !state.walkInExplained,
   response: [
     pause,
@@ -77,6 +78,7 @@ const pleaWalkIn: Option = {
 };
 const pleaEveryone: Option = {
   text: 'But you said everyone has to sign the check-in sheet!',
+  aggression: 1,
   showIf: (state: GameState) => state.walkInExplained && !state.attitudeWarned,
   response: [
     pause,
@@ -358,10 +360,32 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: 'I already took a ticket.',
-          goto: null, // that's all she has to say about it
+          goto: 'late_wait', // that's all she has to say about it (for now: he can come back, late_wait)
+          unlockAfter: T.lateWait,
           actions: [pause, { do: 'say', who: 'receptionist', text: 'Then have a seat.' }],
         },
-        { text: '(Say nothing)', silent: true, goto: null },
+        { text: '(Say nothing)', silent: true, goto: 'late_wait', unlockAfter: T.lateWait },
+      ],
+      lockedOptions: [],
+    },
+    {
+      // (Claude's proposal: the late route rejoins the story) Told he's late and to sit down, he comes back to
+      // the desk: she asks whether he's checked in, and it's the check-in runaround (sheet, pen, coffee, 848...)
+      id: 'late_wait',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [
+        {
+          text: "I've been sitting there for ages. Can I at least check in?",
+          goto: 'checkin_already',
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, ...askCheckedIn],
+        },
+        {
+          text: "I'm not taking a number. I had an appointment. Check me in.",
+          aggression: 2,
+          goto: 'checkin_already',
+          actions: [{ do: 'wait', seconds: T.sideOptionPause }, ...askCheckedIn],
+        },
+        { text: '(Say nothing)', silent: true, response: [] },
       ],
       lockedOptions: [],
     },
@@ -375,7 +399,7 @@ export const waitingRoomBeats: Scene = {
           // On time: "Did you check in already?" (checkin_already). Early ("not 2:00 yet"): she can be asked again later.
           // Late: the exchange is over.
           goto: (state: GameState) =>
-            (state.checkInAsked ? 'checkin_already' : late(state) ? (alreadyHaveTicket(state) ? 'late_ticket' : null) : 'protest_again'),
+            (state.checkInAsked ? 'checkin_already' : late(state) ? (alreadyHaveTicket(state) ? 'late_ticket' : 'late_wait') : 'protest_again'),
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -539,6 +563,19 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
           ],
         },
+        {
+          text: 'I need to check in right now.',
+          aggression: 1,
+          response: [
+            { do: 'say', who: 'receptionist', text: 'What you NEED to do is be patient.' },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', untilDone: true },
+            { do: 'face', who: 'receptionist', expression: 'annoyed' },
+            { do: 'anim', who: 'receptionist', name: 'pointAtPoster' }, // she points at the PATIENCE poster as she says it
+            { do: 'say', who: 'receptionist', text: 'Read that sign.' },
+            { do: 'wait', seconds: 1 },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
+          ],
+        },
       ],
       lockedOptions: [],
       lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Hold up, momma gotta start a new game...' }],
@@ -655,7 +692,9 @@ export const waitingRoomBeats: Scene = {
         {
           text: 'Do you have a pen?',
           goto: 'pen_borrow',
+          // (asked: "Are you telling me you don't have any pens...?" can come up in pen_borrow)
           actions: [
+            { do: 'set', key: 'askedForPen', value: true },
             // She ignores the question entirely
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             {
@@ -728,6 +767,16 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: "Solitaire's on the computer." },
           ],
         },
+        {
+          text: "Are you telling me you don't have any pens in this entire office?",
+          showIf: (state: GameState) => state.askedForPen === true && !state.asked['receptionist.allPens'], // (once)
+          aggression: 1,
+          response: [
+            { do: 'set', key: 'asked', value: (state: GameState) => ({ ...state.asked, 'receptionist.allPens': true }) },
+            { do: 'say', who: 'receptionist', text: "It ain't my job to keep track of pens." },
+            { do: 'say', who: 'player', text: "You're a receptionist. I'm pretty sure that's part of your job." },
+          ],
+        },
       ],
       lockedOptions: [],
       next: 'newcomer_checks_in',
@@ -762,7 +811,6 @@ export const waitingRoomBeats: Scene = {
           text: ['His number was called.', 'His number is being served now.'],
           vary: 'any',
         },
-        { do: 'wait', seconds: T.sideOptionPause },
         { do: 'say', who: 'newcomer', text: 'Yeah buddy, first come, first served.' },
       ],
       next: 'argument_1',
@@ -777,6 +825,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
+        { text: "Excuse me? I've been here since 1:55. Sit down.", aggression: 2, advance: true }, // (the aggressive way: same replies)
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -816,9 +865,37 @@ export const waitingRoomBeats: Scene = {
         pleaEveryone,
       ],
       lockedOptions: [],
-      onAdvance: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
-      next: 'argument_3',
+      onAdvance: [pause, { do: 'say', who: 'newcomer', text: "Why didn't you check in then?" }],
+      next: 'argument_2_checkin',
       nextUnlockAfter: 0,
+    },
+    {
+      // (owner's addition) Why didn't he check in? Politely, or blaming her solitaire
+      id: 'argument_2_checkin',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: "I've been trying to check in since I got here!",
+          goto: 'argument_3',
+          actions: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
+        },
+        {
+          // (the aggressive way)
+          text: "Because this lady can't stop playing solitaire long enough to do her job!",
+          aggression: 2,
+          goto: 'argument_3',
+          actions: [
+            pause,
+            { do: 'say', who: 'receptionist', text: "Sir I'm going to have to ask you to calm ALL the way down." },
+          ],
+        },
+        pleaCheckIn,
+        pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
+      ],
+      lockedOptions: [],
     },
     {
       id: 'argument_3',
@@ -853,6 +930,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'What time is your appointment?', advance: true },
+        { text: "You don't even have an appointment, do you?", aggression: 1, advance: true }, // (the aggressive way)
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -869,6 +947,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'Okay, well do you have a number?', advance: true },
+        { text: "Then where's your ticket? What's your number?", aggression: 1, advance: true }, // (the aggressive way: still asking for her "number")
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -893,6 +972,13 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: "I wasn't asking for her phone number!", advance: true },
+        {
+          // (the aggressive way)
+          text: 'Nobody wants your phone number!',
+          aggression: 2,
+          advance: true,
+          actions: [pause, { do: 'say', who: 'newcomer', text: 'Wow, dude.' }],
+        },
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -927,6 +1013,13 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: "Okay everyone, let's just calm down here.",
+          advance: true,
+          actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
+        },
+        {
+          // (the aggressive way)
+          text: 'You know what? Everybody shut up!',
+          aggression: 3,
           advance: true,
           actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
         },
@@ -976,9 +1069,12 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: "I'm trying to be calm but you are being totally unreasonable here.",
+          aggression: 1,
           advance: true,
           actions: [{ do: 'say', who: 'receptionist', text: "Oh no he didn't..." }],
         },
+        { text: "How can I be calm when you people are being insane and acting like it's normal?", response: [] },
+        { text: "I'd be a lot calmer if you would just do your job.", response: [] },
       ],
       lockedOptions: [],
       onAdvance: [{ do: 'say', who: 'newcomer', text: 'You got a problem, pal?' }],

@@ -1046,7 +1046,7 @@ function refreshHelpers() {
 /* ================= Writing the file back ================= */
 const ORDER = {
   beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'lockedResponse', 'onAdvance', 'next', 'nextUnlockAfter'],
-  option: ['text', 'silent', 'repeatable', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
+  option: ['text', 'silent', 'repeatable', 'aggression', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
   action: ['do'],
 };
 const CHILD = { beats: 'beat', options: 'option', lockedOptions: 'option', lockedResponse: 'action', onOpen: 'action', onAdvance: 'action', actions: 'action', response: 'action', then: 'action', else: 'action' };
@@ -1186,7 +1186,7 @@ const VOCAB = {
     notice: ['text', 'seconds'], if: ['test', 'then', 'else'],
   },
   anims: {
-    receptionist: ['lookAtPlayer', 'glanceAtClock', 'pointAtSign', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee', 'filmPlayer'],
+    receptionist: ['lookAtPlayer', 'glanceAtClock', 'pointAtSign', 'pointAtPoster', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee', 'filmPlayer'],
     npc: ['attend', 'resume', 'standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick'],
   },
   expressions: ['default', 'neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled', 'sultry'],
@@ -1295,12 +1295,14 @@ function actionRow(p, a) {
   const sel = `<select class="atype" data-p="${p}" data-k="atype">${Object.keys(VOCAB.actions).map(k => `<option${k === type ? ' selected' : ''}>${k}</option>`).join('')}<option value="other"${type === 'other' ? ' selected' : ''}>other…</option></select>`;
   return `<div class="act t-${type}">${sel}${f}${tools(p, !noteKey(a))}${noteKey(a) ? `<span class="f" style="flex-basis:100%">${noteField(p, a)}</span>` : ''}${below}${extraHtml}${addKey}</div>`;
 }
+// A dialogue option's aggression (Option.aggression in src/director/types.ts)
+const AGGRESSION = [[0, 'polite'], [1, 'curt'], [2, 'rude'], [3, 'hostile']];
 const outcomeOf = o => (o.advance ? 'advance' : 'goto' in o ? (o.goto === null ? 'end' : isJs(o.goto) ? 'cond' : 'goto') : 'respond');
 function optionCard(p, o, k) {
   if (!isObj(o)) return `<div class="card opt">${raw(p, o)}${tools(p)}</div>`;
   const mode = outcomeOf(o);
   const outs = [['advance', 'Advance the story (next beat)'], ['respond', 'Get a response, stay here'], ['goto', 'Go to a beat'], ['cond', 'Go to a beat, decided by code'], ['end', 'End the conversation']];
-  let h = `<div class="card opt"><div class="cardhead"><span class="num">${k + 1}</span>${textField(p + '.text', o.text, 'line')}<label class="check sm"><input type="checkbox" data-p="${p}.silent" data-k="flag"${o.silent ? ' checked' : ''}> silent</label><label class="check sm"><input type="checkbox" data-p="${p}.repeatable" data-k="flag"${o.repeatable ? ' checked' : ''}> stays</label>${tools(p, !noteKey(o))}</div>`;
+  let h = `<div class="card opt"><div class="cardhead"><span class="num">${k + 1}</span>${textField(p + '.text', o.text, 'line')}<label class="check sm"><input type="checkbox" data-p="${p}.silent" data-k="flag"${o.silent ? ' checked' : ''}> silent</label><label class="check sm"><input type="checkbox" data-p="${p}.repeatable" data-k="flag"${o.repeatable ? ' checked' : ''}> stays</label><select class="in sm" style="width:auto" title="How aggressive the line is (aggression: what NPCs can react to)" data-p="${p}.aggression" data-k="aggr">${AGGRESSION.map(([v, l]) => `<option value="${v}"${(o.aggression ?? 0) === v ? ' selected' : ''}>${l}</option>`).join('')}</select>${tools(p, !noteKey(o))}</div>`;
   if (noteKey(o)) h += `<div class="sub">${noteField(p, o)}</div>`;
   h += keyNotes(o);
   h += `<div class="grid2"><label class="field"><span>Then</span><select class="in" data-p="${p}" data-k="outcome">${outs.map(([v, l]) => `<option value="${v}"${v === mode ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
@@ -1845,11 +1847,12 @@ function readVal(el) {
     case 'raw': return parseLiteral(v);
     case 'js': return { $js: v };
     case 'csv': return v.split(',').map(s => s.trim()).filter(Boolean);
+    case 'aggr': return Number(v) ? Number(v) : undefined; // (0, polite, is the default: left out)
     case 'targets': { const l = v.split(',').map(s => s.trim()).filter(Boolean); return l.length > 1 ? l : (l[0] ?? ''); } // (one name, or a list)
   }
   return undefined;
 }
-const SIMPLE = new Set(['str', 'note', 'strOpt', 'nullable', 'flag', 'numx', 'raw', 'js', 'csv', 'targets']);
+const SIMPLE = new Set(['str', 'note', 'strOpt', 'nullable', 'flag', 'numx', 'raw', 'js', 'csv', 'targets', 'aggr']);
 const editor = $('#editor');
 editor.addEventListener('input', e => {
   const el = e.target;

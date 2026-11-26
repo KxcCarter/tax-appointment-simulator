@@ -682,10 +682,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   const B = config.brawl;
   state.playerHealth = B.playerHealth;
   let failing = false, restartTimer = null;
+  let hurtLevel = 0, heartbeat = 0; // being hurt: fades after each blow; some stays at low health
   function hurtPlayer(damage, who) {
     if (state.phase !== 'brawl' || failing || damage <= 0) return;
     state.playerHealth = Math.max(0, state.playerHealth - damage);
     ui.damageFlash(damage / 20);
+    hurtLevel = Math.min(1, hurtLevel + damage * B.hurt.perHit); // (the blood and blur: config.brawl.hurt)
     if (state.playerHealth <= 0) fail();
   }
 
@@ -706,6 +708,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     state.ticketNumber = Math.round((state.ticketNumber ?? config.ticket.number) * F.ticketMultiplier);
     ui.setTicket(state.ticketNumber.toLocaleString('en-US'));
     state.playerHealth = B.playerHealth;
+    hurtLevel = 0;
     state.knockdowns = 0;
     state.retries = (state.retries ?? 0) + 1;
     for (const n of npcs) n.resetToSeat();
@@ -816,6 +819,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     npcs,
     interaction,
     overheardTalk, // (exposed for tests)
+    hurtPlayer,    // (exposed for tests: hurtPlayer(damage))
     doorTalk,
     combat,
     brawl,
@@ -904,6 +908,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       // Brawl HUD
       const fighting = state.phase === 'brawl' || state.phase === 'doorOpen';
       ui.setHealth(fighting ? state.playerHealth / B.playerHealth : null);
+      {
+        const Hu = B.hurt, health = state.playerHealth / B.playerHealth;
+        hurtLevel = Math.max(0, hurtLevel - dt / Hu.fade);
+        heartbeat += dt * Hu.heartbeat * Math.PI * 2;
+        const low = fighting && !failing ? Math.max(0, (Hu.lowFrom - health) / Hu.lowFrom) * Hu.lowMax * (0.8 + 0.2 * Math.max(0, Math.sin(heartbeat)) ** 4) : 0;
+        ui.setHurt(fighting ? Math.max(hurtLevel, low) : 0, Hu);
+      }
       ui.setKnockdowns(fighting ? Math.min(state.knockdowns, B.knockdownsToOpen) : null, B.knockdownsToOpen);
       ui.setHeld(combat.held?.def.label ?? null);
       if (restartTimer != null && !failing) {

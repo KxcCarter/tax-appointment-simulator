@@ -459,8 +459,8 @@ export class Npc {
 
     // --- continuous traits ---
     if (this.personality === 'reader' && !this.called) {
-      desired.lHand.set(0.19, 0.86, 0.3);
-      desired.rHand.set(-0.19, 0.86, 0.3);
+      desired.lHand.set(0.215, 0.86, 0.3); // (at the magazine's side edges, holding them)
+      desired.rHand.set(-0.215, 0.86, 0.3);
       desired.look.set(0, 0.86, 0.3);
       desired.bend = 0.12;
     }
@@ -495,8 +495,8 @@ export class Npc {
       eyesOn = camera.position;
       expression = 'neutral';
       if (this.personality === 'reader') { // magazine held lower while she talks
-        desired.lHand.set(0.19, 0.7, 0.28);
-        desired.rHand.set(-0.19, 0.7, 0.28);
+        desired.lHand.set(0.215, 0.7, 0.28);
+        desired.rHand.set(-0.215, 0.7, 0.28);
       }
     }
 

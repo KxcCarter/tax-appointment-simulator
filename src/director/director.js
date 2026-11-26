@@ -214,6 +214,11 @@ export class Director {
 
   async choose(beat, option, wasLocked) {
     this.busy = true;
+    // How aggressive that was (Option.aggression; 0 polite .. 3 hostile), before anything is said, so what follows
+    // can react to it: state.lastAggression (this line), state.temper (all of them so far)
+    const aggression = option.aggression ?? option.src?.aggression ?? 0;
+    this.state.lastAggression = aggression;
+    this.state.temper = (this.state.temper ?? 0) + aggression;
     try {
       if (!option.silent) await this.say('player', option.text);
       if (option.advance && !wasLocked) {

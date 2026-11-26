@@ -95,6 +95,10 @@ export const config = {
     health: 100,                 // everyone's; a punch does config.combat.punchDamage
     playerHealth: 100,           // the player's; their blows do config.npc.attacks[kind].damage (brawl only:
                                  // the radio war stays feel-only, as designed)
+    // Being hurt shows (like a shooter's): blood creeping in from the edges, the edges of your vision blurred and
+    // drained of colour. Each blow adds to it (damage x perHit) and it fades over `fade` seconds; below lowFrom of
+    // your health some stays (more the lower you are), pulsing like a heartbeat.
+    hurt: { perHit: 0.06, fade: 2.2, lowFrom: 0.6, lowMax: 0.55, blur: 6, desaturate: 0.7, heartbeat: 1.1 },
     afterCalled: 4,              // seconds after his number is called before they get up (the 847 route)
     knockdownsToOpen: 4,         // knocked-down people (the sitter from the radio war counts) to unlock the door
     // Losing: the screen fades, the player wakes up in a chair with an even higher ticket, and it starts again
@@ -153,6 +157,10 @@ export const config = {
       hopHeight: 0.25,          // waiting their turn: hop (not walk) to the next spot, if it's no further than
       hopMax: 1.2,              // this (metres)
       maxLeap: 1.2,             // no leap goes further than this (metres); a longer one falls short
+      // With realistic bodies (theme.look.realistic): no flips, leaps or hops (owner). They step in and out in their
+      // karate or boxing stance instead, still bouncing lightly from foot to foot. true = acrobatics anyway.
+      realistic: false,
+      step: { time: 0.45, height: 0.02 },  // ...stepping in and out instead: seconds, metres off the floor
     },
     cheerChance: 0.25,          // hanging back: cheering him on instead of in their stance
     // Throwing things (owner): waiting their turn, someone fetches something and throws it at him.
@@ -311,6 +319,7 @@ export const config = {
       coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
       coffeeSip: 2.2,               // one sip of coffee
       clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
+      lateWait: 15,                 // late ("take a number and have a seat"): seconds before she'll hear him again (late_wait)
     },
     dialogue: {
       charsPerSecond: 30,           // typewriter speed

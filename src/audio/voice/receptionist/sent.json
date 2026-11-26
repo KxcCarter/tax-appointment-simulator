@@ -115,5 +115,45 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "What you NEED to do is be patient.": {
+    "text": "What you NEED to do is be patient.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Read that sign.": {
+    "text": "Read that sign.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "It ain't my job to keep track of pens.": {
+    "text": "It ain't my job to keep track of pens.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Sir I'm going to have to ask you to calm ALL the way down.": {
+    "text": "Sir I'm going to have to ask you to calm ALL the way down.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }
