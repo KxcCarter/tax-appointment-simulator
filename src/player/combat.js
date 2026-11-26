@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { theme } from '../theme.js';
+import { RealArms } from './realArms.js';
 import { partGeometry } from '../characters/partShapes.js';
 
 /*
@@ -74,6 +75,9 @@ export class Combat {
     this.leg.visible = false;
     camera.add(this.leg);
     this.kick = null;      // { t, hitDone }
+    // Realistic look: the player's own forearms, hands and leg follow these (which are then just anchors)
+    this.realArms = RealArms.create(camera);
+    if (this.realArms) for (const o of [this.fists[1], this.fists[-1], this.leg]) o.children.forEach((c) => { c.visible = false; });
 
     // F kicks; holding the right mouse button blocks (arms, or the weapon, raised in front)
     document.addEventListener('contextmenu', (e) => { if (this.enabled) e.preventDefault(); });
@@ -217,6 +221,7 @@ export class Combat {
     if (this.held) this._updateHeld(dt);
     this._updateKick(dt);
     this._updateThrown(dt);
+    this.realArms?.update(this.fists, this.leg);
   }
 
   /** Kick: the leg swings up from below into view, foot first, and back down. */
@@ -331,6 +336,7 @@ export class Combat {
     this.punchesLanded = (this.punchesLanded ?? 0) + 1;
     const n = config.damage.knuckles;
     if (!n || this.punchesLanded !== n) return;
+    if (this.realArms) return this.realArms.bloodyKnuckles();
     for (const side of [1, -1]) {
       const fist = this.fists[side].children[0];
       for (const x of [-0.022, 0, 0.022]) {

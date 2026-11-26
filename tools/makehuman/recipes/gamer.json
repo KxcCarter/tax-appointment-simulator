@@ -1,0 +1,179 @@
+{
+  "name": "gamer",
+  "_note": "The gamer: about 20, huge (morbidly obese), charcoal T-shirt stretched over his belly, knee-length cargo shorts (cargo trousers cut off), white sneakers, a plain baseball cap on backwards.",
+  "phenotype": {
+    "gender": 1.0,
+    "age": 0.42,
+    "muscle": 0.2,
+    "weight": 1.0,
+    "height": 0.6,
+    "proportions": 0.2,
+    "race": {
+      "caucasian": 1.0,
+      "african": 0.0,
+      "asian": 0.0
+    }
+  },
+  "targets": [
+    {
+      "target": "stomach-pregnant-incr",
+      "value": 1.0
+    },
+    {
+      "target": "stomach-tone-decr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-waist-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "measure-hips-circ-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-bust-circ-incr",
+      "value": 0.8
+    },
+    {
+      "target": "torso-scale-depth-incr",
+      "value": 1.0
+    },
+    {
+      "target": "torso-scale-horiz-incr",
+      "value": 0.9
+    },
+    {
+      "target": "buttocks-volume-incr",
+      "value": 0.7
+    },
+    {
+      "target": "measure-thigh-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-upperleg-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "r-upperleg-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-lowerleg-fat-incr",
+      "value": 0.7
+    },
+    {
+      "target": "r-lowerleg-fat-incr",
+      "value": 0.7
+    },
+    {
+      "target": "measure-upperarm-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-upperarm-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "r-upperarm-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-lowerarm-fat-incr",
+      "value": 0.8
+    },
+    {
+      "target": "r-lowerarm-fat-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-neck-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "neck-scale-horiz-incr",
+      "value": 0.7
+    },
+    {
+      "target": "neck-scale-depth-incr",
+      "value": 0.8
+    },
+    {
+      "target": "head-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-cheek-volume-incr",
+      "value": 0.7
+    },
+    {
+      "target": "r-cheek-volume-incr",
+      "value": 0.7
+    },
+    {
+      "target": "chin-width-incr",
+      "value": 0.5
+    }
+  ],
+  "rig": "game_engine",
+  "skin": "young_caucasian_male",
+  "eyebrows": "eyebrow002",
+  "eyelashes": "eyelashes01",
+  "hair": "short01",
+  "clothes": [
+    "elvs_crude_t-shirt_male",
+    "cortu_cargo_pants",
+    "shoes05",
+    "toigo_maga_hat"
+  ],
+  "faceunits": true,
+  "clothes_masks": false,
+  "cover_erode": 2,
+  "poke_reach": 0.03,
+  "jiggle": {
+    "belly": {
+      "radius": [
+        0.34,
+        0.26,
+        0.22
+      ],
+      "inset": 0.7,
+      "weight": 0.9
+    },
+    "breasts": {
+      "radius": [
+        0.14,
+        0.15,
+        0.13
+      ],
+      "inset": 0.6,
+      "weight": 0.8
+    },
+    "chin": {
+      "radius": [
+        0.08,
+        0.06,
+        0.04
+      ],
+      "inset": 0.5,
+      "weight": 0.7
+    }
+  },
+  "cut": {
+    "cargo_pants": -0.03
+  },
+  "reverse": [
+    "maga_hat"
+  ],
+  "plain": {
+    "maga_hat": {
+      "color": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "name": "baseball_cap"
+    }
+  }
+}

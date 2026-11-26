@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { theme, characterPalettes } from '../theme.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
+import { realBodyFor } from './realBody.js';
 
 /*
   The receptionist. Sits behind the desk playing solitaire.
@@ -39,6 +40,7 @@ export class Receptionist {
     const root = this.rig.root;
     root.position.copy(seat.position);
     root.quaternion.copy(seat.quaternion);
+    this.realBody = realBodyFor('receptionist', this.rig, characterPalettes.receptionist); // experiment: realistic body (theme.look.realistic)
     scene.add(root);
     this.root = root;
 
@@ -403,6 +405,9 @@ export class Receptionist {
       if (this.pointAt === this.posterPos) dir.add(new THREE.Vector3(0, 0.55, 0)).addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.3).normalize();
       const aim = sh.clone().addScaledVector(dir, reach);
       handOnKeys.lerp(aim, this.pointAmt);
+      // (her realistic body points its index finger at it: realBody.js)
+      this.rig.handShape = { 1: { shape: 'point', aim: this.pointAt.clone(), amount: this.pointAmt } };
+      this.rig.handShapeT = performance.now();
     }
     // A sip of coffee: left hand to the cup, cup to the mouth, back down, back to the keys
     let sipping = 0;

@@ -1,0 +1,171 @@
+{
+  "name": "receptionist",
+  "phenotype": {
+    "gender": 0.0,
+    "age": 0.69,
+    "muscle": 0.2,
+    "weight": 1.0,
+    "height": 0.35,
+    "proportions": 0.25,
+    "cupsize": 0.95,
+    "firmness": 0.15,
+    "race": {
+      "african": 0.85,
+      "caucasian": 0.15,
+      "asian": 0.0
+    }
+  },
+  "rig": "game_engine",
+  "skin": "middleage_african_female/middleage_african_female.mhmat",
+  "eyes": "low-poly/low-poly.mhclo",
+  "eyebrows": "eyebrow001/eyebrow001.mhclo",
+  "eyelashes": "eyelashes01/eyelashes01.mhclo",
+  "hair": "rehmanpolanski_hair_bun_brown/rehmanpolanski_hair_bun_brown.mhclo",
+  "clothes": [
+    "toigo_shift_dress/toigo_shift_dress.mhclo",
+    "toigo_flats/toigo_flats.mhclo",
+    "kwnet_at_optical_glasses/kwnet_at_optical_glasses.mhclo"
+  ],
+  "faceunits": true,
+  "targets": [
+    {
+      "target": "stomach-pregnant-incr",
+      "value": 1.0
+    },
+    {
+      "target": "stomach-tone-decr",
+      "value": 0.7
+    },
+    {
+      "target": "measure-waist-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "measure-hips-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "measure-bust-circ-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-underbust-circ-incr",
+      "value": 0.9
+    },
+    {
+      "target": "torso-scale-depth-incr",
+      "value": 1.0
+    },
+    {
+      "target": "torso-scale-horiz-incr",
+      "value": 0.8
+    },
+    {
+      "target": "buttocks-volume-incr",
+      "value": 1.0
+    },
+    {
+      "target": "measure-thigh-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-upperleg-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "r-upperleg-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-lowerleg-fat-incr",
+      "value": 0.6
+    },
+    {
+      "target": "r-lowerleg-fat-incr",
+      "value": 0.6
+    },
+    {
+      "target": "measure-upperarm-circ-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-upperarm-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "r-upperarm-fat-incr",
+      "value": 1.0
+    },
+    {
+      "target": "l-lowerarm-fat-incr",
+      "value": 0.8
+    },
+    {
+      "target": "r-lowerarm-fat-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-neck-circ-incr",
+      "value": 0.9
+    },
+    {
+      "target": "neck-scale-horiz-incr",
+      "value": 0.6
+    },
+    {
+      "target": "neck-scale-depth-incr",
+      "value": 0.7
+    },
+    {
+      "target": "head-fat-incr",
+      "value": 0.8
+    },
+    {
+      "target": "l-cheek-volume-incr",
+      "value": 0.6
+    },
+    {
+      "target": "r-cheek-volume-incr",
+      "value": 0.6
+    },
+    {
+      "target": "chin-width-incr",
+      "value": 0.4
+    }
+  ],
+  "clothes_masks": false,
+  "cover_reach": 0.05,
+  "cover_erode": 2,
+  "jiggle": {
+    "belly": {
+      "radius": [
+        0.32,
+        0.24,
+        0.2
+      ],
+      "inset": 0.7,
+      "weight": 0.9
+    },
+    "breasts": {
+      "radius": [
+        0.15,
+        0.16,
+        0.14
+      ],
+      "inset": 0.6,
+      "weight": 0.85
+    },
+    "chin": {
+      "radius": [
+        0.08,
+        0.06,
+        0.04
+      ],
+      "inset": 0.5,
+      "weight": 0.7
+    }
+  },
+  "tube_amount": 0.5,
+  "skirt_leg_keep": 0.45,
+  "poke_reach": 0.04
+}

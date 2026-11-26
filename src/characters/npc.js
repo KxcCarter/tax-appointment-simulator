@@ -6,6 +6,8 @@ import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
 import { Damage } from './damage.js';
+import { realBodyFor } from './realBody.js';
+import { RealDamage } from './realDamage.js';
 
 /** Animations a scene can play on a waiting person besides attend/resume (see _sceneMove). */
 const SCENE_ANIMS = new Set(['standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick']);
@@ -62,6 +64,8 @@ export class Npc {
     body?.setBodyType(RAPIER.RigidBodyType.Fixed, false);
     this.chairHome = { pos: chair.object.position.clone(), quat: chair.object.quaternion.clone() };
     this._seat();
+    this.realBody = realBodyFor(def.id, this.rig, look); // experiment: realistic body (theme.look.realistic)
+    if (this.realBody?.ok) this.damage = new RealDamage({ realBody: this.realBody, rig: this.rig, look, physics, scene }); // (painted onto the model)
     this.walker = new Walker(this._walkerHost());
 
     // Smoothed pose targets (chair-local)
@@ -115,6 +119,39 @@ export class Npc {
     t.rHand.set(-0.13, 0.6, 0.24);
     t.look.set(0, 0.9, 3);         // the middle distance, slightly down
     t.lean = 0; t.twist = 0; t.bend = 0.05;
+  }
+
+  /**
+   * How their hands sit, for a realistic body (realBody.js: rig.handShape; the figure ignores it): the reader's
+   * gripping her magazine's edges, the young man's holding his arms (folded), and everyone else's resting palm
+   * down on their thighs, fingers towards the knees (not in the middle of something: a cough, the watch...).
+   */
+  _handShapes() {
+    if (!this.realBody?.ok) return;
+    const q = this.chair.object.quaternion;
+    const dir = (x, y, z) => new THREE.Vector3(x, y, z).applyQuaternion(q).normalize();
+    let hs = null;
+    if (this.personality === 'reader' && this.magazine && !this.called) {
+      this.magazine.updateMatrixWorld(true);
+      hs = {};
+      for (const s of [1, -1]) hs[s] = {
+        shape: 'grip',
+        aim: this.magazine.localToWorld(new THREE.Vector3(s * 0.215, 0, 0.16)),                   // up the edge
+        palm: new THREE.Vector3(-s, 0, 0).transformDirection(this.magazine.matrixWorld),         // towards the middle
+      };
+    } else if (this.personality === 'jiggler' && !this.called) {
+      hs = {
+        1: { shape: 'grip', aim: this.w(-0.6, 0.9, 0.22), palm: dir(0, -0.3, -1) },   // (the left hand by his right elbow)
+        [-1]: { shape: 'grip', aim: this.w(0.6, 0.93, 0.18), palm: dir(0, -0.3, -1) },
+      };
+    } else if (!this.action && this.personality !== 'gamer') {
+      hs = {};
+      for (const s of [1, -1]) {
+        const h = s === 1 ? this.t.lHand : this.t.rHand;
+        if (h.y < 0.72) hs[s] = { shape: 'rest', aim: this.w(h.x + s * 0.02, h.y - 0.05, h.z + 0.5), palm: new THREE.Vector3(0, -1, 0) };
+      }
+    }
+    if (hs) { this.rig.handShape = hs; this.rig.handShapeT = performance.now(); }
   }
 
   _makeMagazine(scene) {
@@ -1044,6 +1081,8 @@ export class Npc {
       this.magazine.position.copy(this.w(0, THREE.MathUtils.lerp(0.86, 0.6, m), THREE.MathUtils.lerp(0.31, 0.2, m)));
       this.magazine.quaternion.copy(q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.lerp(-0.95, -0.1, m), 0, 0)));
     }
+
+    this._handShapes();
 
     // Watch tick (very quiet, positional): only audible up close
     if (this.rig.watch) {

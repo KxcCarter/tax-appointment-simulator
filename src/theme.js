@@ -132,6 +132,9 @@ export const palette = {
   handleBlack: 0x1e1d1b,
   labelCard: 0xf0ead8,
   chainGold: 0xd8ae48,
+  badgePlate: 0x16233a,          // the receptionist's name badge: engraved navy plastic...
+  badgeText: 0xf2eee4,           // ...white letters...
+  badgeEdge: 0xc8a54a,           // ...a gold edge
 
   // Clock
   clockFace: 0xf2eedf,
@@ -215,9 +218,11 @@ export const characterPalettes = {
       jacket: 0x6b7a3a, shirt: 0xe8e2cf, trousers: 0x2d4a6a, shoes: 0xe8e2cf,
       hat: 'cap', hatColor: 0x7a2a3a,
     },
-    newcomer: {       // arrives later: middle-aged man, tan trench coat, glasses
+    newcomer: {       // arrives later: a 'bro' (owner's redesign): white tank top (a wife-beater), navy cargo shorts, sneakers, sunglasses
       scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
-      jacket: 0xb8a47a, shirt: 0xe8e2cf, tie: 0x2d4a6a, trousers: 0x4a4a48, shoes: 0x3b2a1a, glasses: 0x1b1a18,
+      jacket: 0xf2f0ea, shirt: 0xf2f0ea, trousers: 0x2d3a4a, shoes: 0xe8e2cf, glasses: 0x1b1a18, shortSleeves: true,
+      legLower: 0xe0ac85,   // shorts: bare calves
+      stubble: 0x7a5a3a,                  // (no chain: owner)
     },
     gamer: {          // arrives at 90 s: huge young man, black T-shirt, cargo shorts, cap on backwards, headphones round his neck
       scale: 1.05, skin: 0xe9b896, hair: 0x6a4a2a, hairStyle: 'short', eyes: 0x5a6a3a, lips: 0xc08a78,
@@ -238,6 +243,7 @@ export const characterPalettes = {
     },
   },
   receptionist: {
+    badge: "D'ar-Tanyuh",  // her name badge, pinned on her left (realistic look: realExtras.js)
     skin: 0x6f4a32,
     hair: 0x8a3a1a,
     blouse: 0xd8a8a0,
@@ -253,6 +259,9 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 // Rendering look
 // ---------------------------------------------------------------------------
+// Where the tie is in the texture of MakeHuman's 'suit with tie and jacket' (toigo_male_suit_tie_and_jacket)
+const SUIT_TIE_JACKET_TIE = [0.749, 0.218, 1.0, 0.556];
+
 export const look = {
   materialStyle: 'standard',    // 'lambert' | 'toon' | 'standard' (physically based: roughness, reflections)
   standard: { roughness: 0.85 },        // theme.material()'s default roughness ('standard' only)
@@ -261,6 +270,41 @@ export const look = {
   exposure: 1.05,
   // Contact shadows in corners, under furniture and between things (GTAO post-processing). ?ao=0 turns it off.
   ambientOcclusion: { enabled: true, radius: 0.4, distanceExponent: 1.5, thickness: 1.2, scale: 1.1, samples: 16, msaa: 4 },
+  // EXPERIMENT (branch realistic-receptionist): realistic versions of the whole cast. Rigged glTF models built with
+  // MakeHuman (CC0; see tools/makehuman/README.md) that copies the primitive rig's pose (characters/realBody.js).
+  // Her primitive body stays as an invisible hitbox. ?realistic=0 turns it off.
+  realistic: {
+    enabled: true,
+    models: {
+      receptionist: new URL('./models/characters/mh-receptionist.glb', import.meta.url).href,
+      sitter: new URL('./models/characters/mh-sitter.glb', import.meta.url).href,
+      cougher: new URL('./models/characters/mh-cougher.glb', import.meta.url).href,
+      jiggler: new URL('./models/characters/mh-jiggler.glb', import.meta.url).href,
+      watchChecker: new URL('./models/characters/mh-watchChecker.glb', import.meta.url).href,
+      reader: new URL('./models/characters/mh-reader.glb', import.meta.url).href,
+      newcomer: new URL('./models/characters/mh-newcomer.glb', import.meta.url).href,
+      gamer: new URL('./models/characters/mh-gamer.glb', import.meta.url).href,
+      player: new URL('./models/characters/mh-player.glb', import.meta.url).href, // (his first-person fists and kicking leg: player/realArms.js)
+    },
+    jiggleGain: 0.8, // how much a model's belly, breasts and double chin bounce, x her figure's wobble (config.characters.jiggle)
+    // Colour multiplied over a model, or over materials whose name contains a key
+    tint: {
+      // Each character's look from characterPalettes. A value is a colour or [colour, brightness gain]
+      // (gain > 1 brightens a dark texture), or { recolor: colour } to change only the dark fabric of a texture
+      // and leave the shirt and tie alone (realBody.js recolor). The keys match parts of material or mesh names
+      // (the first that matches). { tie: [u0, v0, u1, v1] } repaints the tie printed in a suit's texture (that
+      // rectangle of it) in the figure's tie colour (realExtras.js paintTie).
+      receptionist: { dress: [0x6b7a3a, 4.5], hair: [0x8a3a1a, 2.2] }, // olive (her cardigan), auburn hair
+      sitter: { dress: [0x9a1a2c, 1.6], booties: [0xc01020, 1.2] }, // wine-red dress, red heels
+      cougher: { suit: { recolor: 0x6a5038, tie: SUIT_TIE_JACKET_TIE }, fedora: [0x9a8060, 1.8], short04: [0xd8d2c8, 2.0] }, // brown suit and hat, grey hair
+      jiggler: { cap: 0x8a2a3a }, // the white newsboy cap -> maroon
+      reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
+      watchChecker: { suit: { tie: [0.85, 0.03, 0.935, 0.265] } }, // his mustard tie
+      newcomer: { cargo: { recolor: 0x2d3a4a, below: 0.6, maxSat: 1, ref: 0.05 }, glasses: { color: 0x141414, dark: 0.88 }, short01: [0x6a4a2a, 1.3] }, // white tank top, navy cargo shorts, dark sunglasses, brown hair
+      player: { suit: { recolor: 0x4a4a48, below: 0.35, maxSat: 1, ref: 0.05 } }, // his grey suit (the fists' sleeves)
+      gamer: { 't-shirt': 0x3a3a42, cargo: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.05 }, cap: [0x2d4a6a, 1.25] }, // charcoal T-shirt, khaki cargo shorts (recoloured), navy cap
+    },
+  },
   characterStyle: 'natural',    // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' | 'sculpted' | 'natural' (see characters/partShapes.js)
   toonSteps: [90, 170, 255],    // gradient for 'toon'
   background: 0x1a1612,
@@ -476,7 +520,7 @@ function cached(kind, color, opts, build) {
   return cache.get(key);
 }
 
-/** Do brawlers leap, flip and hop? (Not with realistic bodies, on the branch that has them, unless config.brawl.ninja.realistic says so.) */
+/** Do brawlers leap, flip and hop? Not with realistic bodies, unless config.brawl.ninja.realistic says so. */
 export const acrobatics = (ninja) => !look.realistic?.enabled || !!ninja.realistic;
 
 export const theme = {

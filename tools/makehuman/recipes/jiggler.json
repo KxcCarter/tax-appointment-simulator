@@ -1,0 +1,26 @@
+{
+  "name": "jiggler",
+  "_note": "The young man: about 25, lanky, green jacket over a shirt, jeans, white sneakers, maroon cap.",
+  "phenotype": {
+    "gender": 1.0,
+    "age": 0.5,
+    "muscle": 0.45,
+    "weight": 0.4,
+    "height": 0.55,
+    "proportions": 0.5,
+    "race": { "caucasian": 0.45, "asian": 0.3, "african": 0.25 }
+  },
+  "rig": "game_engine",
+  "skin": "young_caucasian_male2",
+  "eyebrows": "eyebrow002",
+  "eyelashes": "eyelashes01",
+  "hair": "short01",
+  "clothes": [
+    "male_casualsuit05",
+    "jujube_newsboy_cap",
+    "shoes05"
+  ],
+  "faceunits": true,
+  "cover_erode": 2,
+  "poke_reach": 0.02
+}

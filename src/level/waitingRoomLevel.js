@@ -938,6 +938,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         ui.setDebugBeat(lines.join('\n'));
       }
       receptionist.update(dt, camera.position);
+      receptionist.realBody?.update();
 
       // The wait: counts no matter what the player does (owner's decision)
       if (config.timings.call.enabled && state.phase === 'waiting' && !state.called && !this.callStarted && !brawl.started) {
@@ -976,6 +977,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         }
         n.setCrowded(side);
         n.update(dt, camera);
+        n.realBody?.update();
       }
       const sec = Math.floor(state.clockTime);
       if (sec !== lastSecond) {
