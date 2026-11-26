@@ -110,6 +110,10 @@ export const waitingRoomBeats: Scene = {
   // Anything the director answers for, even once the beats are used up
   targets: ['receptionist'],
 
+  // (owner) Talking to her while she's making you wait (a beat's gate, with no brush-off of its own): one alert per
+  // press, in order; the last one stays
+  lockedNotices: ["She's busy.", "It's rude to interrupt.", 'Just let her finish.'],
+
   speakers: {
     player: { name: 'YOU', pitch: config.characters.playerVoicePitch },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
@@ -139,6 +143,8 @@ export const waitingRoomBeats: Scene = {
     ],
     // The wait is over (config.timings.waiting.duration after the "waiting" phase begins).
     // Proposal from the brief; the wording is easy to change.
+    // Free Bird (owner): the man with the watch, a while after changing the station (config.radio.freeBird.yellAfter)
+    freeBirdYell: [{ do: 'say', who: 'watchChecker', text: 'Free bird!! Wooo!' }],
     call: [
       { do: 'goto', beat: null }, // whatever stage the reception exchange reached, it's over
       { do: 'wait', seconds: config.timings.call.pauseBeforeLine },
@@ -1191,6 +1197,10 @@ export const waitingRoomBeats: Scene = {
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'say', who: 'newcomer', text: 'Is this calm enough for you??' },
             { do: 'say', who: 'player', text: 'Uh, not really.' },
+            // (owner) About 40 s before the brawl: he's seen where this is going. Off to the radio, to put on Free Bird
+            // (config.radio.freeBird: timed so the song is about 58 s in when the brawl starts)
+            { do: 'say', who: 'watchChecker', text: 'Oh, I know where this is going...' },
+            { do: 'emit', event: 'freeBird' },
             { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
             { do: 'say', who: 'newcomer', text: 'Am I calm enough for you now? Am I?' },
             // The old man gets up out of his chair

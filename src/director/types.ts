@@ -134,5 +134,8 @@ export interface Scene {
   beats: Beat[];
   /** Walking away mid-conversation (E) sends the scene back to `start` and runs onLeave. */
   resetOnLeave?: boolean;
+  /** Pressing E while a beat is still gated and has nothing to offer (no lockedOptions or lockedResponse): these
+   *  alerts, one per press, in order; the last one repeats. Starts over at each new gate. */
+  lockedNotices?: string[];
   onLeave?: Action[];
 }

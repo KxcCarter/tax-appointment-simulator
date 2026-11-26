@@ -73,6 +73,11 @@ export const DIRECTIONS = {
     'Ooo, this is a good angle.': { say: 'Ooo, this a good angle.' },
     'Mmm, from over here. Yes.': { say: 'Mmm, from over here. Yaaas.' },
   },
+  watchChecker: {
+    // Free Bird (config.radio.freeBird): a concert yell
+    'Free bird!! Wooo!': { say: '[excited] [shouting] Free biiird!! Wooooo!', model: 'eleven_v3', settings: { stability: 0 } },
+    'Oh, I know where this is going...': { say: '[knowingly] Oh, I know where this is going...', model: 'eleven_v3', settings: { stability: 0.5 } },
+  },
 };
 
 // ---- The brawl (owner): everything the waiting people shout in it, angry and energetic ----

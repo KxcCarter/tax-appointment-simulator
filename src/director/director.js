@@ -171,6 +171,13 @@ export class Director {
         this.runActions(beat.lockedResponse).finally(() => { this.busy = false; });
         return true;
       }
+      // Gated with nothing to say and no brush-off: an alert instead (data.lockedNotices: "She's busy."...)
+      if (locked && this.data.lockedNotices?.length) {
+        const N = this.data.lockedNotices;
+        this.ui.toast(N[Math.min(this.noticeIndex ?? 0, N.length - 1)], 2.2);
+        this.noticeIndex = (this.noticeIndex ?? 0) + 1;
+        return true;
+      }
       // Not gated and still nothing: every option is hidden (showIf) or used, and the player can't move on
       if (!locked && !Director.waitsForPlayer(beat) && !this.warnedEmpty?.has(beat.id)) {
         (this.warnedEmpty ??= new Set()).add(beat.id);
@@ -288,6 +295,7 @@ export class Director {
     if (id !== this.currentId || this.beatSince == null) { this.beatSince = this.time; this.duringAt = null; this.timedOut = false; this.pendingInterrupt = false; }
     this.currentId = id;
     this.lockedUntil = this.time + pick(unlockAfter);
+    this.noticeIndex = 0; // (a new gate: "She's busy." first again)
   }
 
   /**

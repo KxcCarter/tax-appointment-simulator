@@ -302,6 +302,27 @@ export class Receptionist {
     this.onKnockedDown?.(this);
   }
 
+  /**
+   * The next round (the player lost and wakes up in a chair: config.brawl.failure): back in her chair at her game,
+   * as if nothing happened (owner). Out cold from the fire extinguisher: she comes round; her marks heal if
+   * config.damage.healOnRetry. (She starts filming again when the brawl does.)
+   */
+  resetToSeat() {
+    if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
+    if (config.damage.healOnRetry) this.damage?.heal();
+    this.down = false;
+    this.health = config.brawl.receptionistHit.health;
+    this.walker.steps = null;
+    this.filming = null;
+    this.cupInHand = false;
+    this.phone.visible = false;
+    this.root.position.copy(this.seatRoot);
+    this.root.quaternion.copy(this.seatQuat);
+    this.rig.root.visible = true;
+    this.state = 'solitaire';
+    this.face?.setExpression(this.baseExpression, 100);
+  }
+
   voicePosition() {
     return this.rig.joints.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.15, 0));
   }

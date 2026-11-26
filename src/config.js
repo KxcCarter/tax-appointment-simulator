@@ -449,6 +449,20 @@ export const config = {
     highpass: 180,
     lowpass: 3600,
     stopAtPhase: 'doorOpen',    // stops when the player can leave for the accountant
+    // Free Bird (owner): about 40 s before the brawl (the start of the scene after "No" in you_calling_me_a_liar,
+    // { do: 'emit', event: 'freeBird' }) the man with the watch says "Oh, I know where this is going...", hurries to
+    // the radio and changes the station. The song comes in where it would be on a station already playing it, timed
+    // to be `target` seconds in when the brawl starts (expectedToBrawl: seconds from the emit to the brawl, measured).
+    // `yellAfter` seconds after the station changes he yells "Free bird!! Wooo!" (at the next gap in the talking).
+    freeBird: {
+      file: new URL('./audio/free_bird.wav', import.meta.url).href,
+      who: 'watchChecker',
+      target: 58,
+      expectedToBrawl: 42.4,    // (measured with the recorded voices: his line to "Get him!!")
+      yellAfter: 25,            // (his yell: sequence freeBirdYell in waitingRoomBeats.ts)
+      volume: 0.3,              // (a little louder than the soft station: he turned it up)
+      hurry: 3,                 // how fast he goes (as an angry person's errand: config.npc.anger)
+    },
   },
 
   interaction: {

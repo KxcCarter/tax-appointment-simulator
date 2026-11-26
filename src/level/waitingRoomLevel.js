@@ -54,6 +54,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     onEvent: (type, key) => {
       if (type === 'clipboardSmash' && config.brawl.enabled) smashWanted = true; // the end of the argument: he grabs the clipboard
       // "The creep's trying to run away! Get him!!": everyone goes for him (not switched off by config.brawl.enabled)
+      if (type === 'freeBird') freeBird(); // (owner) the man with the watch changes the station
       if (type === 'brawlStart' && !brawl.started) {
         state.phase = 'brawl';
         state.canFightBack = true;
@@ -364,7 +365,38 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (!radioBuffer || !state.radioOn) return;
     // A station keeps broadcasting while it's off: resume where the song would be by now
     stationStart ??= sfx.ctx.currentTime;
-    radioLoop = sfx.playLoop(radioBuffer, radioPos(), config.radio, sfx.ctx.currentTime - stationStart);
+    radioLoop = sfx.playLoop(radioBuffer, radioPos(), { ...config.radio, volume: radioVolume }, sfx.ctx.currentTime - stationStart);
+  }
+
+  /**
+   * Free Bird (owner; config.radio.freeBird): the man with the watch knows where this is going. He hurries to the
+   * radio and changes the station: the song comes in partway through, as if the station were already playing it,
+   * so that it's about `target` seconds in when the brawl starts. Then, a while later, he yells.
+   */
+  let radioVolume = config.radio.volume, freeBirdAt = null, freeBirdYell = null;
+  function freeBird() {
+    const FB = config.radio.freeBird, who = npcs.find((n) => n.id === FB.who);
+    if (freeBirdAt != null || !who || who.down || !sfx.ctx) return;
+    freeBirdAt = sfx.ctx.currentTime;
+    const loading = sfx.loadAudio(FB.file);
+    who.startErrand({
+      ...radioHandle,
+      anger: FB.hurry,
+      onReach: async () => {
+        const buf = await loading;
+        if (!buf) return;
+        // Where the song is: `target` s in at the brawl, which is about (expectedToBrawl - so far) s away
+        const sinceEmit = sfx.ctx.currentTime - freeBirdAt;
+        const offset = THREE.MathUtils.clamp(FB.target - Math.max(0, FB.expectedToBrawl - sinceEmit), 0, buf.duration - 1);
+        radioLoop?.stop();
+        radioBuffer = buf;
+        radioVolume = FB.volume;
+        stationStart = sfx.ctx.currentTime - offset; // (the new station: turned off and on again, it carries on)
+        state.radioOn = false;
+        turnOnRadio();
+        freeBirdYell = FB.yellAfter;
+      },
+    });
   }
 
   function turnOffRadio() {
@@ -714,6 +746,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     state.knockdowns = 0;
     state.retries = (state.retries ?? 0) + 1;
     for (const n of npcs) n.resetToSeat();
+    receptionist.resetToSeat(); // (the fire extinguisher: she comes round for the next round too)
     brawl.reset?.();
     npcThrows.clear();
     // Wake up in a free chair
@@ -822,6 +855,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     npcs,
     interaction,
     overheardTalk, // (exposed for tests)
+    onlookerTalk,  // (exposed for tests: the brawl's shouts, the onlookers)
     hurtPlayer,    // (exposed for tests: hurtPlayer(damage))
     doorTalk,
     combat,
@@ -875,6 +909,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       }
       lastLine = ty;
       brawl.update(dt);
+      // Free Bird: his yell, at the next gap in the talking once it's time (sequence freeBirdYell)
+      if (freeBirdYell != null && (freeBirdYell -= dt) <= 0 && !director.talking && !onlookerTalk.talking && !onlookerTalk.active) {
+        freeBirdYell = null;
+        if (!npcs.find((n) => n.id === config.radio.freeBird.who)?.down) onlookerTalk.runActions(waitingRoomBeats.sequences?.freeBirdYell ?? []);
+      }
       npcThrows.update(dt);
       // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended && state.phase === 'brawl') {

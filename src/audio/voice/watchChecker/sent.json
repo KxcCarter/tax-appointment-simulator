@@ -137,5 +137,19 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "Free bird!! Wooo!": {
+    "text": "[excited] [shouting] Free biiird!! Wooooo!",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0
+    }
+  },
+  "Oh, I know where this is going...": {
+    "text": "[knowingly] Oh, I know where this is going...",
+    "model_id": "eleven_v3",
+    "voice_settings": {
+      "stability": 0.5
+    }
   }
 }
