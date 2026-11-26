@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { theme } from '../theme.js';
 import { Damage } from './damage.js';
+import { meshLayer, findFace, triangles } from './realPaint.js';
 
 /*
   Damage you can see, on a realistic body (realBody.js): the same marks as damage.js (bruises, black
@@ -33,13 +34,6 @@ const kindOf = (name) => {
   if (/shoe|flats|booties|boots/.test(name)) return 'shoes';
   return 'cloth';
 };
-// Body regions by bone (the game_engine skeleton, plus the wobble bones)
-const regionOfBone = (b) => {
-  if (/head|neck|jiggle_chin/.test(b)) return 'head';
-  if (/spine|clavicle|jiggle_belly|jiggle_breast/.test(b)) return 'torso';
-  if (/arm|hand|thumb|index|middle|ring|pinky/.test(b)) return 'arm';
-  return 'leg'; // pelvis, thighs, calves, feet
-};
 
 export class RealDamage extends Damage {
   constructor({ realBody, rig, look, physics, scene }) {
@@ -49,7 +43,10 @@ export class RealDamage extends Damage {
     this.painted = [];  // { mat, original map } (heal() puts them back)
     this.hidden = [];   // the model's hat/glasses meshes, once knocked off
     this.bleeds = [];   // blood running: { layer, from, dir, len, width, t, dur, drawn }
+    this.armSkin = null; // the arms under the sleeves (tools/makehuman: kept from the build, hidden till a sleeve goes)
+    this.sleeves = [];   // { mesh, geometry (as built) } of clothes with a sleeve ripped off
     realBody.model.traverse((o) => {
+      if (o.isSkinnedMesh && /armskin/.test(o.name)) { this.armSkin = o; return; }
       if (!o.isSkinnedMesh || !o.material?.map) return;
       const kind = kindOf(o.material.name);
       if (kind !== 'skin' && kind !== 'cloth') return;
@@ -61,6 +58,18 @@ export class RealDamage extends Damage {
   }
 
   // ---------------------------------------------------------------- the marks
+
+  /** As the figure's, and the model's glasses go crooked too (the first blow to the head that has them). */
+  _head(side, knock, dir) {
+    const prim = this.rig.joints.head.getObjectByName('glasses');
+    const was = prim?.userData.crooked;
+    super._head(side, knock, dir);
+    const G = this.body.extras?.glasses;
+    if (G && prim?.userData.crooked && !was && G.mesh.visible) {
+      G.pivot.quaternion.setFromAxisAngle(G.axis, side * (0.18 + Math.random() * 0.12));
+      G.pivot.position.copy(G.rest).addScaledVector(G.down, 0.007);
+    }
+  }
 
   _headMark(kind, side) {
     const F = this.face;
@@ -108,6 +117,8 @@ export class RealDamage extends Damage {
 
   _body(region, side, hit, knock) {
     this.bodyHits++;
+    // An arm (or every few body blows): the sleeve comes off
+    if ((region === 'arm' || (region === 'torso' && this.bodyHits % D().sleeveEvery === 0)) && this._ripSleeve(side)) return;
     const spot = (hit && this._regionOf(hit.object) === region ? this._nearHit(region, hit.point) : null) ?? this._somewhere(region, side);
     if (!spot) return;
     const { layer, pos } = spot;
@@ -154,10 +165,62 @@ export class RealDamage extends Damage {
   /** Everything back as it was (config.damage.healOnRetry). Hats and glasses stay where they fell. */
   heal() {
     super.heal();
+    for (const s of this.sleeves) s.mesh.geometry = s.geometry;
+    for (const l of this.layers) l.gone = null;
+    this.sleeves = [];
+    if (this.armSkin) { this.armSkin.visible = false; if (this.armSkin.userData.material) this.armSkin.material = this.armSkin.userData.material; }
+    const G = this.body.extras?.glasses;
+    if (G) { G.pivot.position.copy(G.rest); G.pivot.quaternion.identity(); }
     for (const p of this.painted) p.mat.map = p.map;
     for (const l of this.layers) l.canvas = null;
     this.painted = [];
     this.bleeds = [];
+  }
+
+  /**
+   * The sleeve on that side comes off: the clothes' triangles on that upper and lower arm go, and the arm under
+   * them shows (the build keeps it: armskin), bare, or in their shirt's colour under a jacket (as the figure's).
+   */
+  _ripSleeve(side) {
+    const key = 'sleeve:' + side;
+    if (this.used.has(key) || !this.armSkin) return false;
+    const onArm = (l, i) => /upperarm|lowerarm/.test(l.bone[i]) && Math.sign(l.pos[i * 3]) === side;
+    let ripped = false;
+    for (const l of this.cloth) {
+      const geo = l.mesh.geometry, keep = [];
+      let dropped = 0;
+      for (const t of triangles(geo)) {
+        if (t.every((i) => onArm(l, i))) { dropped++; l.gone ??= new Uint8Array(l.n); for (const i of t) l.gone[i] = 1; } else keep.push(...t);
+      }
+      if (!dropped) continue;
+      if (!this.sleeves.some((s) => s.mesh === l.mesh)) this.sleeves.push({ mesh: l.mesh, geometry: geo });
+      const g = geo.clone();
+      g.setIndex(keep);
+      l.mesh.geometry = g;
+      ripped = true;
+    }
+    if (!ripped) return false;
+    this.used.add(key);
+    // The arm underneath: this side's share of it (and any side already showing)
+    const A = this.armSkin;
+    A.userData.base ??= A.geometry;
+    A.userData.sides ??= new Set();
+    A.userData.sides.add(side);
+    const P = A.geometry.attributes.position, bind = A.bindMatrix, v = new THREE.Vector3(), keep = [];
+    for (const t of triangles(A.userData.base)) {
+      const x = t.reduce((s, i) => s + v.fromBufferAttribute(P, i).applyMatrix4(bind).x, 0);
+      if (A.userData.sides.has(Math.sign(x) || 1)) keep.push(...t);
+    }
+    const g = A.userData.base.clone();
+    g.setIndex(keep);
+    A.geometry = g;
+    const look = this.look, top = look.jacket ?? look.shirt;
+    if (look.shirt !== undefined && look.shirt !== top) {
+      A.userData.material ??= A.material;
+      A.material = theme.material(look.shirt);
+    }
+    A.visible = true;
+    return true;
   }
 
   /** Knocked off: the model's own hat or glasses vanish; the figure's flies off in their place. */
@@ -172,55 +235,11 @@ export class RealDamage extends Damage {
 
   // ---------------------------------------------------------------- finding places
 
-  /** A paintable mesh: its rest-pose positions (model space), texture coordinates, and each vertex's region. */
-  _layer(mesh, kind) {
-    const g = mesh.geometry, P = g.attributes.position, N = g.attributes.normal, UV = g.attributes.uv;
-    const n = P.count, pos = new Float32Array(n * 3), front = new Float32Array(n);
-    const bind = mesh.bindMatrix, nm = new THREE.Matrix3().getNormalMatrix(bind);
-    const v = new THREE.Vector3(), nv = new THREE.Vector3();
-    for (let i = 0; i < n; i++) {
-      v.fromBufferAttribute(P, i).applyMatrix4(bind);
-      pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z;
-      if (N) front[i] = nv.fromBufferAttribute(N, i).applyMatrix3(nm).normalize().z; // (+z = their front)
-    }
-    // The bone that moves each vertex most decides its region
-    const SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, bones = mesh.skeleton.bones;
-    const region = new Array(n), bone = new Array(n);
-    for (let i = 0; i < n; i++) {
-      let best = 0, bw = -1;
-      for (let k = 0; k < 4; k++) { const w = SW.getComponent(i, k); if (w > bw) { bw = w; best = SI.getComponent(i, k); } }
-      bone[i] = bones[best]?.name ?? '';
-      region[i] = regionOfBone(bone[i]);
-    }
-    return { mesh, kind, pos, front, uv: UV, region, bone, n };
-  }
+  /** A paintable mesh (realPaint.js). */
+  _layer(mesh, kind) { return meshLayer(mesh, kind); }
 
   /** The eyes, the nose and the mouth, in the rest pose. */
-  _findFace() {
-    let eyesMesh = null;
-    this.body.model.traverse((o) => { if (o.isMesh && /low-poly|high-poly/.test(o.material?.name ?? '')) eyesMesh = o; });
-    const eyes = { 1: new THREE.Vector3(), [-1]: new THREE.Vector3() }, count = { 1: 0, [-1]: 0 };
-    if (eyesMesh) {
-      const P = eyesMesh.geometry.attributes.position, v = new THREE.Vector3();
-      for (let i = 0; i < P.count; i++) {
-        v.fromBufferAttribute(P, i).applyMatrix4(eyesMesh.bindMatrix);
-        const s = v.x >= 0 ? 1 : -1;
-        eyes[s].add(v); count[s]++;
-      }
-    }
-    if (!count[1] || !count[-1]) return;
-    eyes[1].divideScalar(count[1]); eyes[-1].divideScalar(count[-1]);
-    const y = (eyes[1].y + eyes[-1].y) / 2;
-    // The nose tip: the frontmost skin on the middle line, below the eyes
-    const L = this.skin;
-    let nose = null;
-    for (let i = 0; i < L.n; i++) {
-      const x = L.pos[i * 3], vy = L.pos[i * 3 + 1], z = L.pos[i * 3 + 2];
-      if (Math.abs(x) < 0.008 && vy < y - 0.01 && vy > y - 0.08 && (!nose || z > nose.z)) nose = new THREE.Vector3(x, vy, z);
-    }
-    if (!nose) return;
-    this.face = { eyes, nose, mouthY: nose.y - 0.034 };
-  }
+  _findFace() { this.face = findFace(this.body.model, this.skin) ?? undefined; }
 
   /** The front of the skin at (x, y) on the face (rest pose). */
   _skinAt(x, y) {
@@ -245,7 +264,7 @@ export class RealDamage extends Damage {
       m.skeleton.update();
       let bi = -1, bd = Infinity;
       for (let i = 0; i < layer.n; i += 2) { // (every other vertex is plenty)
-        if (layer.region[i] !== region) continue;
+        if (layer.region[i] !== region || layer.gone?.[i]) continue;
         m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld);
         const d = v.distanceToSquared(point);
         if (d < bd) { bd = d; bi = i; }
@@ -265,7 +284,7 @@ export class RealDamage extends Damage {
     for (const layer of [...this.cloth, this.skin].filter(Boolean)) {
       const ok = [];
       for (let i = 0; i < layer.n; i++) {
-        if (layer.region[i] !== region || layer.front[i] < 0.5) continue;
+        if (layer.region[i] !== region || layer.front[i] < 0.5 || layer.gone?.[i]) continue;
         if (region === 'leg' && !layer.bone[i].startsWith('thigh')) continue; // (the thigh, like the figures)
         if (region === 'arm' && !/upperarm|lowerarm/.test(layer.bone[i])) continue;
         if (region !== 'torso' && Math.sign(layer.pos[i * 3]) !== side) continue;

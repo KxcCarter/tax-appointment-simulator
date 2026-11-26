@@ -64,7 +64,7 @@ export class Npc {
     body?.setBodyType(RAPIER.RigidBodyType.Fixed, false);
     this.chairHome = { pos: chair.object.position.clone(), quat: chair.object.quaternion.clone() };
     this._seat();
-    this.realBody = realBodyFor(def.id, this.rig); // experiment: realistic body (theme.look.realistic)
+    this.realBody = realBodyFor(def.id, this.rig, look); // experiment: realistic body (theme.look.realistic)
     if (this.realBody?.ok) this.damage = new RealDamage({ realBody: this.realBody, rig: this.rig, look, physics, scene }); // (painted onto the model)
     this.walker = new Walker(this._walkerHost());
 

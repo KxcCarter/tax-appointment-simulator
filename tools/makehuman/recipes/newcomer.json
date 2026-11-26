@@ -1,6 +1,6 @@
 {
   "name": "newcomer",
-  "_note": "The newcomer: about 45, tan suit (there's no trench coat in the free MakeHuman clothes: the suit with tie and jacket, tinted tan), glasses, short brown hair.",
+  "_note": "The newcomer: about 45, a tan trench coat (made by the build: recipe 'coat') over a grey suit and tie, glasses, short brown hair.",
   "phenotype": {
     "gender": 1.0,
     "age": 0.66,
@@ -26,5 +26,13 @@
   ],
   "faceunits": true,
   "cover_erode": 2,
-  "poke_reach": 0.02
+  "poke_reach": 0.02,
+  "coat": {
+    "margin": 0.012,
+    "cuff": 0.06,
+    "hem": 0.0,
+    "flare": 0.06,
+    "v_depth": 0.06,
+    "v_width": 0.085
+  }
 }

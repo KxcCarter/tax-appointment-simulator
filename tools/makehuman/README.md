@@ -45,3 +45,19 @@ and put it in `src/models/characters/`, named in `theme.look.realistic.models`.
 - `tube_amount`: how much skirts and dresses follow both thighs equally (1 = a tube, the default; e.g. 0.5 =
   halfway, so a walking leg doesn't swing through the fabric, while seated it still doesn't split).
 - `tube_clothes`: clothes that should move like a skirt (both thighs equally), for outfits whose skirt isn't a separate piece.
+- `arm_skin`: true (the default) = the arm skin under sleeves is kept as a separate mesh, `<name>.armskin`, hidden in the
+  game until a sleeve is ripped off (`src/characters/realDamage.js`).
+- `cut`: `{"part of a garment's name": metres}`: the garment is sliced level that far above (or, negative, below) the
+  knees and everything lower dropped, e.g. `{"cargo_pants": -0.03}` turns cargo trousers into knee-length shorts.
+- `reverse`: `["part of a garment's name"]`: worn backwards (turned half round about the top of the head), e.g. a cap.
+- `plain`: `{"part of a garment's name": {"color": [r, g, b], "name": "material name"}}`: its texture dropped (e.g.
+  printing on it), one plain colour instead (tinted in the game).
+- `coat`: a long coat generated from the body (MakeHuman's free clothes have none): `{"margin": 0.012, "cuff": 0.06,
+  "hem": 0.0, "flare": 0.06, "v_depth": 0.06, "v_width": 0.085, "belt": 0.045}`. The top is the skin pushed out
+  `margin` m past the outermost clothing, open in a V at the front (`v_depth` below the chest bone, `v_width` either
+  side at the neck), with cuffs `cuff` m short of the wrists; a skirt hangs from the waist round both legs to `hem` m
+  above the knees, flaring out `flare` m. Materials `coat` (a pale fabric texture to tint) and `coat_belt`.
+
+The game adds a few things itself, from the figure's look (`src/characters/realExtras.js`): a wristwatch, headphones
+round the neck, stubble, hairs on a built moustache, and glasses that can be knocked crooked. Ties printed in a suit's
+texture are repainted in the figure's tie colour (`tie` in `theme.look.realistic.tint`).

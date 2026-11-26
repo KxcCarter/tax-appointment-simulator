@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { theme } from '../theme.js';
 import { config } from '../config.js';
+import { addExtras, paintTie } from './realExtras.js';
 
 /*
   Realistic bodies (branch experiment): a rigged glTF person that copies the pose of a primitive
@@ -37,12 +38,13 @@ export async function loadCharacterModels() {
   }));
 }
 
-/** The realistic body for a character id, or null (style off, or no model for them). */
-export function realBodyFor(id, rig) {
+/** The realistic body for a character id, or null (style off, or no model for them). look: their figure's look
+ *  (characterPalettes), for the things the model gets added (realExtras.js) and its tie's colour. */
+export function realBodyFor(id, rig, look) {
   const R = theme.look.realistic;
   if (!R?.enabled) return null;
   const gltf = loaded.get(R.models[id]);
-  return gltf ? new RealBody(rig, gltf, R.tint?.[id], R.jiggleGain ?? 1) : null;
+  return gltf ? new RealBody(rig, gltf, R.tint?.[id], R.jiggleGain ?? 1, look) : null;
 }
 
 // The model's wobble bones (tools/makehuman: recipe "jiggle") -> which part's amount they use in
@@ -111,7 +113,7 @@ function recolor(mat, { recolor: colour, below = 0.2, ref = 0.05, maxSat = 0.35 
 }
 
 export class RealBody {
-  constructor(rig, gltf, tint, jiggleGain = 1) {
+  constructor(rig, gltf, tint, jiggleGain = 1, look = {}) {
     this.rig = rig;
     this.jiggleGain = jiggleGain;
     const root = rig.root;
@@ -126,13 +128,16 @@ export class RealBody {
         o.receiveShadow = true;
         o.frustumCulled = false;
         o.raycast = () => {}; // hits go to the invisible primitive parts
+        if (/armskin/.test(o.name)) o.visible = false; // the arms under the sleeves (shown when one's ripped off: realDamage.js)
         // tint: a colour for the whole model, or { 'part of a material or mesh name': colour }
         // A tint can be [colour, gain]: gain > 1 brightens a dark texture (multiplying can only darken)
         if (tint !== undefined) {
           const c = typeof tint === 'object' && !Array.isArray(tint) ? Object.entries(tint).find(([k]) => o.material.name.includes(k) || o.name.includes(k))?.[1] : tint;
-          if (c?.recolor !== undefined) {
+          if (c?.recolor !== undefined || c?.tie) {
             o.material = o.material.clone();
-            recolor(o.material, c);
+            if (c.recolor !== undefined) recolor(o.material, c);
+            // { tie: [u0, v0, u1, v1] }: the tie printed in the suit's texture repainted in their tie's colour
+            if (c.tie && look.tie !== undefined) paintTie(o.material, c.tie, look.tie);
           } else if (c !== undefined) {
             const [colour, gain = 1] = Array.isArray(c) ? c : [c];
             o.material = o.material.clone();
@@ -241,6 +246,7 @@ export class RealBody {
       limb('leg', 'RightUpLeg', 'RightLeg', 'RightFoot', j.rHip, j.rKnee, P.lowerLeg.len * s),
     ].filter(Boolean);
     this._measureTorso(model);
+    this.extras = addExtras(this, look); // (watch, headphones, stubble, moustache hairs, glasses that can go crooked)
 
     // Back to where the character was
     root.position.copy(saved.pos);

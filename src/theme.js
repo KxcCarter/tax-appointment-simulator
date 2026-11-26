@@ -228,6 +228,9 @@ export const characterPalettes = {
 // ---------------------------------------------------------------------------
 // Rendering look
 // ---------------------------------------------------------------------------
+// Where the tie is in the texture of MakeHuman's 'suit with tie and jacket' (toigo_male_suit_tie_and_jacket)
+const SUIT_TIE_JACKET_TIE = [0.749, 0.218, 1.0, 0.556];
+
 export const look = {
   materialStyle: 'lambert',     // 'lambert' | 'toon'
   // EXPERIMENT (branch realistic-receptionist): realistic versions of the whole cast. Rigged glTF models built with
@@ -250,14 +253,17 @@ export const look = {
     tint: {
       // Each character's look from characterPalettes. A value is a colour or [colour, brightness gain]
       // (gain > 1 brightens a dark texture), or { recolor: colour } to change only the dark fabric of a texture
-      // and leave the shirt and tie alone (realBody.js recolor). The keys match parts of material or mesh names.
+      // and leave the shirt and tie alone (realBody.js recolor). The keys match parts of material or mesh names
+      // (the first that matches). { tie: [u0, v0, u1, v1] } repaints the tie printed in a suit's texture (that
+      // rectangle of it) in the figure's tie colour (realExtras.js paintTie).
       receptionist: { dress: [0x6b7a3a, 4.5], hair: [0x8a3a1a, 2.2] }, // olive (her cardigan), auburn hair
       sitter: { dress: [0x9a1a2c, 1.6], booties: [0xc01020, 1.2] }, // wine-red dress, red heels
-      cougher: { suit: { recolor: 0x6a5038 }, fedora: [0x9a8060, 1.8], short04: [0xd8d2c8, 2.0] }, // brown suit and hat, grey hair
+      cougher: { suit: { recolor: 0x6a5038, tie: SUIT_TIE_JACKET_TIE }, fedora: [0x9a8060, 1.8], short04: [0xd8d2c8, 2.0] }, // brown suit and hat, grey hair
       jiggler: { cap: 0x8a2a3a }, // the white newsboy cap -> maroon
       reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
-      newcomer: { suit: { recolor: 0xc8ae7c }, short02: [0x8a6a4a, 1.3] }, // a tan suit (his trench coat), brown hair
-      gamer: { 't-shirt': 0x3a3a42, shorts: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.08 }, cap: 0x4a7aa8 }, // charcoal T-shirt, khaki shorts (the denim, recoloured), blue cap
+      watchChecker: { suit: { tie: [0.85, 0.03, 0.935, 0.265] } }, // his mustard tie
+      newcomer: { coat_belt: [0x8a7650, 1.6], coat: [0xb8a47a, 1.12], suit: { recolor: 0x4a4a48, tie: SUIT_TIE_JACKET_TIE }, short02: [0x8a6a4a, 1.3] }, // tan trench coat over a grey suit, brown hair
+      gamer: { 't-shirt': 0x3a3a42, cargo: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.05 }, cap: [0x2d4a6a, 1.25] }, // charcoal T-shirt, khaki cargo shorts (recoloured), navy cap
     },
   },
   characterStyle: 'natural',    // 'blocky' | 'rounded' | 'capsule' | 'soft' | 'figure' | 'sculpted' | 'natural' (see characters/partShapes.js)
