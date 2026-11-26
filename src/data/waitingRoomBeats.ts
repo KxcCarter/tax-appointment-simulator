@@ -788,19 +788,9 @@ export const waitingRoomBeats: Scene = {
         { do: 'anim', who: 'newcomer', name: 'attend' },
         { do: 'anim', who: 'newcomer', name: 'confront' },
         { do: 'say', who: 'newcomer', text: "Well you're late. You forfeit your appointment." },
-        pause,
-        {
-          do: 'if',
-          test: (state: GameState) => !state.sitterDown, // (unless the radio war put her on the floor)
-          then: [
-            { do: 'anim', who: 'sitter', name: 'attend' },
-            { do: 'say', who: 'sitter', text: 'Yeah, maybe show up on time next time.' },
-            pause,
-          ],
-        },
+        { do: 'say', who: 'player', text: 'Whoa, okay...' },
         { do: 'anim', who: 'jiggler', name: 'attend' },
         { do: 'say', who: 'jiggler', text: 'Yeah dude, get a watch.' },
-        pause,
         { do: 'anim', who: 'cougher', name: 'attend' },
         {
           do: 'say',
@@ -861,7 +851,13 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_4',
       trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
-      options: [{ text: 'What time is your appointment?', advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
+      options: [
+        { text: 'What time is your appointment?', advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
+      ],
       lockedOptions: [],
       onAdvance: [pause, { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." }],
       next: 'argument_5',
@@ -871,7 +867,13 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_5',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: 'Okay, well do you have a number?', advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
+      options: [
+        { text: 'Okay, well do you have a number?', advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
+      ],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -890,7 +892,13 @@ export const waitingRoomBeats: Scene = {
       id: 'argument_6',
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
-      options: [{ text: "I wasn't asking for her phone number!", advance: true }, pleaCheckIn, pleaLetMeIn, pleaWalkIn, pleaEveryone],
+      options: [
+        { text: "I wasn't asking for her phone number!", advance: true },
+        pleaCheckIn,
+        pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
+      ],
       lockedOptions: [],
       onAdvance: [
         pause,
@@ -1021,6 +1029,8 @@ export const waitingRoomBeats: Scene = {
               then: [
                 { do: 'say', who: 'sitter', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
                 { do: 'say', who: 'sitter', text: "I know you ain't lookin at my breasts again!" },
+                { do: 'say', who: 'cougher', text: "You quit lookin at that girl's breasts!" },
+                { do: 'anim', who: 'cougher', name: 'confront' },
               ],
               else: [
                 { do: 'say', who: 'jiggler', text: "Oh yeah? Looks like you're just trying to cause a problem to me." },
@@ -1029,6 +1039,7 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'player', text: "You know what? I'm just going to go..." },
             { do: 'wait', seconds: 1.2 },
             { do: 'say', who: 'receptionist', text: 'Oh look at that, I just found all the pens.' },
+            { do: 'say', who: 'receptionist', text: 'My bad.' },
             { do: 'wait', seconds: 0.6 },
             { do: 'face', who: 'jiggler', expression: 'furious' },
             { do: 'say', who: 'jiggler', text: "The creep's trying to run away! Get him!!" },
