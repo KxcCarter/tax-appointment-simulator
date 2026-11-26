@@ -101,10 +101,10 @@ export function buildComputer(g, screenMaterial) {
   mon.position.set(0, 0.118, 0);
   g.add(mon);
   rbox(0.44, 0.37, 0.12, 0.022, S('crtPlastic'), 0, 0.19, 0.12, mon);
-  const body = taperBox(0.4, 0.33, 0.34, 0.66, S('crtPlastic'), 0.015);
-  add(mon, body, 0, 0.19, -0.1);
-  rbox(0.27, 0.2, 0.06, 0.02, S('crtPlasticDark'), 0, 0.21, -0.28, mon); // the neck at the back
-  for (let i = 0; i < 7; i++) rbox(0.2, 0.004, 0.012, 0.002, S('plasticBlack'), 0, 0.33 - i * 0.004, -0.05 - i * 0.03, mon).rotation.x = -0.18; // vents on top
+  const body = taperBox(0.4, 0.33, 0.28, 0.66, S('crtPlastic'), 0.015); // (shallow enough to clear the counter behind it)
+  add(mon, body, 0, 0.19, -0.07);
+  rbox(0.27, 0.2, 0.05, 0.02, S('crtPlasticDark'), 0, 0.21, -0.225, mon); // the neck at the back
+  for (let i = 0; i < 6; i++) rbox(0.2, 0.004, 0.012, 0.002, S('plasticBlack'), 0, 0.33 - i * 0.004, -0.04 - i * 0.03, mon).rotation.x = -0.18; // vents on top
   // Bezel: a frame round the screen, sloping in
   const bezel = S('bezel');
   const bw = 0.38, bh = 0.3, fz = 0.19; // (in front of the housing's face, at 0.18)
@@ -131,7 +131,7 @@ export function buildComputer(g, screenMaterial) {
   cylinder(0.0025, 0.0025, 0.004, S('ledGreen'), 0.145, 0.058, 0.193, mon, 8).rotation.x = Math.PI / 2;
   rbox(0.05, 0.012, 0.004, 0.002, S('steel'), -0.13, 0.058, 0.188, mon);
   // A cable out of the back, down behind the desk
-  add(g, bentTube([V(0.05, 0.25, -0.33), V(0.06, 0.2, -0.42), V(0.08, 0.02, -0.45), V(0.15, -0.02, -0.48)], 0.005, S('cable')));
+  add(g, bentTube([V(0.05, 0.3, -0.25), V(0.06, 0.24, -0.29), V(0.08, 0.12, -0.3), V(0.1, 0.0, -0.28)], 0.005, S('cable'))); // (drops down behind it)
   // (screen's world position moves up with the desktop unit; the receptionist looks at it, wherever it is)
   return screen;
 }

@@ -14,7 +14,7 @@ import { realBodyFor } from './realBody.js';
   goes back to solitaire by herself), 'sip' (a sip of coffee, once she has some).
   'coffeeBreak' walks her through the EMPLOYEES ONLY door and back with a cup (returns a
   Promise that resolves when she's seated again).
-  The director drives her with play('lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' |
+  The director drives her with play('lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'pointAtPoster' | 'resumeSolitaire' |
   'slideClipboard' | 'coffeeBreak' | 'sipCoffee').
   She clicks the mouse on her own schedule (config.timings.receptionistClicks),
   and keeps doing so no matter what happens around her.
@@ -57,6 +57,8 @@ export class Receptionist {
     this.clockPos = anchors.clock.getWorldPosition(new THREE.Vector3());
     this.clockTwist = 0; // upper-body turn for glancing at the clock behind her
     this.signPos = anchors.walkInSign?.getWorldPosition(new THREE.Vector3()) ?? null;
+    this.posterPos = anchors.poster?.getWorldPosition(new THREE.Vector3()) ?? null; // the PATIENCE poster (west wall)
+    this.pointAt = this.signPos; // what she's pointing at ('pointAtSign' / 'pointAtPoster')
     this.pointAmt = 0; // 0 = left hand on the keys, 1 = arm out at the sign
 
     this.state = 'solitaire';
@@ -228,7 +230,8 @@ export class Receptionist {
     const face = (auto) => this.face?.setExpression(this.scripted ?? auto);
     if (name === 'lookAtPlayer') { this.state = 'look'; face('unimpressed'); }
     else if (name === 'glanceAtClock') { this.state = 'clock'; face('unimpressed'); }
-    else if (name === 'pointAtSign') { this.state = this.signPos ? 'point' : this.state; }
+    else if (name === 'pointAtSign') { if (this.signPos) { this.pointAt = this.signPos; this.state = 'point'; } }
+    else if (name === 'pointAtPoster') { if (this.posterPos) { this.pointAt = this.posterPos; this.state = 'point'; } } // "Read that sign." (PATIENCE)
     else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
     else if (name === 'filmPlayer') return this._filmPlayer();
@@ -353,7 +356,7 @@ export class Receptionist {
     const breathe = Math.sin(this.time * 1.6) * 0.01;
     // The wall clock is behind her left shoulder: twist the upper body to see it
     const R = config.characters.receptionist;
-    const twistGoal = this.state === 'clock' ? R.clockGlanceTwist : this.state === 'point' ? R.signPointTwist : 0;
+    const twistGoal = this.state === 'clock' ? R.clockGlanceTwist : this.state === 'point' ? (this.pointAt === this.signPos ? R.signPointTwist : 0) : 0; // (the poster's in front of her)
     this.clockTwist += (twistGoal - this.clockTwist) * (1 - Math.exp(-6 * dt));
     j.spine.rotation.set(0.12 + breathe + 0.35 * engage, 0.3 * engage + this.clockTwist, 0);
 
@@ -394,13 +397,16 @@ export class Receptionist {
     if (phoneAt) handOnKeys.copy(phoneAt).addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.045).add(new THREE.Vector3(0, -0.02, 0));
     // Pointing at the sign: the left arm swings up and out over her shoulder (eases in and out)
     this.pointAmt += ((this.state === 'point' ? 1 : 0) - this.pointAmt) * (1 - Math.exp(-7 * dt));
-    if (this.pointAmt > 0.001 && this.signPos) {
+    if (this.pointAmt > 0.001 && this.pointAt) {
       const sh = j.lShoulder.getWorldPosition(new THREE.Vector3());
       const reach = (L.upperArm + L.lowerArm) * 0.97;
-      const aim = sh.clone().addScaledVector(this.signPos.clone().sub(sh).normalize(), reach);
+      const dir = this.pointAt.clone().sub(sh).normalize();
+      // The poster's straight ahead, past her monitor: the arm goes up and a little out to her left, over it
+      if (this.pointAt === this.posterPos) dir.add(new THREE.Vector3(0, 0.55, 0)).addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.3).normalize();
+      const aim = sh.clone().addScaledVector(dir, reach);
       handOnKeys.lerp(aim, this.pointAmt);
-      // (her realistic body points its index finger at the sign: realBody.js)
-      this.rig.handShape = { 1: { shape: 'point', aim: this.signPos.clone(), amount: this.pointAmt } };
+      // (her realistic body points its index finger at it: realBody.js)
+      this.rig.handShape = { 1: { shape: 'point', aim: this.pointAt.clone(), amount: this.pointAmt } };
       this.rig.handShapeT = performance.now();
     }
     // A sip of coffee: left hand to the cup, cup to the mouth, back down, back to the keys

@@ -171,6 +171,7 @@ export class RealDamage extends Damage {
     if (G) { G.pivot.position.copy(G.rest); G.pivot.quaternion.identity(); }
     for (const p of this.painted) p.mat.map = p.map;
     for (const l of this.layers) l.canvas = null;
+    for (const l of this.overlays ?? []) { l.overlay.ctx.clearRect(0, 0, l.overlay.c.width, l.overlay.c.height); l.overlay.tex.needsUpdate = true; }
     this.painted = [];
     this.bleeds = [];
   }
@@ -361,6 +362,37 @@ export class RealDamage extends Damage {
     return layer.canvas;
   }
 
+  /**
+   * A piece of clothing's damage layer (made on the first tear): a transparent canvas the size of its texture,
+   * mixed over the cloth in its shader after the tint (theme.look.realistic.tint), so what's painted on it (skin
+   * through a tear) keeps its own colour instead of being tinted along with the fabric.
+   */
+  _overlay(layer) {
+    if (layer.overlay) return layer.overlay;
+    const mat = layer.mesh.material, img = mat.map.image;
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    tex.flipY = mat.map.flipY; tex.colorSpace = THREE.SRGBColorSpace; tex.channel = mat.map.channel;
+    const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey?.bind(mat);
+    mat.onBeforeCompile = (shader, renderer) => {
+      prev?.call(mat, shader, renderer);
+      shader.uniforms.damageMap = { value: tex };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('void main() {', 'uniform sampler2D damageMap;\nvoid main() {')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+  #ifdef USE_MAP
+  { vec4 dmg = texture2D( damageMap, vMapUv ); diffuseColor.rgb = mix( diffuseColor.rgb, dmg.rgb, dmg.a ); }
+  #endif`);
+    };
+    mat.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|damage';
+    mat.needsUpdate = true;
+    layer.overlay = { c, ctx, tex };
+    (this.overlays ??= []).push(layer);
+    return layer.overlay;
+  }
+
   /** A soft, ragged blob (a bruise, a black eye), darkening what's there. */
   _blob(layer, p, r, colour, alpha, { sy = 1, jag = 0.3 } = {}) {
     const f = this._uvFrame(layer, p), { ctx, tex } = this._canvas(layer);
@@ -408,7 +440,8 @@ export class RealDamage extends Damage {
 
   /** A ragged hole torn in clothes: what's underneath, a frayed dark edge and a few loose threads. */
   _tear(layer, p, r, underCss) {
-    const f = this._uvFrame(layer, p), { ctx, tex } = this._canvas(layer);
+    // (drawn on the cloth's damage layer, over its tint: a tinted texture would tint the skin too)
+    const f = this._uvFrame(layer, p), { ctx, tex } = this._overlay(layer);
     const R = r * f.ppm, k = 18, roll = Math.random() * Math.PI, sx = rand(0.8, 1.3), sy = rand(0.6, 1);
     const pts = [];
     for (let i = 0; i < k; i++) {
@@ -419,24 +452,21 @@ export class RealDamage extends Damage {
     ctx.translate(f.x, f.y); ctx.rotate(roll);
     const path = () => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); };
     // The frayed edge: the cloth darkened just round the hole
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.45;
     ctx.strokeStyle = theme.css('blackEye');
     ctx.lineWidth = Math.max(2, R * 0.22);
     ctx.lineJoin = 'round';
     path(); ctx.stroke();
     // What's underneath
-    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.fillStyle = underCss;
     path(); ctx.fill();
     // ...in a little shadow, with loose threads across it
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.22;
     ctx.fillStyle = theme.css('blackEye');
     ctx.scale(0.85, 0.85); path(); ctx.filter = `blur(${Math.max(1, R * 0.2)}px)`; ctx.fill();
     ctx.filter = 'none';
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.5;
     ctx.strokeStyle = theme.css('blackEye');
     ctx.lineWidth = Math.max(1, R * 0.05);
     for (let i = 0; i < 4; i++) {
@@ -450,13 +480,25 @@ export class RealDamage extends Damage {
   /** The model's skin colour: the middle of what's on the outside of the forearms (not a palm). */
   _skinColour() {
     if (this._skinCss) return this._skinCss;
-    const L = this.skin, idx = [];
-    for (let i = 0; i < L.n; i += 3) if (L.bone[i].startsWith('lowerarm')) idx.push(i);
-    if (idx.length < 5) return (this._skinCss = css(this.look.skin));
+    // Forearm (and upper arm) skin: on the body, and on the arm skin kept under the sleeves (same texture), so
+    // someone in long sleeves still has some to sample
+    const L = this.skin, uvs = [];
+    for (let i = 0; i < L.n; i += 3) if (L.bone[i].startsWith('lowerarm')) uvs.push([L.uv.getX(i), L.uv.getY(i)]);
+    if (this.armSkin) {
+      const A = this.armSkin.geometry.attributes, bones = this.armSkin.skeleton.bones;
+      for (let i = 0; i < A.position.count; i += 3) {
+        let best = 0, bw = -1;
+        for (let k = 0; k < 4; k++) { const w = A.skinWeight.getComponent(i, k); if (w > bw) { bw = w; best = A.skinIndex.getComponent(i, k); } }
+        if (/arm/.test(bones[best]?.name ?? '')) uvs.push([A.uv.getX(i), A.uv.getY(i)]);
+      }
+    }
+    if (uvs.length < 5) return (this._skinCss = css(this.look.skin));
     const { c, ctx } = this._canvas(L);
-    const px = idx.map((i) => ctx.getImageData(Math.floor(L.uv.getX(i) * c.width), Math.floor(L.uv.getY(i) * c.height), 1, 1).data);
+    const px = uvs.map(([u, v]) => ctx.getImageData(Math.floor(u * c.width), Math.floor(v * c.height), 1, 1).data);
     const mid = (k) => px.map((p) => p[k]).sort((a, b) => a - b)[px.length >> 1];
-    return (this._skinCss = `rgb(${mid(0)}, ${mid(1)}, ${mid(2)})`);
+    // (and as the skin's material colour tints it, if it does)
+    const t = L.mesh.material.color, lin = (x) => new THREE.Color().setRGB(x[0] / 255, x[1] / 255, x[2] / 255, THREE.SRGBColorSpace);
+    const col = lin([mid(0), mid(1), mid(2)]).multiply(t);
+    return (this._skinCss = '#' + col.getHexString());
   }
-
 }

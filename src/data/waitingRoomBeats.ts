@@ -570,8 +570,10 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'What you NEED to do is be patient.' },
             { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', untilDone: true },
             { do: 'face', who: 'receptionist', expression: 'annoyed' },
-            { do: 'say', who: 'receptionist', text: 'Read that sign.' }, // receptionist points to the sign that says "Patience"
-            { do: 'anim', who: 'receptionist', name: 'pointAtSign' }, // need to add an animation to point to Patience sign
+            { do: 'anim', who: 'receptionist', name: 'pointAtPoster' }, // she points at the PATIENCE poster as she says it
+            { do: 'say', who: 'receptionist', text: 'Read that sign.' },
+            { do: 'wait', seconds: 1 },
+            { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' },
           ],
         },
       ],

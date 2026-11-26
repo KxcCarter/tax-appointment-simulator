@@ -622,7 +622,7 @@ export const onlookers: Scene = {
 /*
   The sitter catches the player looking at her while she's up and walking about (owner's request): she
   stops, turns on him and says one of these, in order, then at random (never the same twice in a row).
-  pose: what she does with her hands (walker.js ATTACK_POSES): 'coverChest' (arms over her chest),
+  pose: what she does with her hands (walker.js ATTACK_POSES): 'coverChest' (hands cupped under her bust, palms up: "these?"),
   'pointEyes' (two fingers at her eyes: "up HERE"), 'pointAt' (pointing at him, for the room's benefit).
   When and how often: config.npc.eyesUp.
 */

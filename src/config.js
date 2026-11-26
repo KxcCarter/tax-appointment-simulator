@@ -157,6 +157,10 @@ export const config = {
       hopHeight: 0.25,          // waiting their turn: hop (not walk) to the next spot, if it's no further than
       hopMax: 1.2,              // this (metres)
       maxLeap: 1.2,             // no leap goes further than this (metres); a longer one falls short
+      // With realistic bodies (theme.look.realistic): no flips, leaps or hops (owner). They step in and out in their
+      // karate or boxing stance instead, still bouncing lightly from foot to foot. true = acrobatics anyway.
+      realistic: false,
+      step: { time: 0.45, height: 0.02 },  // ...stepping in and out instead: seconds, metres off the floor
     },
     cheerChance: 0.25,          // hanging back: cheering him on instead of in their stance
     // Throwing things (owner): waiting their turn, someone fetches something and throws it at him.

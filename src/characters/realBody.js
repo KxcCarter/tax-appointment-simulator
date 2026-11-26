@@ -73,6 +73,7 @@ const HAND_SHAPES = {
   two: { fingers: CURLED, index: STRAIGHT, middle: STRAIGHT, thumb: THUMB_IN },
   grip: { fingers: [0.6, 0.75, 0.45], thumb: [0.15, 0.25, 0.2] },   // holding something flat (a magazine, an arm)
   rest: { fingers: [0.2, 0.3, 0.2], thumb: [0, 0.1, 0.05] },        // lying on the lap
+  cup: { fingers: [0.35, 0.45, 0.3], thumb: [0.1, 0.15, 0.1] },     // cupped, holding something up (the sitter's "these?")
 };
 const MAX_WRIST = 1.5, MAX_ROLL = 2.0; // (radians: how far a wrist bends and a forearm rolls to aim a hand)
 
@@ -395,7 +396,7 @@ export class RealBody {
       }
       const hq = hand.getWorldQuaternion(new THREE.Quaternion()).invert();
       this.hands[side] = {
-        hand, lower, joints,
+        hand, lower, joints, handRest: hand.quaternion.clone(), // (the wrist's own angle, put back every frame)
         alongL: along.clone().applyQuaternion(hq), palmL: palm.clone().applyQuaternion(hq),
         curl: {}, aimAmt: 0, // (eased towards the shape asked for)
       };
@@ -416,6 +417,7 @@ export class RealBody {
     for (const side of [1, -1]) {
       const H = this.hands[side];
       if (!H) continue;
+      H.hand.quaternion.copy(H.handRest); // (straight wrist unless something aims it this frame: no pose sticks)
       const want = fresh ? this.rig.handShape?.[side] : null;
       const shape = HAND_SHAPES[want?.shape ?? 'relaxed'] ?? HAND_SHAPES.relaxed;
       const amount = want?.amount ?? 1;

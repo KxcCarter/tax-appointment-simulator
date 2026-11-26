@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
+import { acrobatics } from '../theme.js';
 
 /*
   The brawl (Milestone 4). Started by the newcomer's clipboard smash; everyone still standing
@@ -96,7 +97,20 @@ export class Brawl {
         const p = this.camera.position;
         return this._clamp(new THREE.Vector3(p.x + Math.sin(npc.angle) * d, 0, p.z + Math.cos(npc.angle) * d));
       };
-      const Nj = B().ninja, flip = Math.random() < Nj.flipChance, back = Math.random() < Nj.backflipChance;
+      const Nj = B().ninja;
+      if (!acrobatics(Nj)) {
+        // Realistic bodies: no leaps or flips. Walk up in their stance, step in, hit, step back out
+        const step = (to) => ({ type: 'leap', to, face: tgt, flip: 0, height: Nj.step.height, duration: Nj.step.time });
+        return [
+          { type: 'approach', target: tgt, at: ring(Nj.leapFrom), distance: Nj.leapFrom, timeout: 8 },
+          step(ring(B().approachDistance)),
+          { type: 'hold', seconds: B().windUp, target: tgt, pose: 'stance', expression: 'furious' },
+          { type: 'attack', kind: pick(moves), target: tgt, onHit: (kind) => this.onHit(npc, kind) },
+          step(ring(Nj.backTo)),
+          { type: 'hold', seconds: rand(...B().closeRest), target: tgt, pose: 'stance' },
+        ];
+      }
+      const flip = Math.random() < Nj.flipChance, back = Math.random() < Nj.backflipChance;
       return [
         // Up to a couple of metres out, then a ninja leap in (sometimes a front flip)...
         { type: 'approach', target: tgt, at: ring(Nj.leapFrom), distance: Nj.leapFrom, timeout: 8 },
@@ -117,7 +131,7 @@ export class Brawl {
     // To a spot to wait their turn: a hop if it's not far, else they walk
     const spot = this._hangBackSpot(npc), from = npc.walker.pos ?? npc.rig.root.position;
     const Nj = B().ninja, far = Math.hypot(spot.x - from.x, spot.z - from.z);
-    const move = far > 0.4 && far < Nj.hopMax
+    const move = acrobatics(Nj) && far > 0.4 && far < Nj.hopMax
       ? { type: 'leap', to: spot, face: tgt, height: Nj.hopHeight, duration: 0.35 + far * 0.1 }
       : { type: 'walk', to: spot };
     return [
@@ -244,13 +258,32 @@ export class Brawl {
 
 
   update(dt) {
-    if (!this.started) return;
+    if (!this.started) {
+      // Before the brawl too: anyone up and walking (the reader marching to the desk, the newcomer at the counter)
+      // steps round the others instead of walking through them
+      this._separate(this.npcs().filter((n) => !n.down && n.walker.active && n.walker.pos)); // (pos: set once they've set off)
+      return;
+    }
     this.time += dt;
     if ([...this.attackers].some((n) => n.down) || this.attackers.size < B().maxAttackers) this._fillCloseSlots();
     const standing = this.fighters.filter((n) => !n.down && n.walker.active);
+    this._separate(standing.filter((n) => n.walker.pos));
 
-    // Keep fighters from walking (or leaping) into each other, or standing inside someone on the floor:
-    // a few passes, so pushing one out of another doesn't push them into a third
+    // ...and inside the room (knockback can shove them towards a wall)
+    const bd = B().bounds;
+    for (const n of standing) {
+      const p = n.walker.pos;
+      p.x = THREE.MathUtils.clamp(p.x, bd.minX - 0.3, bd.maxX + 0.3);
+      p.z = THREE.MathUtils.clamp(p.z, bd.minZ - 0.6, bd.maxZ + 0.4);
+    }
+    this._brawlTick(dt);
+  }
+
+  /**
+   * Keep people from walking (or leaping) into each other, or standing inside someone on the floor: a few passes,
+   * so pushing one out of another doesn't push them into a third.
+   */
+  _separate(standing) {
     const sep = B().separation;
     const downed = this.npcs().filter((n) => n.down && n.ragdoll).map((n) => n.rig.joints.pelvis.getWorldPosition(new THREE.Vector3()));
     for (let pass = 0; pass < 3; pass++) {
@@ -278,14 +311,11 @@ export class Brawl {
       }
     }
 
-    // ...and inside the room (knockback can shove them towards a wall)
-    const bd = B().bounds;
-    for (const n of standing) {
-      const p = n.walker.pos;
-      p.x = THREE.MathUtils.clamp(p.x, bd.minX - 0.3, bd.maxX + 0.3);
-      p.z = THREE.MathUtils.clamp(p.z, bd.minZ - 0.6, bd.maxZ + 0.4);
-    }
+  }
 
+  /** The rest of the brawl's frame: shouting, who attacks, throwing... */
+  _brawlTick(dt) {
+    const standing = this.fighters.filter((n) => !n.down && n.walker.active);
     // Shouting from the sidelines: one at a time, never over anyone (busy: someone's talking)
     if (this.busy?.()) this.quietFor = 0;
     else {

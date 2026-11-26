@@ -334,7 +334,7 @@ export function buildWaitingRoom(scene, physics) {
     const crt = new THREE.Group();
     // Her workstation is angled off to her right, so a glance at the player reads as a real head turn
     const deskYaw = -0.6; // her facing: +z rotated towards -x
-    crt.position.set(-3.13, 0.76, -3.28);
+    crt.position.set(-3.096, 0.76, -3.329); // (far enough from the counter that its back doesn't go through it)
     crt.rotation.y = Math.PI + deskYaw; // screen faces her
     scene.add(crt);
     const solitaireTex = theme.canvasTexture(256, 192, (c) => {

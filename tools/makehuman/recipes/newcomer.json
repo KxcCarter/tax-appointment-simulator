@@ -1,13 +1,13 @@
 {
   "name": "newcomer",
-  "_note": "The newcomer: a 'bro', about 28, athletic, a white tank top (the T-shirt, sleeves cut off: 'sleeveless'), navy cargo shorts (cargo trousers cut off below the knee), white sneakers, dark sunglasses, short hair (and a gold chain, added by the game: look.chain).",
+  "_note": "The newcomer: a 'bro', about 28, athletic, a white tank top (a 'wife-beater': MakeHuman's keyhole tank top, plain white), navy cargo shorts (cargo trousers cut off below the knee), white sneakers, dark sunglasses, short hair.",
   "phenotype": {
     "gender": 1.0,
-    "age": 0.53,
-    "muscle": 0.85,
+    "age": 0.55,
+    "muscle": 0.9,
     "weight": 0.55,
     "height": 0.65,
-    "proportions": 0.75,
+    "proportions": 0.6,
     "race": {
       "caucasian": 1.0,
       "african": 0.0,
@@ -17,32 +17,59 @@
   "targets": [
     {
       "target": "measure-upperarm-circ-incr",
+      "value": 0.7
+    },
+    {
+      "target": "measure-shoulder-dist-incr",
+      "value": 0.9
+    },
+    {
+      "target": "torso-muscle-dorsi-incr",
+      "value": 0.8
+    },
+    {
+      "target": "measure-neck-circ-incr",
       "value": 0.5
     },
     {
-      "target": "measure-bust-circ-incr",
-      "value": 0.3
+      "target": "head-square",
+      "value": 0.6
+    },
+    {
+      "target": "chin-width-incr",
+      "value": 0.6
+    },
+    {
+      "target": "chin-prominent-incr",
+      "value": 0.4
     }
   ],
   "rig": "game_engine",
   "skin": "young_caucasian_male2",
   "eyebrows": "eyebrow003",
   "eyelashes": "eyelashes02",
-  "hair": "short02",
+  "hair": "short01",
   "clothes": [
-    "elvs_crude_t-shirt_male",
+    "toigo_keyhole_tank_top",
     "cortu_cargo_pants",
     "shoes05",
     "spamrakuen_sagerfrogs_glasses_01"
   ],
-  "sleeveless": {
-    "t-shirt": 0.1
-  },
   "faceunits": true,
   "clothes_masks": false,
   "cover_erode": 2,
   "poke_reach": 0.02,
   "cut": {
     "cargo_pants": -0.05
+  },
+  "plain": {
+    "keyhole_tank": {
+      "color": [
+        0.94,
+        0.94,
+        0.92
+      ],
+      "name": "tank_top"
+    }
   }
 }

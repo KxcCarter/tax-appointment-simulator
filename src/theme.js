@@ -218,11 +218,11 @@ export const characterPalettes = {
       jacket: 0x6b7a3a, shirt: 0xe8e2cf, trousers: 0x2d4a6a, shoes: 0xe8e2cf,
       hat: 'cap', hatColor: 0x7a2a3a,
     },
-    newcomer: {       // arrives later: a 'bro' (owner's redesign): white tank top, navy cargo shorts, sneakers, sunglasses, gold chain
+    newcomer: {       // arrives later: a 'bro' (owner's redesign): white tank top (a wife-beater), navy cargo shorts, sneakers, sunglasses
       scale: 1.02, skin: 0xe0ac85, hair: 0x5a4022, hairStyle: 'short', eyes: 0x4a6a8a, lips: 0xb07868,
       jacket: 0xf2f0ea, shirt: 0xf2f0ea, trousers: 0x2d3a4a, shoes: 0xe8e2cf, glasses: 0x1b1a18, shortSleeves: true,
       legLower: 0xe0ac85,   // shorts: bare calves
-      chain: true, stubble: 0x7a5a3a,
+      stubble: 0x7a5a3a,                  // (no chain: owner)
     },
     gamer: {          // arrives at 90 s: huge young man, black T-shirt, cargo shorts, cap on backwards, headphones round his neck
       scale: 1.05, skin: 0xe9b896, hair: 0x6a4a2a, hairStyle: 'short', eyes: 0x5a6a3a, lips: 0xc08a78,
@@ -300,7 +300,7 @@ export const look = {
       jiggler: { cap: 0x8a2a3a }, // the white newsboy cap -> maroon
       reader: { sweater: [0x80c890, 1.45], pants: [0x8a6a50, 1.4], bob: [0xa89878, 1.0], glasses: 0x6a4a2a }, // rust sweater, brown trousers, honey bob, brown frames
       watchChecker: { suit: { tie: [0.85, 0.03, 0.935, 0.265] } }, // his mustard tie
-      newcomer: { cargo: { recolor: 0x2d3a4a, below: 0.6, maxSat: 1, ref: 0.05 }, glasses: { color: 0x141414, dark: 0.88 }, short02: [0x6a4a2a, 1.3] }, // white tank top, navy cargo shorts, dark sunglasses, brown hair
+      newcomer: { cargo: { recolor: 0x2d3a4a, below: 0.6, maxSat: 1, ref: 0.05 }, glasses: { color: 0x141414, dark: 0.88 }, short01: [0x6a4a2a, 1.3] }, // white tank top, navy cargo shorts, dark sunglasses, brown hair
       player: { suit: { recolor: 0x4a4a48, below: 0.35, maxSat: 1, ref: 0.05 } }, // his grey suit (the fists' sleeves)
       gamer: { 't-shirt': 0x3a3a42, cargo: { recolor: 0x8a8060, below: 0.6, maxSat: 1, ref: 0.05 }, cap: [0x2d4a6a, 1.25] }, // charcoal T-shirt, khaki cargo shorts (recoloured), navy cap
     },
@@ -519,6 +519,9 @@ function cached(kind, color, opts, build) {
   if (!cache.has(key)) cache.set(key, build());
   return cache.get(key);
 }
+
+/** Do brawlers leap, flip and hop? Not with realistic bodies, unless config.brawl.ninja.realistic says so. */
+export const acrobatics = (ninja) => !look.realistic?.enabled || !!ninja.realistic;
 
 export const theme = {
   palette,

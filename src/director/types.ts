@@ -17,7 +17,7 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 
 /** Animations the receptionist understands (characters/receptionist.js). */
 export type ReceptionistAnim =
-  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee'
+  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'pointAtPoster' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee'
   | 'filmPlayer'; // stand up, phone out of her pocket, film the player (keeps filming)
 
 /**
