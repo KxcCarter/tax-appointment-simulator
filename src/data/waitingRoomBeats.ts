@@ -777,6 +777,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
+        { text: "Excuse me? I've been here since 1:55. Sit down.", advance: true }, // (the aggressive way: same replies)
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -853,6 +854,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'What time is your appointment?', advance: true },
+        { text: "You don't even have an appointment, do you?", advance: true }, // (the aggressive way)
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -869,6 +871,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: 'Okay, well do you have a number?', advance: true },
+        { text: "Then where's your ticket? What's your number?", advance: true }, // (the aggressive way: still asking for her "number")
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -893,6 +896,11 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: "I wasn't asking for her phone number!", advance: true },
+        { // (the aggressive way)
+          text: 'Nobody wants your phone number!',
+          advance: true,
+          actions: [pause, { do: 'say', who: 'newcomer', text: 'Wow, dude.' }],
+        },
         pleaCheckIn,
         pleaLetMeIn,
         pleaWalkIn,
@@ -927,6 +935,11 @@ export const waitingRoomBeats: Scene = {
       options: [
         {
           text: "Okay everyone, let's just calm down here.",
+          advance: true,
+          actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
+        },
+        { // (the aggressive way)
+          text: 'You know what? Everybody shut up!',
           advance: true,
           actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
         },
