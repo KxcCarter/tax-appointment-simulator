@@ -539,6 +539,16 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'Did you sign the check-in sheet?' },
           ],
         },
+        {
+          text: 'I need to check in right now.',
+          response: [
+            { do: 'say', who: 'receptionist', text: 'What you NEED to do is be patient.' },
+            { do: 'anim', who: 'receptionist', name: 'lookAtPlayer', untilDone: true },
+            { do: 'face', who: 'receptionist', expression: 'annoyed' },
+            { do: 'say', who: 'receptionist', text: 'Read that sign.' }, // receptionist points to the sign that says "Patience"
+            { do: 'anim', who: 'receptionist', name: 'pointAtSign' }, // need to add an animation to point to Patience sign
+          ],
+        },
       ],
       lockedOptions: [],
       lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Hold up, momma gotta start a new game...' }],
@@ -728,6 +738,15 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: "Solitaire's on the computer." },
           ],
         },
+        {
+          text: "Are you telling me you don't have any pens in this entire office?",
+          showIf: (state: GameState) => state.askedForPen === true,
+          goto: 'reception_1',
+          response: [
+            { do: 'say', who: 'receptionist', text: "It ain't my job to keep track of pens." },
+            { do: 'say', who: 'player', text: "You're a receptionist. I'm pretty sure that's part of your job." },
+          ],
+        },
       ],
       lockedOptions: [],
       next: 'newcomer_checks_in',
@@ -762,7 +781,6 @@ export const waitingRoomBeats: Scene = {
           text: ['His number was called.', 'His number is being served now.'],
           vary: 'any',
         },
-        { do: 'wait', seconds: T.sideOptionPause },
         { do: 'say', who: 'newcomer', text: 'Yeah buddy, first come, first served.' },
       ],
       next: 'argument_1',
@@ -817,9 +835,36 @@ export const waitingRoomBeats: Scene = {
         pleaEveryone,
       ],
       lockedOptions: [],
-      onAdvance: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
-      next: 'argument_3',
+      onAdvance: [pause, { do: 'say', who: 'newcomer', text: "Why didn't you check in then?" }],
+      next: 'argument_2_checkin',
       nextUnlockAfter: 0,
+    },
+    {
+      // (owner's addition) Why didn't he check in? Politely, or blaming her solitaire
+      id: 'argument_2_checkin',
+      trigger: { type: 'interact', target: 'receptionist' },
+      autoOpen: true,
+      options: [
+        {
+          text: "I've been trying to check in since I got here!",
+          goto: 'argument_3',
+          actions: [pause, { do: 'say', who: 'receptionist', text: 'Sir, I need to ask you to lower your voice.' }],
+        },
+        {
+          // (the aggressive way)
+          text: "Because this lady can't stop playing solitaire long enough to do her job!",
+          goto: 'argument_3',
+          actions: [
+            pause,
+            { do: 'say', who: 'receptionist', text: "Sir I'm going to have to ask you to calm ALL the way down." },
+          ],
+        },
+        pleaCheckIn,
+        pleaLetMeIn,
+        pleaWalkIn,
+        pleaEveryone,
+      ],
+      lockedOptions: [],
     },
     {
       id: 'argument_3',
@@ -896,7 +941,8 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         { text: "I wasn't asking for her phone number!", advance: true },
-        { // (the aggressive way)
+        {
+          // (the aggressive way)
           text: 'Nobody wants your phone number!',
           advance: true,
           actions: [pause, { do: 'say', who: 'newcomer', text: 'Wow, dude.' }],
@@ -938,7 +984,8 @@ export const waitingRoomBeats: Scene = {
           advance: true,
           actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
         },
-        { // (the aggressive way)
+        {
+          // (the aggressive way)
           text: 'You know what? Everybody shut up!',
           advance: true,
           actions: [{ do: 'anim', who: 'jiggler', name: 'standUp' }],
@@ -992,6 +1039,8 @@ export const waitingRoomBeats: Scene = {
           advance: true,
           actions: [{ do: 'say', who: 'receptionist', text: "Oh no he didn't..." }],
         },
+        { text: "How can I be calm when you people are being insane and acting like it's normal?", response: [] },
+        { text: "I'd be a lot calmer if you would just do your job.", response: [] },
       ],
       lockedOptions: [],
       onAdvance: [{ do: 'say', who: 'newcomer', text: 'You got a problem, pal?' }],

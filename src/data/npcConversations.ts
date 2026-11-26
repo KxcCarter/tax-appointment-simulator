@@ -597,6 +597,7 @@ export const onlookers: Scene = {
       { do: 'wait', seconds: 0.5 },
       { do: 'say', who: 'reader', text: 'Oh my God.' },
       { do: 'say', who: 'cougher', text: 'He hit her.' },
+      { do: 'say', who: 'player', text: 'I was defending myself!' },
       { do: 'say', who: 'watchChecker', text: 'She was listening to the radio.' },
       { do: 'say', who: 'jiggler', text: "What is wrong with you, man?" },
       {
@@ -605,7 +606,7 @@ export const onlookers: Scene = {
       },
       gap,
       { do: 'say', who: 'reader', text: 'Somebody do something.' },
-      { do: 'say', who: 'player', text: 'Did nobody see that she just assaulted me 3 times??' },
+      { do: 'say', who: 'player', text: 'Did nobody see that she just assaulted me 4 times??' },
       { do: 'wait', seconds: 1.2 },
       // Without looking up from her solitaire
       { do: 'say', who: 'receptionist', text: "Sir, I'm going to have to ask you to calm down, please." },
