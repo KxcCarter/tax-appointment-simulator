@@ -28,6 +28,8 @@ export class UI {
       <div id="knockdowns" class="hidden"></div>
       <div id="held" class="hidden"></div>
       <div id="fighthelp" class="hidden"></div>
+      <div id="hurt-blur"></div>
+      <div id="hurt-blood"></div>
       <div id="damage"></div>
       <div id="fade"></div>
       <div id="endcard" class="hidden"></div>
@@ -232,6 +234,66 @@ export class UI {
     const text = lines ? lines.join('\n') : '';
     el.classList.toggle('hidden', !lines);
     if (el.textContent !== text) el.textContent = text;
+  }
+
+  /**
+   * How hurt the player looks (0..1): blood at the edges of the screen, the edges of the view blurred and greyed.
+   * blur (px) and desaturate (0..1) at full strength.
+   */
+  setHurt(level, { blur = 6, desaturate = 0.7 } = {}) {
+    const k = Math.round(Math.max(0, Math.min(1, level)) * 100) / 100;
+    if (k === this._hurt) return;
+    this._hurt = k;
+    if (!this._bloodDrawn && k > 0) this._drawBlood();
+    this.$('hurt-blood').style.opacity = String(Math.min(1, k * 1.15));
+    const f = k > 0 ? `blur(${(blur * k).toFixed(1)}px) saturate(${(1 - desaturate * k).toFixed(2)})` : 'none';
+    const el = this.$('hurt-blur');
+    el.style.backdropFilter = f;
+    el.style.webkitBackdropFilter = f;
+  }
+
+  /** The blood overlay: splatters, smears and drips round the edges, clear in the middle (drawn once). */
+  _drawBlood() {
+    this._bloodDrawn = true;
+    const W = 1280, H = 800, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const css = getComputedStyle(document.documentElement);
+    const red = css.getPropertyValue('--hurt-blood').trim() || '#8a0c08', dark = css.getPropertyValue('--hurt-blood-dark').trim() || '#3a0303';
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    // A point near an edge (more towards the corners)
+    const edgePoint = () => {
+      const side = Math.floor(rnd() * 4), t = rnd(), d = Math.pow(rnd(), 2.2) * 0.22;
+      return side === 0 ? [t * W, d * H] : side === 1 ? [t * W, H - d * H] : side === 2 ? [d * W, t * H] : [W - d * W, t * H];
+    };
+    // Soft smears
+    for (let i = 0; i < 70; i++) {
+      const [x, y] = edgePoint(), r = 40 + rnd() * 140;
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, red); grad.addColorStop(1, 'transparent');
+      g.globalAlpha = 0.25 + rnd() * 0.35;
+      g.fillStyle = grad;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    // Splatters: a blot with droplets round it, and some drips running down
+    for (let i = 0; i < 26; i++) {
+      const [x, y] = edgePoint(), r = 8 + rnd() * 26;
+      g.globalAlpha = 0.7 + rnd() * 0.3;
+      g.fillStyle = rnd() < 0.4 ? dark : red;
+      g.beginPath();
+      for (let k = 0; k <= 16; k++) { const a = (k / 16) * Math.PI * 2, rr = r * (0.7 + rnd() * 0.5); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      g.fill();
+      for (let k = 0; k < 10; k++) { const a = rnd() * Math.PI * 2, d = r * (1.2 + rnd() * 2.2); g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 1 + rnd() * 4, 0, Math.PI * 2); g.fill(); }
+      if (rnd() < 0.5) { const len = 30 + rnd() * 120, w = 2 + rnd() * 5; g.fillRect(x - w / 2, y, w, len); g.beginPath(); g.arc(x, y + len, w * 0.9, 0, Math.PI * 2); g.fill(); }
+    }
+    // Darkened corners under it all
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-over';
+    const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
+    v.addColorStop(0, 'transparent'); v.addColorStop(1, dark);
+    g.fillStyle = v; g.fillRect(0, 0, W, H);
+    this.$('hurt-blood').style.backgroundImage = `url(${c.toDataURL()})`;
   }
 
   /** A red flash at the edges of the screen (strength 0..1). */

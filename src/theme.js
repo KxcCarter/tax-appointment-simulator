@@ -335,6 +335,8 @@ export const ui = {
   '--health': '#c9d6a0',        // the player's health bar (subtle)
   '--health-low': '#b5332b',
   '--damage': 'rgba(150, 20, 10, 0.45)', // red flash at the edges when hit
+  '--hurt-blood': '#8a0c08',             // being hurt: the blood at the edges of the screen...
+  '--hurt-blood-dark': '#3a0303',        // ...and its darker clots
   '--fade': '#000000',
   '--ticket-bg': '#f4f1e8',
   '--ticket-text': '#b5332b',

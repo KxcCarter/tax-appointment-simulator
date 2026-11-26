@@ -194,6 +194,11 @@ html, body {
 #health.low #health-fill { background: var(--health-low); }
 #knockdowns { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: var(--amber); background: var(--hud-bg); padding: 4px 12px; letter-spacing: 0.08em; }
 #held { position: absolute; right: 18px; bottom: 56px; color: var(--phosphor-dim); background: var(--hud-bg); padding: 3px 10px; font-size: 0.85rem; }
+/* Being hurt (ui.setHurt): the edges of the view blurred and greyed, and blood creeping in from the edges */
+#hurt-blur { position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 38%, black 85%);
+  mask-image: radial-gradient(ellipse at center, transparent 38%, black 85%); }
+#hurt-blood { position: absolute; inset: 0; pointer-events: none; opacity: 0; background-size: 100% 100%; }
 #damage { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.35s;
   box-shadow: inset 0 0 140px 40px var(--damage); }
 #fade { position: absolute; inset: 0; z-index: 40; pointer-events: none; background: var(--fade); opacity: 0; transition: opacity 1.2s; }
