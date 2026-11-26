@@ -61,3 +61,9 @@ and put it in `src/models/characters/`, named in `theme.look.realistic.models`.
 The game adds a few things itself, from the figure's look (`src/characters/realExtras.js`): a wristwatch, headphones
 round the neck, stubble, hairs on a built moustache, and glasses that can be knocked crooked. Ties printed in a suit's
 texture are repainted in the figure's tie colour (`tie` in `theme.look.realistic.tint`).
+- `neckline`: `{"part of a garment's name": {"depth": -0.05, "width": 0.11, "shape": 2.5}}`: a lower neckline cut
+  into its front (clean edges), from `depth` m below the chest bone (negative: above it; the sitter's bust is above it)
+  up to the base of the neck, `width` m either side there. `shape`: 1 = a V, higher = rounder (a scoop). The skin
+  under it stays (the garment is cut before the skin it covers is worked out).
+- `sleeveless`: `{"part of a garment's name": metres}`: its sleeves cut off, and the shoulders out past that far from
+  the middle (a T-shirt into a tank top).

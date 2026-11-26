@@ -290,6 +290,35 @@ def cut_garment(o):
             bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=inv @ Vector((0, 0, knee)), plane_no=n, clear_inner=True)
             bm.to_mesh(o.data); bm.free(); o.data.update()
             print("CUT", o.name, "at", round(knee, 3))
+    # Recipe "neckline": {"part of a garment's name": {"depth": metres, "width": metres, "shape": 1}}: a lower
+    # neckline cut into the front, from `depth` below the chest bone (spine_03) up to the base of the neck, `width`
+    # either side there. shape: 1 = a V; higher = rounder (2: a scoop, wide soon above its lowest point)
+    for k, N in (recipe.get("neckline") or {}).items():
+        if k in o.name:
+            bottom, top = bone_head("spine_03").z - N.get("depth", 0.08), bone_head("neck_01").z
+            half, shape = N.get("width", 0.1), N.get("shape", 1)
+            edge = lambda t: half * t ** (1 / shape)  # half-width of the opening a share t of the way up
+            mw = o.matrix_world
+            bm = bmesh.new(); bm.from_mesh(o.data)
+            bm.transform(mw)  # (cut in world space)
+            steps = 1 if shape == 1 else 8  # (a curve: cut as a few straight pieces)
+            for i in range(steps):
+                t0, t1 = i / steps, (i + 1) / steps
+                z0, z1 = bottom + (top - bottom) * t0, bottom + (top - bottom) * t1
+                for sx in (1, -1):
+                    a, b = Vector((sx * edge(t0), 0, z0)), Vector((sx * edge(t1), 0, z1))
+                    n = (b - a).cross(Vector((0, 1, 0))).normalized()
+                    lo, hi = (z0 - 0.03 if i else bottom - 0.03), (z1 + 0.03 if i < steps - 1 else top + 1)
+                    faces = [f for f in bm.faces if f.calc_center_median().y < 0 and lo < f.calc_center_median().z < hi]
+                    geom = list({v for f in faces for v in f.verts}) + list({e for f in faces for e in f.edges}) + faces
+                    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=a, plane_no=n)
+            inside = lambda c: c.y < 0 and c.z > bottom and abs(c.x) < edge(min(1.0, (c.z - bottom) / max(0.01, top - bottom)))
+            gone = [f for f in bm.faces if inside(f.calc_center_median())]
+            bmesh.ops.delete(bm, geom=gone, context="FACES")
+            bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+            bm.transform(mw.inverted())
+            bm.to_mesh(o.data); bm.free(); o.data.update()
+            print("NECKLINE", o.name, len(gone), "faces cut, down to", round(bottom, 3))
     # Recipe "sleeveless": {"part of a garment's name": metres}: its sleeves go (everything the upper and lower
     # arms move), and the shoulders out past that far from the middle: a T-shirt into a tank top
     for k, strap in (recipe.get("sleeveless") or {}).items():
