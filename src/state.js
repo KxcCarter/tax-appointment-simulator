@@ -15,7 +15,9 @@ export const state = {
   checkInAsked: false,     // on time: she asked "Did you check in already?" (the check-in runaround)
   clipboardOffered: false, // she slid the check-in sheet over (after "Did you sign the check-in sheet?")
   needsPen: false,         // tried to sign the check-in sheet without a pen
-  askedForPen: false,      // 
+  askedForPen: false,      // asked her for a pen ("Do you have a pen?")
+  temper: 0,               // how aggressive the player has been: the sum of the aggression of every line he's picked
+  lastAggression: 0,       // the aggression of the line he picked last (0 polite .. 3 hostile; Option.aggression)
   hadCoffee: false,        // the receptionist has been for her coffee
   penRefusals: 0,          // times she has said "No." to lending a pen
   newcomerArrived: false,  // someone came in after her coffee and took the next ticket

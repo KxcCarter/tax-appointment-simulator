@@ -315,6 +315,7 @@ export const config = {
       coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
       coffeeSip: 2.2,               // one sip of coffee
       clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
+      lateWait: 15,                 // late ("take a number and have a seat"): seconds before she'll hear him again (late_wait)
     },
     dialogue: {
       charsPerSecond: 30,           // typewriter speed

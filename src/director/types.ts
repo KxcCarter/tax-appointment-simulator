@@ -80,7 +80,17 @@ export interface Option {
   unlockAfter?: Seconds;
   /** Neither advance nor goto: run these and stay (counts as being ignored). */
   response?: Action[];
+  /**
+   * How aggressive the line is: 0 polite (the default), 1 curt, 2 rude, 3 hostile. When it's picked the director
+   * sets state.lastAggression to it and adds it to state.temper, before anything is said, so the option's own
+   * actions, the beat's onAdvance and later beats can react: { do: 'if', test: (s) => s.lastAggression >= 2, ... }
+   * or (s) => s.temper >= 5. (Nothing reacts to it yet: the stage is set.)
+   */
+  aggression?: Aggression;
 }
+
+/** How aggressive a dialogue option is: 0 polite, 1 curt, 2 rude, 3 hostile (see Option.aggression). */
+export type Aggression = 0 | 1 | 2 | 3;
 
 export interface Beat {
   id: string;
