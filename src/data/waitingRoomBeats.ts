@@ -611,7 +611,22 @@ export const waitingRoomBeats: Scene = {
           text: "I didn't know there was a check-in sheet.",
           response: [{ do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet.' }],
         },
-        { text: 'Why do I have to sign a check-in sheet if I have an appointment?', aggression: 2, response: [] },
+        {
+          // (owner) Her cellphone rings: her cousin. She takes the call (phone_call), then it's back to checkin_please
+          text: 'Why do I have to sign a check-in sheet if I have an appointment?',
+          aggression: 2,
+          goto: 'phone_call',
+          unlockAfter: 999, // (she's on the phone until the call ends: phone_call's timeout)
+          actions: [
+            { do: 'wait', seconds: 0.6 },
+            { do: 'sound', name: 'phoneRing', who: 'receptionist' },
+            { do: 'wait', seconds: 1.6 },
+            { do: 'face', who: 'receptionist', expression: 'pleased' },
+            { do: 'say', who: 'receptionist', text: "Oo, hol' up, this my cousin." },
+            { do: 'anim', who: 'receptionist', name: 'phoneCall' },
+            { do: 'face', who: 'receptionist', expression: 'default' },
+          ],
+        },
       ],
       lockedOptions: [],
     },
@@ -643,6 +658,48 @@ export const waitingRoomBeats: Scene = {
         },
       ],
       lockedOptions: [],
+    },
+    {
+      // (owner) On the phone with her cousin for 30 s (config.timings.reception.phoneCall). Her side of it every few
+      // seconds; talk to her and she cuts you off, then goes back to her call. Then she hangs up: checkin_please.
+      id: 'phone_call',
+      trigger: { type: 'interact', target: 'receptionist' },
+      options: [],
+      lockedOptions: [],
+      lockedResponse: [
+        {
+          do: 'say',
+          who: 'receptionist',
+          text: ["Sir, I'm on the phone?", "Hol' up, talkin' to my cousin.", "Didn't yo mamma ever teach you not to interrupt people?"],
+          vary: 'random',
+        },
+        { do: 'wait', seconds: 0.8 },
+        {
+          do: 'say',
+          who: 'receptionist',
+          text: ['This man so impatient!', "Sorry, Sha-kwanda, this man over here tryna talk to me.", 'This man trying my nerves!', 'I gotta deal with this all day long.'],
+        },
+      ],
+      // Her side of the conversation (PROPOSAL: the lines)
+      during: {
+        first: 2.5,
+        every: [4, 6],
+        actions: [
+          {
+            do: 'say',
+            who: 'receptionist',
+            text: ['Hey girl!', 'Mm-hmm.', "No she didn't!", 'Girl, stop.', 'Uh-huh... uh-huh...', 'Hoo! You crazy.', "You still comin' Saturday?"],
+          },
+        ],
+      },
+      timeout: {
+        after: T.phoneCall,
+        actions: [
+          { do: 'say', who: 'receptionist', text: 'Aight girl, I gotta go. Love you, bye.' },
+          { do: 'anim', who: 'receptionist', name: 'hangUp' },
+        ],
+        goto: 'checkin_please',
+      },
     },
     {
       // Not autoOpen: the player has to walk up and press E again

@@ -155,5 +155,215 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "Everybody gotta sign the check-in sheet.": {
+    "text": "Everybody gotta sign the check-in sheet.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Oo, hol' up, this my cousin.": {
+    "text": "Oo, hol' up, this my cousin.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "The what now?": {
+    "text": "The what now?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Why didn't you just say that?": {
+    "text": "Why didn't you just say that?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "This man over here usin' these fancy-ass words...": {
+    "text": "This man over here usin' these fancy-ass words...",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "I just call him the Tax Man.": {
+    "text": "I just call him the Tax Man.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Sir, I'm on the phone?": {
+    "text": "Sir, I'm on the phone?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Hol' up, talkin' to my cousin.": {
+    "text": "Hol' up, talkin' to my cousin.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Didn't yo mamma ever teach you not to interrupt people?": {
+    "text": "Didn't yo mamma ever teach you not to interrupt people?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "This man so impatient!": {
+    "text": "This man so impatient!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Sorry, Sha-kwanda, this man over here tryna talk to me.": {
+    "text": "Sorry, Sha-kwanda, this man over here tryna talk to me.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "This man trying my nerves!": {
+    "text": "This man trying my nerves!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "I gotta deal with this all day long.": {
+    "text": "I gotta deal with this all day long.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Hey girl!": {
+    "text": "Hey girl!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Mm-hmm.": {
+    "text": "Mm-hmm.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "No she didn't!": {
+    "text": "No she didn't!",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Girl, stop.": {
+    "text": "Girl, stop.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Uh-huh... uh-huh...": {
+    "text": "Uh-huh... uh-huh...",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Hoo! You crazy.": {
+    "text": "Hoo! You crazy.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "You still comin' Saturday?": {
+    "text": "You still comin' Saturday?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "Aight girl, I gotta go. Love you, bye.": {
+    "text": "Aight girl, I gotta go. Love you, bye.",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

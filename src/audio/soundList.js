@@ -19,6 +19,7 @@ export const SOUNDS = {
   hum: { group: 'Room', where: 'The fluorescent lights: a low hum under everything, all the time.', loop: true },
   mouse_click: { group: 'Room', where: 'The receptionist clicking her mouse at solitaire (positional, at the desk; sometimes twice quickly).' },
   chime: { group: 'Room', where: 'The NOW SERVING display changing number (a two-tone electronic chime).' },
+  phone_ring: { group: 'Room', where: "The receptionist's cellphone ringing (her cousin calls: beat phone_call)." },
   radio_click: { group: 'Room', where: 'The radio switched on or off (a plastic knob, then a little warm-up static).' },
   glug: { group: 'Room', where: 'The water cooler, when you use it (big hollow glugs).' },
   ticket_tear: { group: 'Room', where: 'Taking a ticket from the dispenser (a clunk, then paper tearing). You, and the newcomer.' },

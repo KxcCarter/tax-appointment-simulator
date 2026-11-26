@@ -17,7 +17,7 @@ export type Phase = 'arrival' | 'reception' | 'waiting' | 'brawl' | 'doorOpen';
 
 /** Animations the receptionist understands (characters/receptionist.js). */
 export type ReceptionistAnim =
-  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'pointAtPoster' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee'
+  | 'lookAtPlayer' | 'glanceAtClock' | 'pointAtSign' | 'pointAtPoster' | 'phoneCall' | 'hangUp' | 'resumeSolitaire' | 'slideClipboard' | 'coffeeBreak' | 'sipCoffee'
   | 'filmPlayer'; // stand up, phone out of her pocket, film the player (keeps filming)
 
 /**
@@ -35,7 +35,7 @@ export type Expression = 'default' | 'neutral' | 'bored' | 'unimpressed' | 'anno
 /** Sounds a scene can trigger directly (audio/sfx.js). */
 export type SoundName =
   | 'clockTick' | 'mouseClick' | 'blip' | 'footstep' | 'chairCreak' | 'ticketTear' | 'paperSlide'
-  | 'cough' | 'sigh' | 'pageTurn' | 'chairShift' | 'watchTick' | 'chime';
+  | 'cough' | 'sigh' | 'pageTurn' | 'chairShift' | 'watchTick' | 'chime' | 'phoneRing';
 
 /*
   `say` with a list of lines says one of them each time it runs (variations):
@@ -107,6 +107,12 @@ export interface Beat {
   onAdvance?: Action[];
   next?: string | null;
   nextUnlockAfter?: Seconds;
+  /** While this beat is current: these actions every `every` seconds (the first after `first`), whenever nobody is
+   *  talking or choosing. E.g. her side of a phone call. */
+  during?: { every: Seconds; first?: Seconds; actions: Action[] };
+  /** Once this beat has been current for `after` seconds (and nothing's going on): run `actions`, then move to
+   *  `goto` (null = the exchange is over), gated for `unlockAfter`. */
+  timeout?: { after: Seconds; actions?: Action[]; goto: string | null; unlockAfter?: Seconds };
 }
 
 export interface Speaker {

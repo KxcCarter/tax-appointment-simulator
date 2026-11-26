@@ -322,6 +322,7 @@ export const config = {
       coffeeAway: 30,               // seconds she's gone through the EMPLOYEES ONLY door for coffee
       coffeeSip: 2.2,               // one sip of coffee
       clockGlance: 1.3,             // "It's 2:00." when it isn't: she checks the clock, then "No it's not."
+      phoneCall: 30,                // her cousin calls (beat phone_call): seconds she's on the phone
       lateWait: 15,                 // late ("take a number and have a seat"): seconds before she'll hear him again (late_wait)
     },
     dialogue: {
@@ -618,6 +619,7 @@ export const config = {
     chairShift: { volume: 0.25 },
     watchTick: { volume: 0.12, refDistance: 0.4, rolloff: 2.0 },
     chime: { volume: 0.45 },
+    phoneRing: { volume: 0.35 },
     stomp: { volume: 0.35, refDistance: 1.5, rolloff: 1.0 },
     hits: { volume: 0.7, refDistance: 1.5, rolloff: 1.0 },
     chairCreak: { volume: 0.35 },

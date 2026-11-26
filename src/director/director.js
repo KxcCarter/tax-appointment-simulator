@@ -103,6 +103,7 @@ export class Director {
     const due = this.timers.filter((t) => t.at <= this.time);
     this.timers = this.timers.filter((t) => t.at > this.time);
     for (const t of due) t.resolve();
+    this._timedBeat();
     // typewriter
     const ty = this.typing;
     if (ty) {
@@ -141,7 +142,11 @@ export class Director {
     const isTarget = this.targets(target);
     // After the last beat, the target stays "handled" (nothing happens) rather than falling through
     if (!isTarget) return this.data.targets?.includes(target) ?? false;
-    if (this.busy || this.choosing || this.isBlocked()) return true;
+    if (this.busy || this.choosing || this.isBlocked()) {
+      // Mid-sentence in a beat that goes on by itself (her phone call): she cuts him off once she's said it
+      if (beat.during && this.time < this.lockedUntil && beat.lockedResponse?.length) this.pendingInterrupt = true;
+      return true;
+    }
     this.openChoices(beat);
     return true;
   }
@@ -280,8 +285,47 @@ export class Director {
 
   moveTo(id, unlockAfter) {
     if (id !== this.currentId) this.used.clear(); // a new beat (or coming back to one): every option again
+    if (id !== this.currentId || this.beatSince == null) { this.beatSince = this.time; this.duringAt = null; this.timedOut = false; this.pendingInterrupt = false; }
     this.currentId = id;
     this.lockedUntil = this.time + pick(unlockAfter);
+  }
+
+  /**
+   * A beat that goes on by itself (e.g. her phone call): `during` runs every `every` seconds while nobody is talking
+   * or choosing (her side of the conversation); `timeout` runs once the beat has been current for `after`
+   * seconds, then moves to its `goto` (the call ends). Interrupting her meanwhile is the beat's lockedResponse.
+   */
+  _timedBeat() {
+    const beat = this.current;
+    if (!beat || (!beat.during && !beat.timeout) || this.busy || this.choosing || this.talking) return;
+    const since = this.time - (this.beatSince ?? this.time);
+    if (this.pendingInterrupt) { // (he spoke while she was talking)
+      this.pendingInterrupt = false;
+      if (this.time < this.lockedUntil && beat.lockedResponse?.length) {
+        this.busy = true;
+        this.runActions(beat.lockedResponse).finally(() => { this.busy = false; });
+        return;
+      }
+    }
+    if (beat.timeout && !this.timedOut && since >= beat.timeout.after) {
+      this.timedOut = true;
+      this.busy = true;
+      this.runActions(beat.timeout.actions ?? []).finally(() => {
+        this.busy = false;
+        this.moveTo(beat.timeout.goto ?? null, beat.timeout.unlockAfter ?? 0);
+        const next = this.current;
+        if (next?.autoOpen && this.gateRemaining === 0 && !this.choosing && !this.pendingSequence) this.openChoices(next);
+      });
+      return;
+    }
+    if (beat.during) {
+      this.duringAt ??= this.time + pick(beat.during.first ?? beat.during.every);
+      if (this.time >= this.duringAt) {
+        this.duringAt = this.time + pick(beat.during.every);
+        this.busy = true;
+        this.runActions(beat.during.actions ?? []).finally(() => { this.busy = false; });
+      }
+    }
   }
 
   async runActions(list) {

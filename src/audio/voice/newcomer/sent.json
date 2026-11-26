@@ -187,5 +187,25 @@
       "style": 0.3,
       "use_speaker_boost": true
     }
+  },
+  "Oh, you think you're too good to talk to me, huh?": {
+    "text": "Oh, you think you're too good to talk to me, huh?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
+  },
+  "But that's what you meant, right?": {
+    "text": "But that's what you meant, right?",
+    "model_id": "eleven_multilingual_v2",
+    "voice_settings": {
+      "stability": 0.45,
+      "similarity_boost": 0.8,
+      "style": 0.3,
+      "use_speaker_boost": true
+    }
   }
 }

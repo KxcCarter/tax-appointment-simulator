@@ -420,6 +420,18 @@ export class Sfx {
     this._tone(t + 0.45, 1.2, out, 'triangle', 622, 0.6, 0.005);
   }
 
+  /** Her cellphone ringing: a bright trilling ringtone, three rings. */
+  phoneRing(position = null) {
+    if (!this.ctx) return;
+    if (this._play('phone_ring', A.phoneRing.volume, position, { refDistance: 2, rolloff: 0.8 })) return;
+    const t = this.ctx.currentTime;
+    const out = this._out(A.phoneRing.volume, position, { refDistance: 2, rolloff: 0.8 });
+    for (let ring = 0; ring < 3; ring++) {
+      const t0 = t + ring * 1.4;
+      for (let k = 0; k < 10; k++) this._tone(t0 + k * 0.08, 0.07, out, 'square', k % 2 ? 1320 : 1760, 0.18, 0.004);
+    }
+  }
+
   /** A plastic rotary switch, then a moment of warm-up static. */
   radioClick(position = null) {
     if (!this.ctx) return;

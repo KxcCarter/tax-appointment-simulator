@@ -1045,7 +1045,7 @@ function refreshHelpers() {
 
 /* ================= Writing the file back ================= */
 const ORDER = {
-  beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'lockedResponse', 'onAdvance', 'next', 'nextUnlockAfter'],
+  beat: ['id', 'trigger', 'autoOpen', 'onOpen', 'options', 'lockedOptions', 'lockedResponse', 'onAdvance', 'next', 'nextUnlockAfter', 'during', 'timeout'],
   option: ['text', 'silent', 'repeatable', 'aggression', 'showIf', 'advance', 'goto', 'unlockAfter', 'actions', 'response'],
   action: ['do'],
 };
@@ -1186,11 +1186,11 @@ const VOCAB = {
     notice: ['text', 'seconds'], if: ['test', 'then', 'else'],
   },
   anims: {
-    receptionist: ['lookAtPlayer', 'glanceAtClock', 'pointAtSign', 'pointAtPoster', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee', 'filmPlayer'],
+    receptionist: ['lookAtPlayer', 'glanceAtClock', 'pointAtSign', 'pointAtPoster', 'phoneCall', 'hangUp', 'resumeSolitaire', 'slideClipboard', 'coffeeBreak', 'sipCoffee', 'filmPlayer'],
     npc: ['attend', 'resume', 'standUp', 'confront', 'slap', 'shove', 'shoveHard', 'punch', 'kick'],
   },
   expressions: ['default', 'neutral', 'bored', 'unimpressed', 'annoyed', 'surprised', 'pleased', 'angry', 'furious', 'appalled', 'sultry'],
-  sounds: ['clockTick', 'mouseClick', 'blip', 'footstep', 'chairCreak', 'ticketTear', 'paperSlide', 'cough', 'sigh', 'pageTurn', 'chairShift', 'watchTick', 'chime'],
+  sounds: ['clockTick', 'mouseClick', 'blip', 'footstep', 'chairCreak', 'ticketTear', 'paperSlide', 'cough', 'sigh', 'pageTurn', 'chairShift', 'watchTick', 'chime', 'phoneRing'],
   phases: ['arrival', 'reception', 'waiting', 'brawl', 'doorOpen'],
   stateKeys: ['phase', 'ticketNumber', 'nowServing', 'timesIgnored', 'knockdowns', 'playerHealth', 'heldWeapon', 'toldToTakeNumber',
     'clipboardOffered', 'needsPen', 'hadCoffee', 'penRefusals', 'newcomerArrived', 'waitElapsed', 'called', 'playTime', 'radioOn',

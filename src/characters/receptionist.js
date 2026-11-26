@@ -242,7 +242,9 @@ export class Receptionist {
     else if (name === 'glanceAtClock') { this.state = 'clock'; face('unimpressed'); }
     else if (name === 'pointAtSign') { if (this.signPos) { this.pointAt = this.signPos; this.state = 'point'; } }
     else if (name === 'pointAtPoster') { if (this.posterPos) { this.pointAt = this.posterPos; this.state = 'point'; } } // "Read that sign." (PATIENCE)
-    else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); }
+    else if (name === 'resumeSolitaire') { this.state = 'solitaire'; face(this.baseExpression); this.phone.visible = !!this.filming; }
+    else if (name === 'phoneCall') { this.state = 'call'; this.callT = 0; face('pleased'); } // her cellphone to her ear (a call from her cousin)
+    else if (name === 'hangUp') { this.state = 'solitaire'; this.phone.visible = false; face(this.baseExpression); }
     else if (name === 'coffeeBreak') return this._coffeeBreak();
     else if (name === 'filmPlayer') return this._filmPlayer();
     else if (name === 'backToPhone') return this._backToPhone();
@@ -430,8 +432,22 @@ export class Receptionist {
       // (its camera faces away from her: the screen faces her)
       this.phone.lookAt(phoneAt.clone().multiplyScalar(2).sub(this.voicePosition().add(new THREE.Vector3(0, -0.15, 0))));
     }
+    // On the phone: her right hand holds it to her right ear, elbow out and down
+    if (this.state === 'call') {
+      this.callT = (this.callT ?? 0) + dt;
+      const side = new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion); // her left
+      const ear = this.rig.joints.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.07, 0)).addScaledVector(side, -0.1 * this.rig.scale).addScaledVector(fwd, 0.02);
+      handOnMouse.copy(ear).addScaledVector(side, -0.03).add(new THREE.Vector3(0, -0.06, 0));
+      this.phone.visible = true;
+      this.phone.position.copy(ear).addScaledVector(side, -0.012);
+      // (flat against her cheek: its face towards her head, top up past her ear)
+      this.phone.lookAt(this.phone.position.clone().addScaledVector(side, -1));
+      this.phone.rotateZ(Math.PI / 2 - 0.35);
+    }
     solveTwoBone(j.rShoulder, j.rElbow, handOnMouse, L.upperArm, L.lowerArm,
-      new THREE.Vector3(-0.6, -0.4, -1).applyQuaternion(this.root.quaternion));
+      this.state === 'call'
+        ? new THREE.Vector3(-1, -0.6, 0.2).normalize().applyQuaternion(this.root.quaternion)
+        : new THREE.Vector3(-0.6, -0.4, -1).applyQuaternion(this.root.quaternion));
     const kb = this.keyboard.getWorldPosition(new THREE.Vector3());
     const handOnKeys = kb.addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(this.root.quaternion), 0.12);
     handOnKeys.y += 0.05;
@@ -485,6 +501,11 @@ export class Receptionist {
       aimJoint(j.neck, phoneAt, { maxYaw: 1.1, maxPitch: 0.7, alpha: turn });
       this.face?.lookAt(phoneAt);
       if (!this.scripted) this.face?.setExpression('pleased');
+    } else if (this.state === 'call') {
+      // Chatting: looking off into the middle distance (not at her game, not at him), head tilted to the phone
+      const off = this.voicePosition().addScaledVector(fwd, 2).add(new THREE.Vector3(Math.sin(this.callT * 0.5) * 0.4, -0.2, 0));
+      aimJoint(j.neck, off, { maxYaw: 1.1, maxPitch: 0.5, alpha: turn });
+      this.face?.lookAt(off);
     } else if (this.state === 'clock') {
       aimJoint(j.neck, this.clockPos, { maxYaw: 1.6, maxPitch: 0.6, alpha: turn * 1.5 });
       this.face?.lookAt(this.clockPos);
