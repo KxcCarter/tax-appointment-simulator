@@ -7,7 +7,7 @@ import { theme } from '../theme.js';
     head   bruises, black eyes (a ring round the eye and a purple lid), cuts that bleed,
            a nosebleed, a split lip; hats and glasses knocked crooked, then off
     body   torn clothes (a ragged hole showing the shirt or the skin underneath), ripped-off
-           sleeves; bruises on bare skin
+           sleeves (skin underneath, always); bruises on bare skin
   Marks are small shapes stuck to the body part they're on, so they ride along with every
   animation and the ragdoll. Blood runs down from cuts and the nose over a couple of seconds.
   Order and amounts: config.damage. Colours: theme.palette (bruise, blackEye, blood...).
@@ -171,8 +171,8 @@ export class Damage {
     this.bodyHits++;
     const look = this.look;
     const cloth = { torso: look.jacket ?? look.shirt, arm: look.jacket ?? look.shirt, leg: look.trousers, pelvis: look.trousers };
-    // Under the jacket there's a shirt; under everything else, skin
-    const under = region === 'torso' && look.shirt !== undefined && look.shirt !== cloth.torso ? look.shirt : look.skin;
+    // Under what's torn: skin (owner: always, as on the realistic models, even under a jacket)
+    const under = look.skin;
     // An arm (or every few body blows): the sleeve comes off
     if ((region === 'arm' || (region === 'torso' && this.bodyHits % D().sleeveEvery === 0)) && this._ripSleeve(side)) return;
     const at = hit && this._regionOf(hit.object) === region ? this._fromHit(hit) : this._onPart(region === 'arm' ? 'torso' : region, side);
@@ -186,13 +186,13 @@ export class Damage {
     }
   }
 
-  /** The sleeve on that side is torn off (the shirt sleeve under a jacket, or the bare arm). */
+  /** The sleeve on that side is torn off: the bare arm shows (owner: skin, even under a jacket). */
   _ripSleeve(side) {
     const key = 'sleeve:' + side;
     if (this.used.has(key)) return false;
     const look = this.look, jacket = look.jacket ?? look.shirt;
     if (jacket === undefined || jacket === look.skin) return false;
-    const under = look.shirt !== undefined && look.shirt !== jacket ? look.shirt : look.skin;
+    const under = look.skin;
     const j = this.rig.joints, pre = side === 1 ? 'l' : 'r';
     const sleeve = theme.material(jacket);
     let ripped = false;

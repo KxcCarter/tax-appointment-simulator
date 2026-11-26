@@ -243,7 +243,7 @@ export const characterPalettes = {
     },
   },
   receptionist: {
-    badge: "D'ar-Tanyuh",  // her name badge, pinned on her left (realistic look: realExtras.js)
+    badge: "D'ar-Tanyuh",  // her name badge, pinned on her left (cartoon: rig.js; realistic: realExtras.js)
     skin: 0x6f4a32,
     hair: 0x8a3a1a,
     blouse: 0xd8a8a0,

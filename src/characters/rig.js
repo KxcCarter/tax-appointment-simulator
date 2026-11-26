@@ -247,6 +247,34 @@ export function buildRig(look = {}) {
     lHip: lLeg.upper, lKnee: lLeg.lower, rHip: rLeg.upper, rKnee: rLeg.lower,
   };
 
+  // A name badge pinned on the left of the chest, above the bust (look.badge: the name). Found by casting at the
+  // front of the body, so it sits on the clothes whatever the build.
+  if (look.badge) {
+    root.updateMatrixWorld(true);
+    const targets = spine.children.filter((o) => o.isMesh);
+    const x = P.torso.w * 0.22, y = P.bust ? Math.min(P.torso.h * 0.86, P.bust.y + P.bust.r * 1.35) : P.torso.h * 0.72;
+    const ray = new THREE.Raycaster(spine.localToWorld(new THREE.Vector3(x, y, 1)), spine.localToWorld(new THREE.Vector3(x, y, 0)).sub(spine.localToWorld(new THREE.Vector3(x, y, 1))).normalize());
+    const hit = ray.intersectObjects(targets, false)[0];
+    if (hit) {
+      const tex = theme.canvasTexture(512, 156, (c, w, h) => {
+        c.fillStyle = theme.css('badgeEdge'); c.fillRect(0, 0, w, h);
+        c.fillStyle = theme.css('badgePlate'); c.fillRect(8, 8, w - 16, h - 16);
+        c.fillStyle = theme.css('badgeText'); c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = 'bold 72px Georgia, "Times New Roman", serif';
+        c.fillText(look.badge, w / 2, h / 2 + 4, w - 40);
+      });
+      const edge = m('badgeEdge');
+      const badge = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.026, 0.004), [edge, edge, edge, edge, theme.textured(tex, { lit: true }), edge]);
+      badge.name = 'badge';
+      const p = spine.worldToLocal(hit.point.clone());
+      const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).transformDirection(new THREE.Matrix4().copy(spine.matrixWorld).invert());
+      n.y = 0; n.normalize(); // (upright: turned to face the way the chest does there)
+      badge.position.copy(p).addScaledVector(n, 0.004);
+      badge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+      spine.add(badge);
+    }
+  }
+
   root.traverse((o) => { if (o.isMesh) o.userData.rigRoot = root; });
 
   return {

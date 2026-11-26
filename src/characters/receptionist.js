@@ -32,6 +32,7 @@ export class Receptionist {
       proportions: config.characters.receptionist.proportions,
       skin: c.skin, hair: c.hair, hairStyle: 'bun', shirt: c.blouse, jacket: c.cardigan,
       trousers: c.skirt, shoes: c.shoes, glasses: c.glasses, eyes: c.eyes, lips: c.lips,
+      badge: c.badge, // her name badge (the realistic model gets its own: realExtras.js)
     });
     this.face = this.rig.face; // null unless the character style has an expressive face
     this.baseExpression = 'bored';

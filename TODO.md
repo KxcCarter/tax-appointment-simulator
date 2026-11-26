@@ -10,5 +10,6 @@
 - [x] The gamer's headphones round his neck and his stubble (`realExtras.js`).
 - [x] The gamer's baseball cap on backwards (MakeHuman's baseball cap, its printing removed, turned round: recipe `reverse`, `plain`) and knee-length cargo shorts (cargo trousers cut off at the knee: recipe `cut`).
 
-## Cartoon figures (for when we go back to `main`)
-- [ ] The receptionist's name badge, "D'ar-Tanyuh", on her cartoon figure too (`?realistic=0`, and on `main`, which has no realistic models). On this branch it's only on her realistic model (`addBadge` in `src/characters/realExtras.js`); the name is `characterPalettes.receptionist.badge` in `theme.js`, the colours `badgePlate`, `badgeText`, `badgeEdge`. Pin it on her left, above the bust, in `src/characters/rig.js`.
+## Cartoon figures
+- [x] The receptionist's name badge, "D'ar-Tanyuh", on her cartoon figure too (`look.badge` in `src/characters/rig.js`: pinned on her cardigan on her left, above the bust; the realistic model's is `addBadge` in `src/characters/realExtras.js`). The name is `characterPalettes.receptionist.badge` in `theme.js`, the colours `badgePlate`, `badgeText`, `badgeEdge`.
+- [x] Torn clothes and ripped-off sleeves show skin on the cartoon figures too (`src/characters/damage.js`), as on the realistic models.
