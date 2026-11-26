@@ -121,6 +121,39 @@ export class Npc {
     t.lean = 0; t.twist = 0; t.bend = 0.05;
   }
 
+  /**
+   * How their hands sit, for a realistic body (realBody.js: rig.handShape; the figure ignores it): the reader's
+   * gripping her magazine's edges, the young man's holding his arms (folded), and everyone else's resting palm
+   * down on their thighs, fingers towards the knees (not in the middle of something: a cough, the watch...).
+   */
+  _handShapes() {
+    if (!this.realBody?.ok) return;
+    const q = this.chair.object.quaternion;
+    const dir = (x, y, z) => new THREE.Vector3(x, y, z).applyQuaternion(q).normalize();
+    let hs = null;
+    if (this.personality === 'reader' && this.magazine && !this.called) {
+      this.magazine.updateMatrixWorld(true);
+      hs = {};
+      for (const s of [1, -1]) hs[s] = {
+        shape: 'grip',
+        aim: this.magazine.localToWorld(new THREE.Vector3(s * 0.215, 0, 0.16)),                   // up the edge
+        palm: new THREE.Vector3(-s, 0, 0).transformDirection(this.magazine.matrixWorld),         // towards the middle
+      };
+    } else if (this.personality === 'jiggler' && !this.called) {
+      hs = {
+        1: { shape: 'grip', aim: this.w(-0.6, 0.9, 0.22), palm: dir(0, -0.3, -1) },   // (the left hand by his right elbow)
+        [-1]: { shape: 'grip', aim: this.w(0.6, 0.93, 0.18), palm: dir(0, -0.3, -1) },
+      };
+    } else if (!this.action && this.personality !== 'gamer') {
+      hs = {};
+      for (const s of [1, -1]) {
+        const h = s === 1 ? this.t.lHand : this.t.rHand;
+        if (h.y < 0.72) hs[s] = { shape: 'rest', aim: this.w(h.x + s * 0.02, h.y - 0.05, h.z + 0.5), palm: new THREE.Vector3(0, -1, 0) };
+      }
+    }
+    if (hs) { this.rig.handShape = hs; this.rig.handShapeT = performance.now(); }
+  }
+
   _makeMagazine(scene) {
     const g = new THREE.Group();
     const cover = theme.material('magazineBlue');
@@ -463,8 +496,8 @@ export class Npc {
 
     // --- continuous traits ---
     if (this.personality === 'reader' && !this.called) {
-      desired.lHand.set(0.19, 0.86, 0.3);
-      desired.rHand.set(-0.19, 0.86, 0.3);
+      desired.lHand.set(0.215, 0.86, 0.3); // (at the magazine's side edges, holding them)
+      desired.rHand.set(-0.215, 0.86, 0.3);
       desired.look.set(0, 0.86, 0.3);
       desired.bend = 0.12;
     }
@@ -499,8 +532,8 @@ export class Npc {
       eyesOn = camera.position;
       expression = 'neutral';
       if (this.personality === 'reader') { // magazine held lower while she talks
-        desired.lHand.set(0.19, 0.7, 0.28);
-        desired.rHand.set(-0.19, 0.7, 0.28);
+        desired.lHand.set(0.215, 0.7, 0.28);
+        desired.rHand.set(-0.215, 0.7, 0.28);
       }
     }
 
@@ -1048,6 +1081,8 @@ export class Npc {
       this.magazine.position.copy(this.w(0, THREE.MathUtils.lerp(0.86, 0.6, m), THREE.MathUtils.lerp(0.31, 0.2, m)));
       this.magazine.quaternion.copy(q).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.lerp(-0.95, -0.1, m), 0, 0)));
     }
+
+    this._handShapes();
 
     // Watch tick (very quiet, positional): only audible up close
     if (this.rig.watch) {

@@ -102,6 +102,7 @@ async function boot() {
   // ?gamer=5: the gamer walks in after 5 s instead of config.gamer.at
   if (params.get('gamer')) config.gamer.at = Number(params.get('gamer'));
   level = setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fastWait: params.has('fastwait'), brawlNow: params.has('brawl') });
+  theme.applyShadows(scene); // (the theme decides what casts shadows)
   scene.add(camera);
 
   resize();

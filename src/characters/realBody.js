@@ -71,6 +71,8 @@ const HAND_SHAPES = {
   fist: { fingers: CURLED, thumb: THUMB_IN },
   point: { fingers: CURLED, index: STRAIGHT, thumb: THUMB_IN },
   two: { fingers: CURLED, index: STRAIGHT, middle: STRAIGHT, thumb: THUMB_IN },
+  grip: { fingers: [0.6, 0.75, 0.45], thumb: [0.15, 0.25, 0.2] },   // holding something flat (a magazine, an arm)
+  rest: { fingers: [0.2, 0.3, 0.2], thumb: [0, 0.1, 0.05] },        // lying on the lap
 };
 const MAX_WRIST = 1.5, MAX_ROLL = 2.0; // (radians: how far a wrist bends and a forearm rolls to aim a hand)
 
@@ -282,6 +284,7 @@ export class RealBody {
       limb('leg', 'RightUpLeg', 'RightLeg', 'RightFoot', j.rHip, j.rKnee, P.lowerLeg.len * s),
     ].filter(Boolean);
     this._measureTorso(model);
+    this._measureThighs(model, root);
     this._setupHands(model);
     this.extras = addExtras(this, look); // (watch, headphones, stubble, moustache hairs, glasses that can go crooked)
 
@@ -426,13 +429,14 @@ export class RealBody {
       }
       // Aiming the hand
       H.aimAmt += ((want?.aim ? amount : 0) - H.aimAmt) * ease;
-      if (want?.aim) H.aimAt = want.aim.clone();
-      if (H.aimAmt > 0.01 && H.aimAt) this._aimHand(H, H.aimAt, H.aimAmt);
+      if (want?.aim) { H.aimAt = want.aim.clone(); H.palmAt = want.palm?.clone() ?? null; }
+      if (H.aimAmt > 0.01 && H.aimAt) this._aimHand(H, H.aimAt, H.aimAmt, H.palmAt);
       H.hand.updateMatrixWorld(true);
     }
   }
 
-  _aimHand(H, aim, k) {
+  /** palm: which way the palm should face (world; default: down). */
+  _aimHand(H, aim, k, palm = null) {
     const wq = (o) => o.getWorldQuaternion(new THREE.Quaternion());
     const setWorld = (bone, q) => { bone.quaternion.copy(wq(bone.parent).invert().multiply(q)); bone.updateMatrixWorld(true); };
     H.lower.updateMatrixWorld(true);
@@ -442,8 +446,8 @@ export class RealBody {
     let f = aim.clone().sub(wrist).normalize();
     const bend = arm.angleTo(f);
     if (bend > MAX_WRIST) f = arm.clone().applyAxisAngle(new THREE.Vector3().crossVectors(arm, f).normalize(), MAX_WRIST);
-    // The palm faces down (or, pointing straight up or down, towards the body's front)
-    const down = new THREE.Vector3(0, -1, 0);
+    // The palm faces down, or the way asked (or, pointing straight along that, towards the body's front)
+    const down = palm ? palm.clone().normalize() : new THREE.Vector3(0, -1, 0);
     let p = down.clone().projectOnPlane(f);
     if (p.lengthSq() < 0.05) p = new THREE.Vector3(0, 0, -1).applyQuaternion(wq(this.rig.root)).projectOnPlane(f);
     p.normalize();
@@ -470,7 +474,7 @@ export class RealBody {
     const S = toRoot(l.U.getWorldPosition(new THREE.Vector3()));
     let T = toRoot(l.end());
     const pole = toRoot(l.jL.getWorldPosition(new THREE.Vector3())).sub(S); // the rig's elbow/knee
-    if (l.kind === 'arm') T = this._outOfTorso(T, root);
+    if (l.kind === 'arm') T = this._outOfThighs(this._outOfTorso(T, root), root);
     const toT = T.clone().sub(S);
     const d = THREE.MathUtils.clamp(toT.length(), Math.abs(l.lenU - l.lenL) + 1e-3, (l.lenU + l.lenL) * 0.999);
     const dir = toT.normalize();
@@ -529,6 +533,66 @@ export class RealBody {
       for (let k = 0; k < 2; k++) { bands[i].min[k] = Math.min(bands[i].min[k], p[others[k]]); bands[i].max[k] = Math.max(bands[i].max[k], p[others[k]]); }
     }
     this.torso = { ax, others, lo, h, bands, restSpine: spine.matrixWorld.clone() }; // root space at setup
+  }
+
+  /**
+   * Each thigh's thickness along it (rest pose; skin and clothes): ten slices from hip to knee, each slice's
+   * radius round the bone (the 90th percentile of its points, so a stray fold doesn't count). In root space.
+   */
+  _measureThighs(model, root) {
+    this.thighs = [];
+    const meshes = [];
+    model.traverse((o) => { if (o.isSkinnedMesh && o.visible && !/hair|eye|low-poly|high-poly|lash|brow/i.test(o.material?.name ?? '')) meshes.push(o); });
+    for (const [U, L] of [['LeftUpLeg', 'LeftLeg'], ['RightUpLeg', 'RightLeg']]) {
+      const hip = findBone(model, U), knee = findBone(model, L);
+      if (!hip || !knee) continue;
+      const A = root.worldToLocal(hip.getWorldPosition(new THREE.Vector3())), B = root.worldToLocal(knee.getWorldPosition(new THREE.Vector3()));
+      const AB = B.clone().sub(A), len2 = AB.lengthSq();
+      const bins = Array.from({ length: 10 }, () => []);
+      const v = new THREE.Vector3();
+      for (const m of meshes) {
+        m.skeleton.update();
+        const g = m.geometry, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, bones = m.skeleton.bones;
+        for (let i = 0; i < g.attributes.position.count; i++) {
+          let best = 0, bw = -1;
+          for (let k = 0; k < 4; k++) { const w = SW.getComponent(i, k); if (w > bw) { bw = w; best = SI.getComponent(i, k); } }
+          if (bones[best] !== hip) continue;
+          root.worldToLocal(m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld));
+          const t = v.clone().sub(A).dot(AB) / len2;
+          if (t < 0 || t >= 1) continue;
+          bins[Math.floor(t * 10)].push(v.clone().sub(A).addScaledVector(AB, -t).length());
+        }
+      }
+      const radius = bins.map((b) => (b.length ? b.sort((x, y) => x - y)[Math.floor(b.length * 0.9)] : 0));
+      for (let i = 0; i < 10; i++) if (!radius[i]) radius[i] = radius[i - 1] ?? 0.07;
+      this.thighs.push({ hip, knee, radius });
+    }
+  }
+
+  /** If a hand target is inside a thigh, move it out onto the leg (on top, when seated: hands rest on the lap). */
+  _outOfThighs(T, root) {
+    const margin = 0.03; // (the hand's own thickness under the wrist)
+    const up = root.worldToLocal(root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1, 0))).normalize();
+    for (let pass = 0; pass < 2; pass++) {
+      for (const th of this.thighs) {
+        const A = root.worldToLocal(th.hip.getWorldPosition(new THREE.Vector3())), B = root.worldToLocal(th.knee.getWorldPosition(new THREE.Vector3()));
+        const AB = B.clone().sub(A), axis = AB.clone().normalize();
+        const t = T.clone().sub(A).dot(AB) / AB.lengthSq();
+        if (t < 0 || t > 1) continue; // (past the hip or the knee)
+        const C = A.clone().addScaledVector(AB, t);
+        const R = th.radius[Math.min(9, Math.floor(t * 10))] + margin;
+        const radial = T.clone().sub(C).projectOnPlane(axis);
+        const d = radial.length();
+        if (d >= R) continue;
+        // Out the way it's nearest, but on top if the leg is lying flat (seated) and the hand isn't clearly beside it
+        let dir = d > 1e-4 ? radial.clone().divideScalar(d) : new THREE.Vector3();
+        const top = up.clone().projectOnPlane(axis);
+        if (Math.abs(axis.dot(up)) < 0.7 && top.lengthSq() > 1e-4 && dir.dot(top.normalize()) < 0.6) dir.add(top.multiplyScalar(1.5));
+        if (dir.lengthSq() < 1e-6) dir.copy(up);
+        T = C.clone().addScaledVector(dir.normalize(), R);
+      }
+    }
+    return T;
   }
 
   /** If a hand target is inside the torso, move it out to just outside the surface. */

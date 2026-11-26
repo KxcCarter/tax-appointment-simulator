@@ -315,10 +315,14 @@ export const look = {
 };
 
 export const lighting = {
-  hemisphere: { sky: 0xf0ffe4, ground: 0x5a4632, intensity: 1.6 }, // greenish fluorescent / carpet bounce
+  hemisphere: { sky: 0xf0ffe4, ground: 0x5a4632, intensity: 1.15 }, // greenish fluorescent / carpet bounce
   ambient: { color: 0xffffff, intensity: 0.35 },
-  ceilingPanels: { color: 0xe6ffd8, intensity: 4.0, distance: 9, decay: 1.2, dropBelowCeiling: 0.3 },
-  shadows: false,
+  ceilingPanels: { color: 0xe6ffd8, intensity: 2.2, distance: 9, decay: 1.2, dropBelowCeiling: 0.3 },
+  shadows: false,               // (the ceiling panels' own shadows: four point lights' worth, expensive)
+  // One soft shadow-casting light high in the middle of the ceiling (cheap: one shadow map): people and furniture
+  // get shadows on the floor and walls under the fluorescent light. ?shadows=0 turns it off.
+  overheadShadow: { enabled: true, color: 0xeefde4, intensity: 26, distance: 14, decay: 1.2, angle: 1.3, penumbra: 0.9,
+    mapSize: 2048, bias: -0.0004, normalBias: 0.03, radius: 3 },
 };
 
 // UI overlay colours, applied as CSS custom properties on :root
@@ -386,8 +390,9 @@ export const surfaces = {
   paperCup: { color: 'cupPaper', roughness: 0.8 },
   ceramic: { color: 'mug', roughness: 0.25 },
   coffee: { color: 'coffee', roughness: 0.08 },
-  wall: { color: 'wallBeige', roughness: 0.9, texture: 'wall', bump: 0.25 },
-  wainscot: { color: 'wainscotMint', roughness: 0.55, texture: 'wall', bump: 0.2 },
+  wall: { color: 'wallBeige', roughness: 0.85, texture: 'wall', bump: 0.06 },          // (painted plaster: almost smooth)
+  wainscot: { color: 'wainscotMint', roughness: 0.5, texture: 'beadboard', bump: 0.8 }, // (painted tongue-and-groove)
+  coatFabric: { color: 'coat', roughness: 0.95, texture: 'fabric', bump: 0.8, repeat: [4, 4] },
   carpet: { color: 'carpet', roughness: 1, texture: 'carpet', bump: 1.5 },
   ceilingTile: { color: 'ceilingTile', roughness: 0.95, texture: 'carpet', bump: 0.8 },
   mousepad: { color: 'mousepad', roughness: 0.9, texture: 'fabric', bump: 0.5, repeat: [2, 2] },
@@ -475,9 +480,16 @@ function surfaceTexture(kind) {
     t.map = greyCanvas(n, (x, y, k) => 0.7 + 0.25 * pile[k] + 0.12 * tone[k]);
     t.bump = greyCanvas(n, (x, y, k) => pile[k]);
   } else if (kind === 'wall') {
-    const n = 256, peel = noiseField(n, 64, 2, 71), tone = noiseField(n, 4, 3, 72);
-    t.map = greyCanvas(n, (x, y, k) => 0.93 + 0.07 * tone[k]);
+    // Paint over plaster: a faint orange-peel roller texture, tone varying a touch across the wall
+    const n = 256, peel = noiseField(n, 48, 2, 71), tone = noiseField(n, 3, 3, 72);
+    t.map = greyCanvas(n, (x, y, k) => 0.95 + 0.05 * tone[k]);
     t.bump = greyCanvas(n, (x, y, k) => peel[k]);
+  } else if (kind === 'beadboard') {
+    // Vertical boards, six to a tile, each with a rounded bead and a groove beside it; slightly different paint
+    const n = 256, w = n / 6, tone = noiseField(n, 3, 2, 81);
+    const prof = (x) => { const u = (x % w) / w; return u < 0.04 ? 0.15 : u < 0.12 ? 0.55 + 0.45 * Math.sin(((u - 0.04) / 0.08) * Math.PI) : 0.75; };
+    t.map = greyCanvas(n, (x, y, k) => 0.9 + 0.1 * prof(x) * (0.96 + 0.04 * tone[k]));
+    t.bump = greyCanvas(n, (x) => prof(x));
   }
   surfaceTextures.set(kind, t);
   return t;
@@ -604,7 +616,8 @@ export const theme = {
     scene.fog = look.fog ? new THREE.Fog(look.fog.color, look.fog.near, look.fog.far) : null;
     if (renderer) {
       renderer.setClearColor(look.background);
-      renderer.shadowMap.enabled = lighting.shadows;
+      renderer.shadowMap.enabled = lighting.shadows || !!lighting.overheadShadow?.enabled;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.toneMapping = { none: THREE.NoToneMapping, neutral: THREE.NeutralToneMapping, aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping }[look.toneMapping] ?? THREE.NoToneMapping;
       renderer.toneMappingExposure = look.exposure ?? 1;
       if (look.environment && look.materialStyle === 'standard') {
@@ -654,8 +667,38 @@ export const theme = {
       light.castShadow = L.shadows;
       lights.push(light);
     }
+    const O = L.overheadShadow;
+    if (O?.enabled && !new URLSearchParams(location.search).has('shadows', '0')) {
+      const spot = new THREE.SpotLight(O.color, O.intensity, O.distance, O.angle, O.penumbra, O.decay);
+      spot.position.set(0, ceilingHeight - 0.05, 0);
+      spot.target.position.set(0, 0, 0);
+      spot.castShadow = true;
+      spot.shadow.mapSize.set(O.mapSize, O.mapSize);
+      spot.shadow.bias = O.bias;
+      spot.shadow.normalBias = O.normalBias;
+      spot.shadow.radius = O.radius;
+      spot.shadow.camera.near = 0.3;
+      spot.shadow.camera.far = O.distance;
+      lights.push(spot, spot.target);
+      this._shadowsOn = true;
+    }
     for (const l of lights) scene.add(l);
     return lights;
+  },
+
+  /**
+   * Which things cast and catch shadows (once the level is built): everything solid and lit; not see-through
+   * things, unlit screens and signs, or the first-person arms.
+   */
+  applyShadows(scene) {
+    if (!this._shadowsOn) return;
+    scene.traverse((o) => {
+      if (!o.isMesh || o.userData.noShadow) return;
+      const mats = [].concat(o.material);
+      const lit = mats.every((m) => m && !m.isMeshBasicMaterial && !m.transparent);
+      o.castShadow = lit && !o.isPoints;
+      o.receiveShadow = mats.every((m) => m && !m.isMeshBasicMaterial);
+    });
   },
 
   /** Push UI colours into CSS custom properties. */

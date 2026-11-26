@@ -80,8 +80,9 @@ export function buildWaitingRoom(scene, physics) {
   ceiling.position.y = H;
   scene.add(ceiling);
 
-  const wallMat = surf('wall', { repeat: [3, 2] });
-  const wainscotMat = surf('wainscot', { repeat: [6, 1] });
+  // (textures sized to each piece of wall: painted plaster, and beadboard with a groove every 10 cm)
+  const wallMat = (len) => surf('wall', { repeat: [Math.max(0.2, Math.round(len / 1.5 * 4) / 4), 2] });
+  const wainscotMat = (len) => surf('wainscot', { repeat: [Math.max(0.2, Math.round(len / 0.6 * 4) / 4), 1] });
   const railMat = surf('woodDark', { repeat: [8, 0.2] });
   const baseMat = surf('woodDark', { repeat: [8, 0.2] });
   const T = 0.2; // wall thickness
@@ -117,8 +118,8 @@ export function buildWaitingRoom(scene, physics) {
       return box(alongX ? len : d, h, alongX ? d : len, material, cx, y + h / 2, cz);
     };
     const half = w.len / 2;
-    for (const [u0, u1] of spans(-half, half, w.openings)) strip(u0, u1, 0, H, T, 0, wallMat);
-    for (const o of w.openings) strip(o.x - o.w / 2, o.x + o.w / 2, o.h, H - o.h, T, 0, wallMat); // header above the door
+    for (const [u0, u1] of spans(-half, half, w.openings)) strip(u0, u1, 0, H, T, 0, wallMat(u1 - u0));
+    for (const o of w.openings) strip(o.x - o.w / 2, o.x + o.w / 2, o.h, H - o.h, T, 0, wallMat(o.w)); // header above the door
     // Colliders: one per solid span, so doorways can be walked through (each door has its own collider)
     const solid = (u0, u1, y0, y1) => {
       const len = u1 - u0, mid = (u0 + u1) / 2;
@@ -130,7 +131,7 @@ export function buildWaitingRoom(scene, physics) {
     // Mint wainscot, wooden chair rail, dark baseboard (slightly proud of the wall), broken by doors
     const inner = alongX ? half - T : half;
     for (const [u0, u1] of spans(-inner, inner, w.openings)) {
-      strip(u0, u1, 0, 0.9, 0.02, T / 2 + 0.01, wainscotMat);
+      strip(u0, u1, 0, 0.9, 0.02, T / 2 + 0.01, wainscotMat(u1 - u0));
       strip(u0, u1, 0.895, 0.05, 0.04, T / 2 + 0.025, railMat);
       strip(u0, u1, 0, 0.1, 0.03, T / 2 + 0.02, baseMat);
     }
@@ -139,17 +140,18 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- EMPLOYEES ONLY door and the back room behind it ----------
   {
     const dx = EMP_DOOR.x, wallFace = -hd;
-    // Frame
-    for (const side of [-1, 1]) box(0.06, EMP_DOOR.h + 0.06, 0.08, mat('woodDark'), dx + side * (EMP_DOOR.w / 2 + 0.01), EMP_DOOR.h / 2, wallFace + 0.02);
-    box(EMP_DOOR.w + 0.14, 0.06, 0.08, mat('woodDark'), dx, EMP_DOOR.h + 0.02, wallFace + 0.02);
+    // Casing round the opening
+    { const c = new THREE.Group(); c.position.set(dx, 0, wallFace); scene.add(c); P.buildCasing(c, EMP_DOOR.w, EMP_DOOR.h); }
     // Door, hinged on its west edge, swinging into the back room
     const pivot = new THREE.Group();
     pivot.position.set(dx - EMP_DOOR.w / 2 + 0.02, 0, wallFace - 0.03);
     scene.add(pivot);
     box(EMP_DOOR.w - 0.04, EMP_DOOR.h - 0.03, 0.045, surf('doorWood', { repeat: [1, 2] }), (EMP_DOOR.w - 0.04) / 2, (EMP_DOOR.h - 0.03) / 2, 0, pivot);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 20, 14), surf('steel'));
-    knob.position.set(EMP_DOOR.w - 0.14, 1.0, 0.04);
+    const knob = new THREE.Group();
+    knob.position.set(EMP_DOOR.w - 0.14, 1.0, 0.0225);
     pivot.add(knob);
+    P.buildKnob(knob, surf('steel'));
+    P.buildHinges(pivot, 0.0, 0.025, EMP_DOOR.h - 0.03, surf('steel'));
     const signTex = theme.canvasTexture(160, 48, (c, w, h) => {
       c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
       c.strokeStyle = theme.css('inkRed'); c.lineWidth = 3; c.strokeRect(3, 3, w - 6, h - 6);
@@ -248,8 +250,7 @@ export function buildWaitingRoom(scene, physics) {
     g.rotation.y = Math.PI; // local +z faces into the room
     scene.add(g);
     // Frame around a real opening (jambs and header)
-    for (const side of [-1, 1]) box(0.1, 2.25, 0.08, mat('woodDark'), side * 0.55, 1.125, 0.0, g);
-    box(1.2, 0.13, 0.08, mat('woodDark'), 0, 2.185, 0.0, g);
+    P.buildCasing(g, 1.02, 2.12, { width: 0.085 });
     // The door itself, hinged on the side away from the handle; it swings into the room
     const pivot = new THREE.Group();
     pivot.position.set(-0.5, 0, 0.03);
@@ -272,7 +273,7 @@ export function buildWaitingRoom(scene, physics) {
       c.fillText('BY APPOINTMENT', -w / 2, 124);
       c.restore();
     });
-    box(0.7, 0.9, 0.02, theme.textured(glassTex), 0.5, 1.45, 0.03, pivot);
+    box(0.7, 0.9, 0.02, theme.textured(glassTex, { lit: true }), 0.5, 1.45, 0.03, pivot); // (frosted glass: lit, not glowing)
     const handle = cyl(0.018, 0.018, 0.14, surf('chrome'), 0.88, 1.0, 0.06, pivot);
     handle.rotation.x = Math.PI / 2;
 
@@ -455,16 +456,13 @@ export function buildWaitingRoom(scene, physics) {
     const disp = new THREE.Group();
     disp.position.set(-1.35, 1.14, -2.86);
     scene.add(disp);
-    cyl(0.02, 0.02, 0.12, mat('metalGrey'), 0, 0.06, 0, disp);
-    const dBody = cyl(0.08, 0.08, 0.16, mat('dispenserRed'), 0, 0.2, 0, disp, 16);
-    dBody.rotation.x = Math.PI / 2;
-    box(0.06, 0.004, 0.06, mat('paperWhite'), 0, 0.2, 0.1, disp).rotation.x = -0.3; // ticket tongue
+    P.buildTicketDispenser(disp);
     const signTex = theme.canvasTexture(96, 32, (c, w, h) => {
       c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
       c.fillStyle = theme.css('inkRed'); c.font = 'bold 11px monospace'; c.textAlign = 'center';
       c.fillText('PLEASE TAKE', w / 2, 13); c.fillText('A NUMBER', w / 2, 26);
     });
-    box(0.18, 0.06, 0.005, theme.textured(signTex), 0, 0.33, 0.0, disp);
+    box(0.18, 0.06, 0.005, theme.textured(signTex), 0, 0.335, 0.0, disp);
     anchors.ticketDispenser = disp;
 
     // Filing cabinets closing the gap between the desk and the west wall
@@ -501,7 +499,7 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- accountant door (north wall, east) ----------
   {
     const doorX = 3.6;
-    box(1.2, 2.25, 0.06, mat('woodDark'), doorX, 1.125, -hd + 0.03);
+    { const c = new THREE.Group(); c.position.set(doorX, 0, -hd); scene.add(c); P.buildCasing(c, 1.02, 2.12); }
     const pivot = new THREE.Group(); // hinge on the west edge, swings later
     pivot.position.set(doorX - 0.5, 0, -hd + 0.06);
     scene.add(pivot);
@@ -510,9 +508,12 @@ export function buildWaitingRoom(scene, physics) {
       P.rbox(0.8, 0.7, 0.02, 0.008, surf('woodDark', { repeat: [1, 1] }), 0.5, py, 0.03, pivot);
       P.rbox(0.7, 0.6, 0.02, 0.02, surf('doorWood'), 0.5, py, 0.04, pivot);
     }
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.035, 20, 14), surf('brass'));
-    knob.position.set(0.88, 1.0, 0.07);
+    const knob = new THREE.Group();
+    knob.position.set(0.88, 1.0, 0.025);
     pivot.add(knob);
+    P.buildKnob(knob, surf('brass'));
+    P.buildHinges(pivot, 0.0, 0.03, 2.1);
+    P.rbox(0.92, 0.2, 0.004, 0.002, surf('brass'), 0.5, 0.11, 0.027, pivot); // kick plate
     const plaqueTex = theme.canvasTexture(160, 40, (c, w, h) => {
       c.fillStyle = theme.css('brassPlaque'); c.fillRect(0, 0, w, h);
       c.strokeStyle = theme.css('brassPlaqueEdge'); c.lineWidth = 2; c.strokeRect(2, 2, w - 4, h - 4);
@@ -662,11 +663,18 @@ export function buildWaitingRoom(scene, physics) {
       u.position.set(i ? 0.04 : -0.04, 0.2, 0);
       u.rotation.z = i ? -0.12 : 0.1;
       g.add(u);
-      cyl(0.012, 0.012, 0.9, mat('metalGrey'), 0, 0, 0, u);
-      cyl(0.05, 0.02, 0.6, mat(c), 0, 0.05, 0, u, 8);
-      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 10, Math.PI), mat('umbrellaHandle'));
-      hook.position.set(0.05, 0.45, 0);
+      cyl(0.007, 0.007, 0.9, surf('chrome'), 0, 0, 0, u, 10);
+      const canopy = P.furledCanopy(mat(c));
+      canopy.rotation.x = Math.PI; // (the tip at the bottom)
+      canopy.position.y = 0.05;
+      u.add(canopy);
+      P.cylinder(0.026, 0.026, 0.015, mat(c), 0, 0.12, 0, u, 16); // the strap round it
+      P.cylinder(0.003, 0.002, 0.04, surf('chrome'), 0, -0.47, 0, u, 8); // the ferrule
+      // The J handle
+      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.013, 10, 24, Math.PI), mat('umbrellaHandle'));
+      hook.position.set(0.045, 0.45, 0);
       u.add(hook);
+      P.cylinder(0.013, 0.013, 0.06, mat('umbrellaHandle'), 0, 0.42, 0, u, 12);
       (anchors.umbrellas ??= []).push(u);
     });
     physics.addDynamic(g, [{ type: 'cylinder', halfHeight: 0.27, radius: 0.13 }], { density: 250 });
@@ -676,16 +684,34 @@ export function buildWaitingRoom(scene, physics) {
   // ---------- coat rack ----------
   {
     const rx = -1.2, rz = hd - 0.3;
-    P.cylinder(0.022, 0.026, 1.8, surf('woodDark', { repeat: [0.3, 3] }), rx, 0.9, rz, scene, 16);
-    P.cylinder(0.2, 0.24, 0.04, surf('woodDark'), rx, 0.02, rz, scene, 32);
-    for (let i = 0; i < 4; i++) {
-      const peg = box(0.02, 0.02, 0.18, mat('woodDark'), rx, 1.72, rz);
-      peg.rotation.set(0.5, (i * Math.PI) / 2, 0);
-    }
-    const coat = box(0.36, 0.7, 0.14, mat('coat'), rx + 0.05, 1.35, rz - 0.06);
+    const tree = new THREE.Group();
+    tree.position.set(rx, 0, rz);
+    scene.add(tree);
+    P.buildCoatTree(tree);
+    // A coat hung on the hook facing the room (it hangs from its collar, a little off the post)
+    const coat = new THREE.Group();
+    coat.position.set(rx, 1.76, rz - 0.2);
+    coat.rotation.set(0.12, Math.PI, 0.02); // (its back to the post, front to the room)
+    scene.add(coat);
+    P.buildHangingCoat(coat, surf('coatFabric'));
     anchors.coat = coat;
-    coat.rotation.z = 0.05;
     staticBox(rx, 0.9, rz, 0.12, 0.9, 0.12);
+  }
+
+  // ---------- fittings: ceiling vents, smoke detector, sprinklers; outlets, a switch, the thermostat ----------
+  {
+    const at = (fn, x, y, z, ry = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; scene.add(g); fn(g); return g; };
+    for (const [x, z] of [[0, -2.5], [0, 2.3]]) at(P.buildVent, x, H - 0.008, z);
+    at(P.buildSmokeDetector, 0.3, H, 0);
+    for (const [x, z] of [[-3, 0], [3, 0], [-1.5, -3.6], [1.5, 3.6]]) at(P.buildSprinkler, x, H, z);
+    // Wall plates (each group faces into the room: +z rotated by ry)
+    const plate = (kind) => (g) => P.buildWallPlate(g, kind);
+    at(plate('switch'), 0.75, 1.2, hd, Math.PI);                  // by the entrance
+    at(plate('outlet'), -2.5, 0.3, hd, Math.PI);
+    at(plate('outlet'), -hw, 0.3, -2.4, Math.PI / 2);
+    at(plate('outlet'), hw, 0.3, 1.7, -Math.PI / 2);
+    at(plate('outlet'), 2.2, 0.3, -hd, 0);
+    at(plate('thermostat'), -0.95, 1.5, hd, Math.PI);
   }
 
   // ---------- wall decor ----------

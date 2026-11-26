@@ -362,3 +362,152 @@ export function buildDrawer(g, w, h) {
   rbox(0.07, 0.035, 0.004, 0.002, S('chrome'), 0, h * 0.2, 0.012, g);
   rbox(0.06, 0.026, 0.002, 0.001, S('paper'), 0, h * 0.2, 0.0145, g);
 }
+
+// ------------------------------------------------------------------ second pass: fittings and small things
+
+/** A moulded door casing round an opening w x h (the group at the floor, at the opening's middle, facing +z). */
+export function buildCasing(g, w, h, { depth = 0.025, width = 0.075 } = {}) {
+  const wood = S('woodDark', { repeat: [0.3, 2] });
+  for (const s of [-1, 1]) {
+    rbox(width, h + width, depth, 0.008, wood, s * (w / 2 + width / 2), (h + width) / 2, depth / 2, g);
+    rbox(width + 0.01, 0.11, depth + 0.008, 0.004, wood, s * (w / 2 + width / 2), 0.055, (depth + 0.008) / 2, g); // plinth block
+  }
+  rbox(w + width * 2 + 0.02, width, depth + 0.004, 0.008, wood, 0, h + width / 2, depth / 2, g);
+  rbox(w + width * 2 + 0.04, 0.018, depth + 0.012, 0.004, wood, 0, h + width + 0.009, depth / 2, g); // cap
+}
+
+/** Three brass butt hinges up a door's hinge edge (x), on its face (z). */
+export function buildHinges(parent, x, z, h, material = S('brass')) {
+  for (const y of [0.22, h / 2, h - 0.22]) {
+    rbox(0.012, 0.09, 0.03, 0.003, material, x, y, z, parent);
+    cylinder(0.006, 0.006, 0.1, material, x, y, z + 0.016, parent, 10);
+  }
+}
+
+/** A lever-free round door knob on a rose (front +z, the group at its centre). */
+export function buildKnob(g, material) {
+  cylinder(0.03, 0.03, 0.008, material, 0, 0, 0.004, g, 24).rotation.x = Math.PI / 2;
+  cylinder(0.011, 0.014, 0.05, material, 0, 0, 0.03, g, 16).rotation.x = Math.PI / 2;
+  const k = new THREE.Mesh(new THREE.SphereGeometry(0.03, 24, 16), material);
+  k.scale.set(1, 1, 0.75);
+  k.position.z = 0.062;
+  g.add(k);
+}
+
+/**
+ * A "take a number" dispenser: a red, rounded housing on a chrome post, the ticket tongue poking out of the front
+ * (+z), the roll inside. The group's origin at the bottom of the post (on the counter).
+ */
+export function buildTicketDispenser(g) {
+  cylinder(0.05, 0.055, 0.012, S('plasticBlack'), 0, 0.006, 0, g, 28);
+  cylinder(0.011, 0.011, 0.12, S('chrome'), 0, 0.07, 0, g, 16);
+  const body = lathe([[0.0, -0.085], [0.05, -0.08], [0.075, -0.05], [0.082, 0], [0.075, 0.05], [0.05, 0.08], [0.0, 0.085]], S('plasticRed'), 40);
+  body.rotation.x = Math.PI / 2; // (its axis front to back)
+  body.scale.set(1, 1, 0.82);
+  body.position.y = 0.2;
+  g.add(body);
+  // A chrome band round it, the slot and the ticket tongue
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.081, 0.004, 8, 48), S('chrome'));
+  band.position.y = 0.2;
+  g.add(band);
+  rbox(0.07, 0.012, 0.012, 0.004, S('plasticBlack'), 0, 0.2, 0.072, g);
+  const tongue = rbox(0.05, 0.002, 0.05, 0.001, S('paper'), 0, 0.2, 0.09, g);
+  tongue.rotation.x = 0.35;
+  cylinder(0.008, 0.008, 0.02, S('chrome'), 0, 0.29, 0, g, 12); // the knob on top
+}
+
+/** A bentwood coat tree: three splayed legs, a post, curled hooks at two heights and a turned finial. */
+export function buildCoatTree(g, height = 1.8) {
+  const wood = S('woodDark', { repeat: [0.3, 3] });
+  cylinder(0.02, 0.026, height, wood, 0, height / 2, 0, g, 16);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.4;
+    g.add(bentTube([V(0, 0.32, 0), V(Math.cos(a) * 0.1, 0.12, Math.sin(a) * 0.1), V(Math.cos(a) * 0.28, 0.015, Math.sin(a) * 0.28)], 0.014, wood, { bend: 0.15 }));
+  }
+  for (const [y, n, len] of [[height - 0.1, 4, 0.16], [height - 0.38, 4, 0.11]]) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (y < height - 0.2 ? Math.PI / 4 : 0);
+      const out = (r) => V(Math.cos(a) * r, 0, Math.sin(a) * r);
+      g.add(bentTube([out(0).setY(y - 0.06), out(len * 0.7).setY(y - 0.02), out(len).setY(y + 0.06), out(len * 0.85).setY(y + 0.12)], 0.008, wood, { bend: 0.05 }));
+    }
+  }
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.035, 20, 14), wood);
+  top.position.y = height + 0.02;
+  g.add(top);
+}
+
+/**
+ * A coat hanging from a hook by its collar: shoulders, a body that falls straight and a little flared, sleeves
+ * hanging at the sides. Group: the hanging point at the origin, its front +z.
+ */
+export function buildHangingCoat(g, material) {
+  // The body: a flattened, turned shape (shoulders at the top, widening to the hem)
+  const body = lathe([[0.0, -0.02], [0.05, -0.03], [0.14, -0.09], [0.17, -0.14], [0.17, -0.4], [0.19, -0.75], [0.2, -0.85], [0.0, -0.86]], material, 32);
+  body.scale.set(1, 1, 0.42);
+  g.add(body);
+  // A collar, and the opening down the front
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.016, 8, 24, Math.PI * 1.4), material);
+  collar.rotation.set(Math.PI / 2, 0, Math.PI * 0.8);
+  collar.position.set(0, -0.035, 0.005);
+  g.add(collar);
+  rbox(0.008, 0.62, 0.006, 0.002, S('plasticBlack'), 0.015, -0.5, 0.083, g);
+  for (const y of [-0.3, -0.45, -0.6]) cylinder(0.009, 0.009, 0.004, S('plasticBlack'), -0.01, y, 0.085, g, 12).rotation.x = Math.PI / 2;
+  // Sleeves
+  for (const s of [-1, 1]) {
+    const sl = cylinder(0.045, 0.055, 0.56, material, s * 0.175, -0.42, 0.0, g, 16);
+    sl.rotation.z = s * 0.06;
+  }
+  // Pockets
+  for (const s of [-1, 1]) rbox(0.1, 0.012, 0.01, 0.004, material, s * 0.09, -0.58, 0.084, g);
+}
+
+/** A closed umbrella: the furled canopy (fluted, tapering to the tip), a strap round it, the shaft through it. */
+export function furledCanopy(material, length = 0.6, r = 0.045) {
+  const prof = [];
+  for (let i = 0; i <= 12; i++) { const t = i / 12; prof.push(new THREE.Vector2(Math.max(0.004, r * Math.pow(1 - t, 0.8) * (t < 0.08 ? t / 0.08 * 0.7 + 0.3 : 1)), -length / 2 + t * length)); }
+  const geo = new THREE.LatheGeometry(prof, 48);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { // eight folds
+    const a = Math.atan2(p.getZ(i), p.getX(i)), k = 1 + 0.16 * Math.cos(a * 8);
+    p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k);
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material);
+}
+
+/** A wall outlet or switch plate (front +z, group at its centre). kind: 'outlet' | 'switch' | 'thermostat'. */
+export function buildWallPlate(g, kind) {
+  if (kind === 'thermostat') {
+    rbox(0.08, 0.1, 0.025, 0.008, S('coolerBody'), 0, 0, 0.0125, g);
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 32), S('crtPlasticDark'));
+    dial.rotation.x = Math.PI / 2;
+    dial.position.z = 0.03;
+    g.add(dial);
+    rbox(0.004, 0.02, 0.004, 0.001, S('plasticRed'), 0, 0.02, 0.036, g);
+    return;
+  }
+  rbox(0.07, 0.115, 0.006, 0.003, S('coolerBody'), 0, 0, 0.003, g);
+  if (kind === 'switch') rbox(0.012, 0.024, 0.012, 0.003, S('coolerBody'), 0, 0.005, 0.01, g).rotation.x = -0.25;
+  else for (const y of [0.022, -0.022]) {
+    rbox(0.034, 0.03, 0.004, 0.008, S('coolerBody'), 0, y, 0.007, g);
+    for (const x of [-0.006, 0.006]) rbox(0.0025, 0.009, 0.002, 0.0005, S('plasticBlack'), x, y + 0.004, 0.009, g);
+  }
+}
+
+/** Ceiling fittings: a return-air grille (0.6 x 0.6, the group at its centre, facing down). */
+export function buildVent(g) {
+  rbox(0.6, 0.015, 0.6, 0.004, S('coolerBody'), 0, 0, 0, g);
+  rbox(0.5, 0.012, 0.5, 0.002, S('plasticBlack'), 0, -0.002, 0, g);
+  for (let i = -6; i <= 6; i++) rbox(0.008, 0.02, 0.5, 0.002, S('coolerBody'), i * 0.038, -0.006, 0, g).rotation.z = 0.5;
+}
+/** A smoke detector (a round puck, facing down). */
+export function buildSmokeDetector(g) {
+  g.add(lathe([[0, -0.035], [0.05, -0.035], [0.065, -0.025], [0.07, 0], [0, 0]], S('coolerBody'), 32));
+  cylinder(0.003, 0.003, 0.004, S('ledGreen'), 0.03, -0.036, 0, g, 8);
+}
+/** A sprinkler head (hanging from the ceiling). */
+export function buildSprinkler(g) {
+  cylinder(0.025, 0.025, 0.006, S('chrome'), 0, -0.003, 0, g, 20);
+  cylinder(0.006, 0.008, 0.03, S('brass'), 0, -0.02, 0, g, 10);
+  cylinder(0.016, 0.016, 0.003, S('brass'), 0, -0.037, 0, g, 16);
+}

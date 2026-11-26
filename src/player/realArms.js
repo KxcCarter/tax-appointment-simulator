@@ -35,6 +35,7 @@ export class RealArms {
     const model = SkeletonUtils.clone(gltf.scene);
     this.model = model;
     prepareModel(model, theme.look.realistic.tint?.player);
+    model.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.userData.noShadow = true; } }); // (a body-less pair of arms shouldn't cast one)
     camera.add(model);
     model.updateMatrixWorld(true);
     const bone = (n) => model.getObjectByName(n);
@@ -72,6 +73,7 @@ export class RealArms {
         sm.frustumCulled = false;
         sm.raycast = () => {};
         sm.visible = false;
+        sm.userData.noShadow = true;
         m.parent.add(sm);
         this.parts[key].push(sm);
       }
