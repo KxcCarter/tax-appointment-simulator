@@ -129,10 +129,16 @@ export class Director {
     return new Promise((resolve) => this.timers.push({ at: this.time + pick(seconds), resolve }));
   }
 
+  /** Does pressing E on `target` open the current beat's choices? (trigger.target: one name, or a list) */
+  targets(target) {
+    const beat = this.current;
+    return !!beat && beat.trigger?.type === 'interact' && [].concat(beat.trigger.target).includes(target);
+  }
+
   /** The player pressed E on something. Returns true if the director handled it. */
   interact(target) {
     const beat = this.current;
-    const isTarget = beat && beat.trigger?.type === 'interact' && beat.trigger.target === target;
+    const isTarget = this.targets(target);
     // After the last beat, the target stays "handled" (nothing happens) rather than falling through
     if (!isTarget) return this.data.targets?.includes(target) ?? false;
     if (this.busy || this.choosing || this.isBlocked()) return true;

@@ -1342,7 +1342,7 @@ function beatForm(i) {
   <label class="field"><span>Notes</span><textarea class="in note" rows="${rows(b.$note || '')}" data-p="${p}.$note" data-k="note" placeholder="Exported as a // comment above the beat">${esc(b.$note || '')}</textarea></label>
   <div class="row3">
     <label class="field"><span>Trigger</span><input class="in mono" list="dl-trig" data-p="${p}.trigger.type" data-k="str" value="${esc(trig.type ?? '')}"></label>
-    <label class="field"><span>Target</span><input class="in mono" list="dl-targets" data-p="${p}.trigger.target" data-k="str" value="${esc(trig.target ?? '')}"></label>
+    <label class="field"><span>Target</span><input class="in mono" list="dl-targets" data-p="${p}.trigger.target" data-k="targets" value="${esc([].concat(trig.target ?? '').join(', '))}" title="Whose [E] opens this beat's choices. Several, separated by commas (e.g. receptionist, reader)."></label>
     <label class="check"><input type="checkbox" data-p="${p}.autoOpen" data-k="flag"${b.autoOpen ? ' checked' : ''}><span>Opens by itself<small style="display:block">choices appear without talking first</small></span></label>
   </div>
   ${sec('When this beat opens', 'runs before the choices appear', actionList(p + '.onOpen', b.onOpen))}
@@ -1600,7 +1600,7 @@ function checks() {
       if ((o.advance || 'goto' in o)) { let jump = null; collect(o.actions, a => { if (a.do === 'goto') jump = a.beat; }); if (jump !== null) Wn(`Option ${n + 1} in “${id}” has a goto action (to “${jump}”), but the option's own ${o.advance ? 'advance' : '“Then”'} runs afterwards and wins. Set the option's “Then” instead.`, k); }
       if (!o.advance && !('goto' in o) && o.actions === undefined && o.response === undefined) Wn(`Option ${n + 1} in “${id}” does nothing when picked (no response, actions or next beat).`, k);
     });
-    if (isObj(b.trigger) && b.trigger.target && targets.length && !targets.includes(b.trigger.target)) Wn(`“${id}” is triggered by “${b.trigger.target}”, which isn't in the scene's targets.`, k);
+    if (isObj(b.trigger) && b.trigger.target && targets.length) [].concat(b.trigger.target).filter(t => !targets.includes(t)).forEach(t => Wn(`“${id}” is triggered by “${t}”, which isn't in the scene's targets.`, k));
     collect(b, o => {
       if (typeof o.do !== 'string') return;
       if (!(o.do in VOCAB.actions)) Wn(`“${id}” uses an action the game doesn't know: “${o.do}”.`, k);
@@ -1747,7 +1747,7 @@ async function ptRun(list, me) {
 }
 function ptTargets(me) {
   const t = new Set(arr(me.scene.targets));
-  Object.values(me.beats).forEach(b => b.trigger && b.trigger.target && t.add(b.trigger.target));
+  Object.values(me.beats).forEach(b => b.trigger && b.trigger.target && [].concat(b.trigger.target).forEach(x => t.add(x)));
   return [...t];
 }
 function ptTalk(target) {
@@ -1845,10 +1845,11 @@ function readVal(el) {
     case 'raw': return parseLiteral(v);
     case 'js': return { $js: v };
     case 'csv': return v.split(',').map(s => s.trim()).filter(Boolean);
+    case 'targets': { const l = v.split(',').map(s => s.trim()).filter(Boolean); return l.length > 1 ? l : (l[0] ?? ''); } // (one name, or a list)
   }
   return undefined;
 }
-const SIMPLE = new Set(['str', 'note', 'strOpt', 'nullable', 'flag', 'numx', 'raw', 'js', 'csv']);
+const SIMPLE = new Set(['str', 'note', 'strOpt', 'nullable', 'flag', 'numx', 'raw', 'js', 'csv', 'targets']);
 const editor = $('#editor');
 editor.addEventListener('input', e => {
   const el = e.target;

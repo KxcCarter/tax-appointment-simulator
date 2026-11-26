@@ -143,7 +143,7 @@ export function createBeatSkipper({ target, level, state, player, ui, sfx, confi
       const beat = director.current;
       const world = WORLD.find((w) => w.from === beat.id && w.when(state));
       if (world) director.runNow(world.sequence);
-      else if (beat.trigger?.type === 'interact') director.interact(beat.trigger.target);
+      else if (beat.trigger?.type === 'interact') director.interact([].concat(beat.trigger.target)[0]);
     },
   };
 
