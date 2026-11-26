@@ -14,9 +14,22 @@ theme.applyUi();
 
 const params = new URLSearchParams(location.search);
 const sfx = new Sfx();
+// Character style (owner): realistic models or the cartoon figures. The player picks it on the title screen (kept in
+// the browser); ?realistic=0 / ?realistic=1 in the URL override that.
+const STYLE_KEY = 'itas.characterStyle';
+const savedStyle = (() => { try { return localStorage.getItem(STYLE_KEY); } catch { return null; } })();
+const characterStyle = params.get('realistic') === '0' ? 'cartoon' : params.get('realistic') === '1' ? 'realistic' : savedStyle === 'cartoon' ? 'cartoon' : 'realistic';
 const ui = new UI(document.getElementById('ui'), {
   onBegin: begin,
   onResume: requestLock,
+  characterStyle,
+  styleFromUrl: params.has('realistic'),
+  // (the models load at startup: switching reloads the page, without the URL's own choice)
+  onCharacterStyle: (style) => {
+    try { localStorage.setItem(STYLE_KEY, style); } catch {}
+    const p = new URLSearchParams(location.search); p.delete('realistic');
+    location.href = location.pathname + (p.toString() ? '?' + p : '');
+  },
 });
 
 // ---------- renderer ----------
@@ -93,7 +106,7 @@ let skipper = null; // debug ?beat=: fast-forwarding to a beat
 async function boot() {
   // Debug: ?charstyle=soft previews a character style without editing theme.js
   if (params.get('charstyle')) theme.look.characterStyle = params.get('charstyle');
-  if (params.get('realistic') === '0') theme.look.realistic.enabled = false;
+  if (characterStyle === 'cartoon') theme.look.realistic.enabled = false;
   await Promise.all([initRapier(), loadCharacterModels()]);
   physics = new Physics();
   player = new PlayerController(physics, camera);

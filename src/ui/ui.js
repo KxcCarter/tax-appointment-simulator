@@ -51,6 +51,8 @@ export class UI {
       <div id="title" class="screen hidden">
         <h1 class="title">INCOME TAX APPOINTMENT SIMULATOR</h1>
         <div class="subtitle blink">Click to begin.</div>
+        <div class="style-pick" id="style-pick">CHARACTERS:
+          <button data-style="realistic">Realistic</button><button data-style="cartoon">Cartoon</button></div>
         <div class="controls">${CONTROLS}</div>
       </div>
 
@@ -65,6 +67,14 @@ export class UI {
     this.$ = (id) => root.querySelector('#' + id);
 
     this.$('title').addEventListener('click', () => handlers.onBegin());
+    // Realistic or cartoon characters (main.js; picking the other one reloads the game)
+    for (const b of this.$('style-pick').querySelectorAll('button')) {
+      b.classList.toggle('on', b.dataset.style === (handlers.characterStyle ?? 'realistic'));
+      b.addEventListener('click', (e) => {
+        e.stopPropagation(); // (not "click to begin")
+        if (b.dataset.style !== handlers.characterStyle || handlers.styleFromUrl) handlers.onCharacterStyle?.(b.dataset.style); // (the URL's choice isn't saved: saving it is a change)
+      });
+    }
     this.$('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); handlers.onResume(); });
     // Clicking anywhere on the pause backdrop also resumes
     this.$('pause').addEventListener('click', () => handlers.onResume());

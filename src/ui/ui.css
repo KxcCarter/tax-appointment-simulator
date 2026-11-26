@@ -208,3 +208,10 @@ html, body {
 #endcard .stats { color: var(--phosphor-dim); white-space: pre; font-size: 0.9rem; line-height: 1.6; }
 #fighthelp { position: absolute; right: 18px; bottom: 92px; white-space: pre; color: var(--phosphor-dim); background: var(--hud-bg);
   padding: 6px 10px; font-size: 0.78rem; line-height: 1.5; opacity: 0.85; }
+
+/* Title screen: realistic or cartoon characters */
+.style-pick { margin-top: 1.4rem; font-size: 0.9rem; color: var(--phosphor-dim); letter-spacing: 0.08em; }
+.style-pick button { font: inherit; color: var(--phosphor-dim); background: transparent; border: 1px solid var(--phosphor-dim);
+  padding: 3px 12px; margin-left: 8px; cursor: pointer; }
+.style-pick button:hover { background: var(--phosphor-hover); color: var(--phosphor); }
+.style-pick button.on { color: var(--phosphor); border-color: var(--phosphor); text-shadow: 0 0 6px var(--phosphor-glow); }
