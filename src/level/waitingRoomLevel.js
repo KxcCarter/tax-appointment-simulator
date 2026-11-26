@@ -129,8 +129,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   for (const n of npcs) {
     if (!n.conversation) continue;
     interaction.register(n.rig.root, {
-      prompt: () => (state.called || state.phase === 'brawl' || n.busyElsewhere || (state.foughtBack && !canBrushOff(n)) ? null : '[E] Talk'),
-      onInteract: () => (state.foughtBack ? brushOff(n) : n.conversation.interact(n.id)),
+      // (a scene line to them, e.g. the argument's "What time is your appointment?" to the reader, comes first)
+      prompt: () => (director.targets(n.id) ? '[E] Talk' : state.called || state.phase === 'brawl' || n.busyElsewhere || (state.foughtBack && !canBrushOff(n)) ? null : '[E] Talk'),
+      onInteract: () => (director.targets(n.id) ? director.interact(n.id) : state.foughtBack ? brushOff(n) : n.conversation.interact(n.id)),
     });
   }
 

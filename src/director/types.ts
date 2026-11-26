@@ -84,7 +84,7 @@ export interface Option {
 
 export interface Beat {
   id: string;
-  trigger: { type: 'interact'; target: string };
+  trigger: { type: 'interact'; target: string | string[] }; // whose [E] opens its choices (one, or several: e.g. the person the line is to)
   /** Choices open by themselves as soon as this beat becomes current. */
   autoOpen?: boolean;
   /** Actions run each time the choices open. */

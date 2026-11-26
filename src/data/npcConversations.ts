@@ -596,11 +596,8 @@ export const onlookers: Scene = {
     playerFoughtBack: [
       { do: 'wait', seconds: 0.5 },
       { do: 'say', who: 'reader', text: 'Oh my God.' },
-      gap,
       { do: 'say', who: 'cougher', text: 'He hit her.' },
-      gap,
       { do: 'say', who: 'watchChecker', text: 'She was listening to the radio.' },
-      gap,
       { do: 'say', who: 'jiggler', text: "What is wrong with you, man?" },
       {
         do: 'if', test: (state) => state.newcomerArrived,
@@ -608,6 +605,7 @@ export const onlookers: Scene = {
       },
       gap,
       { do: 'say', who: 'reader', text: 'Somebody do something.' },
+      { do: 'say', who: 'player', text: 'Did nobody see that she just assaulted me 3 times??' },
       { do: 'wait', seconds: 1.2 },
       // Without looking up from her solitaire
       { do: 'say', who: 'receptionist', text: "Sir, I'm going to have to ask you to calm down, please." },

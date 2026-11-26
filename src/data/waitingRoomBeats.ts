@@ -807,7 +807,7 @@ export const waitingRoomBeats: Scene = {
       autoOpen: true,
       options: [
         {
-          text: (state: GameState) => `I've been here for ${minutesHere(state)} minutes!`,
+          text: (state: GameState) => `I was on time! I've been here for ${minutesHere(state)} minutes!`,
           advance: true, // (always offered: it's the only way on; hiding it after the check-in plea left the beat empty)
         },
         pleaCheckIn,
@@ -849,7 +849,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_4',
-      trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
+      trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // (whose E reopens the choices if they're closed: her, or the reader it's asked of)
       autoOpen: true,
       options: [
         { text: 'What time is your appointment?', advance: true },
@@ -865,7 +865,7 @@ export const waitingRoomBeats: Scene = {
     },
     {
       id: 'argument_5',
-      trigger: { type: 'interact', target: 'receptionist' },
+      trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // ("Okay, well do you have a number?": to the reader too)
       autoOpen: true,
       options: [
         { text: 'Okay, well do you have a number?', advance: true },
@@ -882,7 +882,6 @@ export const waitingRoomBeats: Scene = {
         { do: 'anim', who: 'reader', name: 'slap', untilDone: true }, // across the face
         pause,
         { do: 'say', who: 'receptionist', text: 'Sir...' },
-        pause,
         { do: 'say', who: 'newcomer', text: 'Wow, dude, really?' },
       ],
       next: 'argument_6',
