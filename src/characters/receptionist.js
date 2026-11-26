@@ -4,6 +4,9 @@ import { theme, characterPalettes } from '../theme.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
 import { realBodyFor } from './realBody.js';
+import { Ragdoll } from './ragdoll.js';
+import { Damage } from './damage.js';
+import { RealDamage } from './realDamage.js';
 
 /*
   The receptionist. Sits behind the desk playing solitaire.
@@ -24,8 +27,9 @@ const T = config.timings.receptionistClicks;
 const rand = (a, b) => a + Math.random() * (b - a);
 
 export class Receptionist {
-  constructor(scene, anchors, sfx) {
+  constructor(scene, anchors, sfx, physics = null) {
     this.sfx = sfx;
+    this.physics = physics;
     const c = characterPalettes.receptionist;
     this.rig = buildRig({
       scale: config.characters.receptionist.scale,
@@ -68,6 +72,10 @@ export class Receptionist {
     this.pendingDouble = 0;
     this.press = 0;            // 0..1 hand dip for a click
     this.time = 0;
+    // Hit with the fire extinguisher (the only thing that can: config.brawl.receptionistHit): marks, and down she goes
+    this.down = false;
+    this.health = config.brawl.receptionistHit.health;
+    this.id = 'receptionist';
     this.mouseRest = this.mouse.position.clone();
 
     this.clipboard = anchors.clipboard;
@@ -227,6 +235,7 @@ export class Receptionist {
 
   /** Called by the director's 'anim' action. */
   play(name) {
+    if (this.down) return; // (out cold)
     // An expression set by the script ({ do: 'face' }) wins over the one each animation would pick
     const face = (auto) => this.face?.setExpression(this.scripted ?? auto);
     if (name === 'lookAtPlayer') { this.state = 'look'; face('unimpressed'); }
@@ -260,6 +269,37 @@ export class Receptionist {
   }
 
   /** Where her voice comes from. */
+  /**
+   * Hit (only ever with the fire extinguisher: the level only lists her as a target while the player holds one).
+   * Bruises and cuts like everyone else's; at 0 health she drops into a ragdoll, wherever she was.
+   */
+  takeHit(dir, { damage = 0, knock = 1, hit = null, source = 'weapon' } = {}) {
+    if (this.down) return;
+    if (!this.damage && this.physics) {
+      const c = characterPalettes.receptionist;
+      const look = { skin: c.skin, shirt: c.blouse, jacket: c.cardigan, trousers: c.skirt };
+      this.damage = this.realBody?.ok
+        ? new RealDamage({ realBody: this.realBody, rig: this.rig, look, physics: this.physics, scene: this.rig.root.parent })
+        : new Damage({ rig: this.rig, look, physics: this.physics, scene: this.rig.root.parent });
+    }
+    if (damage > 0) this.damage?.add({ hit, dir, knock, source });
+    this.health -= damage;
+    this.face?.setExpression('surprised', 3);
+    if (this.health <= 0) this._knockDown(dir, knock);
+  }
+
+  _knockDown(dir, knock = 1) {
+    this.down = true;
+    this.state = 'down';
+    if (this.walker) this.walker.steps = null; // (whatever she was doing: filming, walking to a better angle...)
+    this.filming = null;
+    this.rig.root.updateMatrixWorld(true);
+    this.ragdoll = new Ragdoll(this.physics, this.rig);
+    this.ragdoll.push(dir, config.ragdoll.hitImpulse * knock);
+    this.face?.setExpression({ lids: 1, brows: { angle: 0.2 }, mouth: { open: 0.35, width: 0.8 } }, 6);
+    this.onKnockedDown?.(this);
+  }
+
   voicePosition() {
     return this.rig.joints.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.15, 0));
   }
@@ -270,6 +310,7 @@ export class Receptionist {
   }
 
   update(dt, cameraPos) {
+    if (this.down) { this.ragdoll?.update(dt, (pos, strength) => this.sfx.bodyThud(pos, strength)); this.face?.update(dt); return; }
     this._update(dt, cameraPos);
     this.rig.jiggle(dt); // her belly, chest and double chin wobble (config.characters.jiggle)
   }

@@ -184,9 +184,14 @@ export const waitingRoomBeats: Scene = {
       id: 'reception_2',
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
-        { text: "I'm here for my appointment.", advance: true },
+        { text: "I'm here for my appointment.", aggression: 1, advance: true },
         { text: "Excuse me. I'm here for my appointment?", response: flat('Mmhmm.') },
-        { text: 'Hello?', actions: [{ do: 'face', who: 'receptionist', expression: 'annoyed' }], response: silence },
+        {
+          text: 'Hello?',
+          aggression: 1,
+          actions: [{ do: 'face', who: 'receptionist', expression: 'annoyed' }],
+          response: silence,
+        },
       ],
       lockedOptions: [],
       lockedResponse: [],
@@ -377,13 +382,21 @@ export const waitingRoomBeats: Scene = {
         {
           text: "I've been sitting there for ages. Can I at least check in?",
           goto: 'checkin_already',
-          actions: [{ do: 'wait', seconds: T.sideOptionPause }, ...askCheckedIn],
+          actions: [
+            { do: 'wait', seconds: T.sideOptionPause },
+            { do: 'say', who: 'receptionist', text: 'Did you check in already?' },
+            { do: 'set', key: 'checkInAsked', value: true },
+          ],
         },
         {
           text: "I'm not taking a number. I had an appointment. Check me in.",
           aggression: 2,
           goto: 'checkin_already',
-          actions: [{ do: 'wait', seconds: T.sideOptionPause }, ...askCheckedIn],
+          actions: [
+            { do: 'wait', seconds: T.sideOptionPause },
+            { do: 'say', who: 'receptionist', text: 'Did you check in already?' },
+            { do: 'set', key: 'checkInAsked', value: true },
+          ],
         },
         { text: '(Say nothing)', silent: true, response: [] },
       ],
@@ -594,6 +607,11 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: "You can't go to your appointment until you check in." },
           ],
         },
+        {
+          text: "I didn't know there was a check-in sheet.",
+          response: [{ do: 'say', who: 'receptionist', text: 'Everybody gotta sign the check-in sheet.' }],
+        },
+        { text: 'Why do I have to sign a check-in sheet if I have an appointment?', aggression: 2, response: [] },
       ],
       lockedOptions: [],
     },
@@ -609,6 +627,18 @@ export const waitingRoomBeats: Scene = {
             { do: 'wait', seconds: T.sideOptionPause },
             { do: 'say', who: 'receptionist', text: 'Gotta sign the sheet.' },
             { do: 'anim', who: 'receptionist', name: 'resumeSolitaire' }, // back to her game
+          ],
+        },
+        {
+          text: 'But the accountant is already expecting me.',
+          response: [
+            { do: 'say', who: 'receptionist', text: 'The what now?' },
+            { do: 'wait', seconds: 1 },
+            { do: 'say', who: 'player', text: 'The... guy who does the taxes?' },
+            { do: 'say', who: 'receptionist', text: "Why didn't you just say that?" },
+            { do: 'wait', seconds: 1 },
+            { do: 'say', who: 'receptionist', text: "This man over here usin' these fancy-ass words..." },
+            { do: 'say', who: 'receptionist', text: 'I just call him the Tax Man.' },
           ],
         },
       ],
@@ -715,7 +745,7 @@ export const waitingRoomBeats: Scene = {
         },
         // PROPOSAL (more-dialogue)
         {
-          text: 'Could I sign it in pencil?',
+          text: 'Do you have a pencil?',
           showIf: (state: GameState) => !state.asked['receptionist.pencil'], // asked once in the whole game
           response: [
             { do: 'set', key: 'asked', value: (state: GameState) => ({ ...state.asked, 'receptionist.pencil': true }) },
@@ -769,10 +799,14 @@ export const waitingRoomBeats: Scene = {
         },
         {
           text: "Are you telling me you don't have any pens in this entire office?",
-          showIf: (state: GameState) => state.askedForPen === true && !state.asked['receptionist.allPens'], // (once)
           aggression: 1,
+          showIf: (state: GameState) => state.askedForPen === true && !state.asked['receptionist.allPens'], // (once)
           response: [
-            { do: 'set', key: 'asked', value: (state: GameState) => ({ ...state.asked, 'receptionist.allPens': true }) },
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.allPens': true }),
+            },
             { do: 'say', who: 'receptionist', text: "It ain't my job to keep track of pens." },
             { do: 'say', who: 'player', text: "You're a receptionist. I'm pretty sure that's part of your job." },
           ],
@@ -1141,6 +1175,17 @@ export const waitingRoomBeats: Scene = {
             { do: 'emit', event: 'brawlStart' }, // the all-out brawl (waitingRoomLevel.js); she keeps filming
           ],
         },
+        { text: "I'm not calling you anything, buddy.", aggression: 1, response: [] },
+        {
+          text: "I wasn't even talking to you.",
+          aggression: 1,
+          response: [
+            { do: 'say', who: 'newcomer', text: "Oh, you think you're too good to talk to me, huh?" },
+            { do: 'say', who: 'player', text: "I didn't say that!" },
+            { do: 'say', who: 'newcomer', text: "But that's what you meant, right?" },
+            { do: 'say', who: 'player', text: "Hey, let's all just relax, okay?" },
+          ],
+        },
       ],
       lockedOptions: [],
       onAdvance: [],
@@ -1158,6 +1203,11 @@ export const waitingRoomBeats: Scene = {
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
             { do: 'say', who: 'receptionist', text: 'You can check-in online. What time is your appointment?' },
           ],
+        },
+        {
+          text: 'Yeah, I kind of figured that part out. ',
+          aggression: 2,
+          response: [{ do: 'say', who: 'player', text: "Don't let me interrupt your game." }],
         },
       ],
       lockedOptions: [],

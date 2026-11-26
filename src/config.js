@@ -83,6 +83,9 @@ export const config = {
     // ?brawl in the URL still jumps straight to it, for testing. true turns the other triggers back on.
     enabled: false,
     receptionistQuipEvery: [8, 14], // seconds between her comments while she films the brawl (brawlShouts.receptionist)
+    // The receptionist can be hit, but ONLY with the fire extinguisher (owner): anything else goes straight through her.
+    // health: out of the weapons' damage (config.weapons.extinguisher.damage is 65: one blow puts her down).
+    receptionistHit: { weapon: 'extinguisher', health: 60, countsAsKnockdown: true },
     // Her, filming the brawl (owner): bouncing with excitement, and now and then moving to a better angle
     // behind the counter (saying so: brawlShouts.receptionistMoving)
     receptionist: {

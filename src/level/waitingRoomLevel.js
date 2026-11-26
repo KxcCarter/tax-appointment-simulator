@@ -28,7 +28,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   let smashWanted = false;     // the argument is over: the newcomer goes for the clipboard
   let lastLine = null;         // the director's line being typed (who's talking, for the newcomer)
 
-  const receptionist = new Receptionist(scene, A, sfx);
+  const receptionist = new Receptionist(scene, A, sfx, physics);
   const actors = { receptionist };
 
   // --- the five people already waiting (fixed cast) ---
@@ -137,8 +137,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // --- receptionist ---
   interaction.register(receptionist.root, {
-    prompt: () => '[E] Talk',
-    onInteract: () => director.interact('receptionist'),
+    prompt: () => (receptionist.down ? null : '[E] Talk'), // (not while she's out cold: the fire extinguisher)
+    onInteract: () => { if (!receptionist.down) director.interact('receptionist'); },
   });
 
   // --- the check-in sheet on the counter (once she's slid it over) ---
@@ -252,7 +252,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   // --- the player's fists (from the radio war on; Milestone 4 extends this) ---
   const combat = new Combat({
     camera, player, sfx, physics, scene,
-    targets: () => npcs, // the downed too: hitting them makes them flop (combat.js)
+    // (the downed too: hitting them makes them flop, combat.js. The receptionist only with the fire extinguisher in
+    // hand: config.brawl.receptionistHit)
+    targets: () => (combat.held?.kind === config.brawl.receptionistHit.weapon ? [...npcs, receptionist] : npcs),
     onHit: (target) => {
       state.hitStop = config.combat.hitStop; // a tiny freeze on impact (main loop)
       // The first punch that lands on the sitter: everyone else is appalled, at the player
@@ -731,6 +733,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   // --- knockdowns: at config.brawl.knockdownsToOpen the accountant's door unlocks ---
   for (const n of npcs) { n.onKnockedDown = onKnockedDown; n.hitPlayer = hitPlayer; } // hitPlayer: scripted slaps and shoves
+  if (config.brawl.receptionistHit.countsAsKnockdown) receptionist.onKnockedDown = onKnockedDown; // (the fire extinguisher: config.brawl.receptionistHit)
   function onKnockedDown() {
     state.knockdowns++;
     if (state.knockdowns >= B.knockdownsToOpen && state.phase === 'brawl') {
@@ -738,14 +741,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       sfx.doorUnlock?.(A.accountantDoor.pivot.getWorldPosition(new THREE.Vector3()));
       ui.toast('Click.', 1.5);
       // The fight's over, as far as she's concerned: one last remark, then back to her chair and her phone
-      afterRemark = onlookerTalk.runActions([
+      if (!receptionist.down) afterRemark = onlookerTalk.runActions([
         { do: 'wait', seconds: 1.2 },
         { do: 'say', who: 'receptionist', text: brawlShouts.receptionistAfter },
         { do: 'wait', seconds: 0.6 },
       ]).then(() => receptionist.play('backToPhone'));
     }
     // Everyone's down (owner's line): after whatever she's saying, she lets him in
-    if (!allDownSaid && (state.phase === 'brawl' || state.phase === 'doorOpen') && npcs.every((n) => n.down)) {
+    if (!allDownSaid && !receptionist.down && (state.phase === 'brawl' || state.phase === 'doorOpen') && npcs.every((n) => n.down)) {
       allDownSaid = true;
       (async () => {
         await afterRemark; // ("Oooo, this boutta go viral!" first, if that's just started)
@@ -876,7 +879,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       // She films the whole thing on her phone, with little comments
       if (brawl.started && !ended && state.phase === 'brawl') {
         // Bouncing with excitement; now and then off to a better angle, saying so
-        if (receptionist.filmBrawl(dt)) {
+        if (!receptionist.down && receptionist.filmBrawl(dt)) {
           const M = brawlShouts.receptionistMoving;
           const text = M[movingIndex] ?? M[Math.floor(Math.random() * M.length)];
           movingIndex++;
@@ -886,7 +889,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
           }
         }
         receptionistQuip -= dt;
-        if (receptionistQuip <= 0 && !onlookerTalk.active && !onlookerTalk.talking && (brawl.quietFor ?? 0) >= config.brawl.shoutGap) {
+        if (receptionistQuip <= 0 && !receptionist.down && !onlookerTalk.active && !onlookerTalk.talking && (brawl.quietFor ?? 0) >= config.brawl.shoutGap) {
           const Q = config.brawl.receptionistQuipEvery;
           receptionistQuip = Q[0] + Math.random() * (Q[1] - Q[0]);
           const lines = brawlShouts.receptionist;
