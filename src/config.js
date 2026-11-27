@@ -66,6 +66,12 @@ export const config = {
     punchTime: 0.32,         // whole jab, out and back
     punchHitAt: 0.4,         // fraction of punchTime when the fist connects
     punchCooldown: 0.12,
+    // (owner) Faster fists in the brawl: punches take `speed` x as long, with this cooldown. A click in the last
+    // `queueFrom` share of a punch is kept for the next one (so mashing doesn't lose punches).
+    brawlFists: { speed: 0.7, cooldown: 0.03, queueFrom: 0.45 },
+    // (owner) Swung weapons are easier to land: a wider fan of rays across the crosshair, `extraReach` m more reach,
+    // and if they all miss, anyone standing within `cone` radians of straight ahead and within reach is hit anyway.
+    swingAssist: { spread: 0.32, extraReach: 0.3, cone: 0.6 },
     punchDamage: 25,         // people have config.brawl.health
     // Kick (right click or F): slower, longer reach, harder
     kick: { reach: 1.55, time: 0.44, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
@@ -610,11 +616,13 @@ export const config = {
     // the sitter get up when the script has them.) blocksExit: who ends up between the player and the door.
     closeIn: {
       stand: { jiggler: 0.3, gamer: 0.5, cougher: 0.6, sitter: 0.75 },
-      radius: [2.6, 1.3], speed: 0.9, blocksExit: 'jiggler', every: 1.2,
+      radius: [2.6, 1.3], speed: 0.55, blocksExit: 'jiggler', every: 2, // (owner: a little slower than it was)
       minDistance: 0.65,              // nobody (the newcomer in his face included) stands closer to him than this
     },
-    heartbeat: { from: 0.45, bpm: [70, 150], volume: [0.25, 0.75] },   // the player's heart (stops at the first blow)
-    breathing: { from: 0.55, perMinute: [16, 40], volume: [0.12, 0.45] }, // ...and his breathing
+    // The player's heart (stops at the first blow), and his breathing: they start `delay` s (game time) after the
+    // tension first reaches `from` (owner: they came in too soon)
+    heartbeat: { from: 0.45, delay: 25, bpm: [70, 150], volume: [0.25, 0.75] },
+    breathing: { from: 0.55, delay: 25, perMinute: [16, 40], volume: [0.12, 0.45] },
     shake: 0.12,                      // a shouted line (with a "!") shakes the camera this much x (0.5 + tension)
     walkFaster: 0.7,                  // scripted walks (marching over, shoving...) x (1 + this x tension)
   },
@@ -786,7 +794,9 @@ export const config = {
     // uses the female ones. gap: seconds before the same person grunts again. effortChance: how often a woman
     // yells as she attacks (only when nobody's talking). player: his grunt's volume; playerGap: s between them.
     vocals: { volume: 0.7, refDistance: 2, rolloff: 0.9, female: ['sitter', 'reader', 'receptionist'], gap: 0.4,
-      effortChance: 0.35, player: 0.55, playerGap: 0.5 },
+      effortChance: 0.35, player: 0.38, playerSoft: 0.32, playerHardFrom: 14, playerGap: 0.5 },
+    // (the player's grunt: a small one (hurt_male_quiet, at playerSoft) for a blow under playerHardFrom damage, e.g.
+    // a slap or a shove; player_hurt (at player) for harder ones)
     // The breathing loops (breathing_slow / breathing_fast): how loud, at the argument's / the brawl's heaviest
     breathingLoop: { argument: 0.35, brawl: 0.45 },
     sigh: { volume: 0.35, refDistance: 1.2, rolloff: 1.2 },

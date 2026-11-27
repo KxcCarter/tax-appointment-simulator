@@ -123,14 +123,33 @@ export class Combat {
     document.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !this.enabled || !this.player.canAct || this.player.seat) return;
       if (!document.pointerLockElement) return; // (a click that only captures the mouse isn't a punch)
+      // Late in a punch (or its cooldown): kept for when it's done (mashing doesn't lose punches)
+      if ((this.punch && this.punch.t / this._punchTime(this.punch) >= C().brawlFists.queueFrom) || (!this.punch && this.cooldown > 0 && !this.swing && !this.kick)) {
+        this.queued = { released: false };
+        return;
+      }
       if (this.punch || this.swing || this.kick || this.charging || this.cooldown > 0 || this.block > 0.3) return;
       this.charging = { t: 0 };
     });
-    document.addEventListener('mouseup', (e) => { if (e.button === 0) this._release(); });
+    document.addEventListener('mouseup', (e) => {
+      if (e.button !== 0) return;
+      if (this.queued && !this.charging) { this.queued.released = true; return; }
+      this._release();
+    });
     window.addEventListener('blur', () => { this.charging = null; });
     document.addEventListener('keydown', (e) => {
       if (e.code === 'KeyQ' && this.held && this.player.canAct) this.drop(true);
     });
+  }
+
+  /** In the brawl: faster fists (config.combat.brawlFists). */
+  get _brawling() {
+    return state.phase === 'brawl' || state.phase === 'doorOpen';
+  }
+
+  /** How long this punch takes. */
+  _punchTime(p) {
+    return C().punchTime * (p.mult?.slow ?? 1) * (this._brawling ? C().brawlFists.speed : 1);
   }
 
   /** How far wound up (0..1) after holding the button `t` s. */
@@ -264,13 +283,19 @@ export class Combat {
     const busy = this.punch || this.swing || this.kick || this.charging || this.grabbing || this.block > 0.5;
     this.restT = busy ? 0 : this.restT + dt;
     if (this.restT >= S.regenDelay) this.stamina = Math.min(S.max, this.stamina + S.regen * dt);
+    // A click kept from late in the last punch: now it's a press (and, if the button's already up, a tap)
+    if (this.queued && !this.punch && this.cooldown <= 0 && !this.swing && !this.kick && !this.charging) {
+      const q = this.queued;
+      this.queued = null;
+      if (this.enabled && !this.player.seat) { this.charging = { t: 0 }; if (q.released) this._release(); }
+    }
     const charge = this.charging ? this._chargeOf(this.charging.t) : 0;
 
     const jab = { 1: 0, [-1]: 0 };
     if (this.punch) {
       const p = this.punch;
       p.t += dt;
-      const u = p.t / (C().punchTime * p.mult.slow);
+      const u = p.t / this._punchTime(p);
       jab[p.side] = Math.sin(Math.min(1, u) * Math.PI);
       if (!p.hitDone && u >= C().punchHitAt) {
         p.hitDone = true;
@@ -278,7 +303,7 @@ export class Combat {
         this._resolveHit({ reach: C().punchReach, damage: C().punchDamage * (p.hook ? K.damage : 1) * m.damage,
           knock: (p.hook ? K.knock : 1) * m.knock, sound: heavy ? 'punchHeavy' : 'punch', source: 'fist' });
       }
-      if (u >= 1) { this.punch = null; this.cooldown = C().punchCooldown; }
+      if (u >= 1) { this.punch = null; this.cooldown = this._brawling ? C().brawlFists.cooldown : C().punchCooldown; }
     }
 
     // Guard: fists low in the corners; a jab drives one forward towards the crosshair.
@@ -459,16 +484,35 @@ export class Combat {
     const cam = this.camera;
     const list = this.targets();
     const roots = list.map((t) => t.rig.root);
+    const SA = C().swingAssist, swung = source === 'weapon';
+    if (swung) reach += SA.extraReach;
     this.raycaster.far = reach;
-    // A few rays around the crosshair, so a swing doesn't need pixel-perfect aim
+    // A few rays around the crosshair, so a swing doesn't need pixel-perfect aim (a swung weapon: a wide fan)
     let hit = null;
-    for (const [x, y] of [[0, 0], [0.12, 0], [-0.12, 0], [0, -0.12]]) {
+    const rays = swung
+      ? [-1, -0.5, 0, 0.5, 1].flatMap((x) => [0.1, 0, -0.15].map((y) => [x * SA.spread, y]))
+      : [[0, 0], [0.12, 0], [-0.12, 0], [0, -0.12]];
+    for (const [x, y] of rays) {
       this.raycaster.setFromCamera(new THREE.Vector2(x, y + aimY), cam);
       const hits = this.raycaster.intersectObjects(roots, true);
       if (hits.length && (!hit || hits[0].distance < hit.distance)) hit = hits[0];
     }
     const dir = new THREE.Vector3();
     cam.getWorldDirection(dir);
+    let assisted = null;
+    if (!hit && swung) {
+      // Still nothing: anyone standing near enough to straight ahead, within reach (the nearest)
+      const flat = dir.clone().setY(0).normalize();
+      let best = Infinity;
+      for (const t of list) {
+        if (t.down) continue;
+        const chest = t.rig.joints.spine.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.25, 0));
+        const to = chest.clone().sub(cam.position), d = Math.hypot(to.x, to.z);
+        if (d > reach || d < 0.05) continue;
+        const ang = Math.acos(THREE.MathUtils.clamp(to.setY(0).normalize().dot(flat), -1, 1));
+        if (ang <= SA.cone && d < best) { best = d; assisted = t; hit = { point: chest, distance: d, object: null }; }
+      }
+    }
     // Glass in the way (nearer than anyone it would hit): it breaks
     const glass = this.breakables();
     if (glass.length) {
@@ -486,7 +530,11 @@ export class Combat {
       }
     }
     if (!hit) { if (!(source === 'weapon' && this.held?.def.swingSound)) this.sfx.whoosh(); return; } // (the bat swished already)
-    const target = list.find((t) => t.rig.root === hit.object.userData.rigRoot);
+    // Whose body that was: up from the mesh hit to a person's root (marks, torn cloth and the like aren't tagged)
+    let o = hit.object;
+    while (o && !roots.includes(o) && !o.userData?.rigRoot) o = o.parent;
+    const root = o?.userData?.rigRoot ?? o;
+    const target = assisted ?? list.find((t) => t.rig.root === root);
     if (!target) return;
     if (target.down) {
       // Already down: no damage, but the body flops

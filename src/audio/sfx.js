@@ -490,11 +490,13 @@ export class Sfx {
     return !!this._play(name, V.volume * volume * rand(0.9, 1.1), position, V);
   }
 
-  /** The player grunting as a blow gets through. */
-  playerHurt() {
+  /** The player grunting as a blow gets through: a small grunt, or (hard) a hard one. */
+  playerHurt(hard = false) {
     if (!this.ctx || this.ctx.currentTime < (this._hurtUntil ?? 0)) return;
     this._hurtUntil = this.ctx.currentTime + A.vocals.playerGap;
-    this._play('player_hurt', A.vocals.player * rand(0.85, 1.05), null);
+    const V = A.vocals;
+    if (!hard && this._play('hurt_male_quiet', V.playerSoft * rand(0.85, 1.05), null)) return;
+    this._play('player_hurt', V.player * rand(0.85, 1.05), null);
   }
 
   /** Someone slammed into a wall or the furniture (grab.js). Returns false if there's no recording. */

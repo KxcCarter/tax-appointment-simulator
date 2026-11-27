@@ -296,7 +296,8 @@ export const waitingRoomBeats: Scene = {
       trigger: { type: 'interact', target: 'receptionist' },
       options: [
         {
-          text: 'Sorry, I have an appointment at 2.',
+          // (owner) Once it's 2:00, it's not "an appointment at 2" any more: it's now
+          text: (state: GameState) => (beforeAppointment(state) ? 'Sorry, I have an appointment at 2.' : "It's time for my appointment."),
           goto: 'what_time',
           actions: [
             { do: 'wait', seconds: T.beat3PauseBeforeLine },
@@ -369,6 +370,22 @@ export const waitingRoomBeats: Scene = {
               ],
             },
             { do: 'set', key: 'playerToldTime', value: true },
+          ],
+        },
+        {
+          // (owner) Past 2:00, he's had enough. Rude; once in the whole game; it doesn't get him anywhere: she asks
+          // again, and he still has to tell her the time
+          text: 'Are you kidding me right now?',
+          aggression: 2,
+          showIf: (state: GameState) => !beforeAppointment(state) && !state.asked['receptionist.kidding'],
+          response: [
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.kidding': true }),
+            },
+            { do: 'wait', seconds: T.beat3PauseBeforeLine },
+            { do: 'say', who: 'receptionist', text: 'What time is it now?' },
           ],
         },
       ],
@@ -608,7 +625,10 @@ export const waitingRoomBeats: Scene = {
         },
       ],
       lockedOptions: [],
-      lockedResponse: [{ do: 'say', who: 'receptionist', text: 'Hold up, momma gotta start a new game...' }],
+      lockedResponse: [
+        { do: 'say', who: 'receptionist', text: 'Hold up, momma gotta start a new game...' },
+        { do: 'say', who: 'player', text: 'Oh, well, by all means, please.' },
+      ],
     },
     {
       id: 'checkin_sheet',
@@ -874,20 +894,6 @@ export const waitingRoomBeats: Scene = {
               ],
             },
             { do: 'set', key: 'askedForPen', value: true },
-          ],
-        },
-        {
-          text: "Are you telling me you don't have any pens in this entire office?",
-          aggression: 1,
-          showIf: (state: GameState) => state.askedForPen === true && !state.asked['receptionist.allPens'], // (once)
-          response: [
-            {
-              do: 'set',
-              key: 'asked',
-              value: (state: GameState) => ({ ...state.asked, 'receptionist.allPens': true }),
-            },
-            { do: 'say', who: 'receptionist', text: "It ain't my job to keep track of pens." },
-            { do: 'say', who: 'player', text: "You're a receptionist. I'm pretty sure that's part of your job." },
           ],
         },
       ],
@@ -1328,6 +1334,21 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'receptionist', text: 'You can check-in online. What time is your appointment?' },
           ],
         },
+        // (owner: moved here from pen_borrow)
+        {
+          text: "Are you telling me you don't have any pens in this entire office?",
+          aggression: 1,
+          showIf: (state: GameState) => state.askedForPen === true && !state.asked['receptionist.allPens'], // (once)
+          response: [
+            {
+              do: 'set',
+              key: 'asked',
+              value: (state: GameState) => ({ ...state.asked, 'receptionist.allPens': true }),
+            },
+            { do: 'say', who: 'receptionist', text: "It ain't my job to keep track of pens." },
+            { do: 'say', who: 'player', text: "You're a receptionist. I'm pretty sure that's part of your job." },
+          ],
+        },
         {
           text: 'Yeah, I kind of figured that part out. ',
           aggression: 2,
@@ -1375,8 +1396,15 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'player', text: ['Of course...', '*sigh*', 'Here we go...'] },
           ],
         },
-        // // CLAUDE: adjust this so that the number of minutes stated in the dialogue are the number of minutes past 2:00
-        { text: 'It was supposed to start {n} minutes ago', response: [] },
+        {
+          // How many minutes past 2:00 it is by the wall clock (shown once it's at least a minute past)
+          text: (state: GameState) => {
+            const m = clockMinute(state) - apptMinute;
+            return `It was supposed to start ${m} minute${m === 1 ? '' : 's'} ago.`;
+          },
+          showIf: (state: GameState) => clockMinute(state) - apptMinute >= 1,
+          response: [],
+        },
       ],
       lockedOptions: [],
     },

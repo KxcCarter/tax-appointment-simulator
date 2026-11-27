@@ -229,7 +229,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   }
 
   // The room closing in: people get up one by one and stand round him, closer and closer; seated ones stare
-  let closeInT = 0, freeBirdVolT = 0, heartT = 0, breathT = 0, breathOut = false;
+  let closeInT = 0, freeBirdVolT = 0, heartT = 0, breathT = 0, breathOut = false, heartFrom = null, breathFrom = null;
   function closeIn(dt) {
     const C = AR.closeIn;
     if ((closeInT -= dt) > 0) return;
@@ -278,9 +278,10 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         if (!s || s === n || s.down || s.brawling || !s.walker.active || fighting() || arguing()) return null;
         return herChest(s);
       };
-      // The women yell now and then as they attack (effort_female), when nobody's talking
+      // The women yell now and then as they attack (effort_female), when nobody's talking: in the brawl only
+      // (owner: not the radio war)
       if (config.audio.vocals.female.includes(n.id)) n.onAttackStart = (kind) => {
-        if (kind === 'throw' || Math.random() > config.audio.vocals.effortChance) return;
+        if (!fighting() || kind === 'throw' || Math.random() > config.audio.vocals.effortChance) return;
         if (director.talking || onlookerTalk.talking || onlookerTalk.active) return;
         sfx.vocal('effort_female', n.voicePosition());
       };
@@ -334,16 +335,21 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     }
     closeIn(dt);
     const H = AR.heartbeat, Br = AR.breathing, t = state.tension;
-    if (t >= H.from && (heartT -= dt) <= 0) {
+    // Each starts `delay` s after the tension first gets to its `from`
+    if (t >= H.from) heartFrom ??= state.playTime;
+    if (t >= Br.from) breathFrom ??= state.playTime;
+    const heartOn = heartFrom != null && state.playTime - heartFrom >= (H.delay ?? 0);
+    const breathOn = breathFrom != null && state.playTime - breathFrom >= (Br.delay ?? 0);
+    if (heartOn && (heartT -= dt) <= 0) {
       const k = (t - H.from) / (1 - H.from);
       heartT = 60 / lerp(H.bpm[0], H.bpm[1], k);
       sfx.heartbeat(lerp(H.volume[0], H.volume[1], k), k);
     }
-    if (t >= Br.from && sfx.hasBreathingLoops) {
+    if (breathOn && sfx.hasBreathingLoops) {
       // Recorded: the loops, steady to panting (every frame: sfx.breathingLoop, in update)
       const k = (t - Br.from) / (1 - Br.from);
       breathWant = { level: k, volume: config.audio.breathingLoop.argument * lerp(0.4, 1, k) };
-    } else if (t >= Br.from && (breathT -= dt) <= 0) {
+    } else if (breathOn && (breathT -= dt) <= 0) {
       const k = (t - Br.from) / (1 - Br.from), cycle = 60 / lerp(Br.perMinute[0], Br.perMinute[1], k);
       breathOut = !breathOut;
       breathT = cycle / 2;
@@ -512,7 +518,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     player.knock(dir, def.knock, def.shake);
     sfx.hit(def.sound, camera.position);
     hurtPlayer(def.damage ?? 0, who);
-    if ((def.damage ?? 0) > 0) sfx.playerHurt(); // (a grunt)
+    if ((def.damage ?? 0) > 0) sfx.playerHurt(def.damage >= config.audio.vocals.playerHardFrom); // (a grunt: a hard one for a hard blow)
   }
 
   /** One of the sitter's radio-war blows. */
