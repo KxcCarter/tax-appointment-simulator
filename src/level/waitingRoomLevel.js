@@ -234,7 +234,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     const C = AR.closeIn;
     if ((closeInT -= dt) > 0) return;
     closeInT = C.every;
-    const me = camera.position, R = lerp(C.radius[0], C.radius[1], state.tension);
+    const k = THREE.MathUtils.clamp((state.tension - (C.from ?? 0)) / (1 - (C.from ?? 0)), 0, 1);
+    const me = camera.position, R = lerp(C.radius[0], C.radius[1], Math.pow(k, C.curve ?? 1));
     const door = A.entrance?.threshold ?? new THREE.Vector3(0, 0, 5);
     const bd = config.brawl.bounds;
     for (const n of npcs) {
@@ -291,6 +292,20 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         return herChest(s);
       };
     }
+  }
+
+  /** The player shouting in the brawl (owner; brawlShouts.player): in order, then at random; never over anyone. */
+  let playerShoutT = 4, lastPlayerShout = -99, playerShoutI = 0;
+  function playerShout() {
+    const PS = config.brawl.playerShouts, L = brawlShouts.player ?? [];
+    if (!L.length || !fighting() || ended || state.playerHealth <= 0) return false;
+    if (onlookerTalk.talking || onlookerTalk.active || (brawl.quietFor ?? 0) < config.brawl.shoutGap) return false;
+    if (state.playTime - lastPlayerShout < PS.gap) return false;
+    lastPlayerShout = state.playTime;
+    const text = playerShoutI < L.length ? L[playerShoutI++] : L[Math.floor(Math.random() * L.length)];
+    onlookerTalk.runActions([{ do: 'say', who: 'player', text }]);
+    brawl.quietFor = 0; // (the others wait their turn after him)
+    return true;
   }
 
   /** Out of breath in the brawl (owner): the view rises and falls with his breathing (sounds: sfx.brawlBreath). */
@@ -519,6 +534,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     sfx.hit(def.sound, camera.position);
     hurtPlayer(def.damage ?? 0, who);
     if ((def.damage ?? 0) > 0) sfx.playerHurt(def.damage >= config.audio.vocals.playerHardFrom); // (a grunt: a hard one for a hard blow)
+    if (fighting() && Math.random() < config.brawl.playerShouts.onHitChance) setTimeout(playerShout, 500); // (after the grunt)
   }
 
   /** One of the sitter's radio-war blows. */
@@ -556,7 +572,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   /** Where the song should be now: `target` s in at the brawl. */
   const freeBirdShouldBe = (buf) => THREE.MathUtils.clamp(config.radio.freeBird.target - Math.max(0, toBrawl()), 0, buf.duration - 1);
   function freeBirdSync() {
-    if (freeBirdAt == null || !sfx.ctx) return;
+    if (freeBirdAt == null || !sfx.ctx || !config.radio.freeBird.resync) return; // (off: it just plays)
     freeBirdSyncAt = sfx.ctx.currentTime;
     if (!freeBirdOn || !state.radioOn || !radioBuffer) return; // (not on yet: it'll start in the right place)
     const should = freeBirdShouldBe(radioBuffer), is = sfx.ctx.currentTime - stationStart;
@@ -1189,6 +1205,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
       grab.update(dt);
+      // (the player's brawl lines; not fighting(): a local of that name shadows it in here)
+      if ((state.phase === 'brawl' || state.phase === 'doorOpen') && (playerShoutT -= dt) <= 0) {
+        // (someone talking: try again in half a second, not a whole interval later)
+        if (playerShout()) { const E = config.brawl.playerShouts.every; playerShoutT = E[0] + Math.random() * (E[1] - E[0]); } else playerShoutT = 0.5;
+      }
       checkTrespass(dt);
       checkEyesUp(dt);
       overhear(dt);

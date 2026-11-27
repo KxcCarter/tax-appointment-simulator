@@ -590,6 +590,7 @@ export const onlookers: Scene = {
     gamer: { name: 'MAN WITH CHIPS', pitch: 95, actor: 'gamer' }, // (brawl shouts; no lines of his own yet)
     voice: { name: 'VOICE BEHIND THE DOOR', pitch: 110 },
     receptionist: { name: 'RECEPTIONIST', pitch: config.characters.receptionist.voicePitch, actor: 'receptionist' },
+    player: { name: 'YOU', pitch: config.characters.playerVoicePitch }, // (his lines in the brawl: brawlShouts.player)
   },
   beats: [],
   sequences: {
@@ -646,7 +647,7 @@ export const eyesUp: { text: string; pose: string; expression: string }[] = [
   { text: 'This man a perv!', pose: 'pointAt', expression: 'angry' },
 ];
 
-export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistSlap: string; receptionistAfter: string; receptionistAllDown: string; friendlyFire: string[]; byPerson: Record<string, string[]> } = {
+export const brawlShouts: { opening: string[]; called: string[]; again: string[]; anytime: string[]; receptionist: string[]; receptionistMoving: string[]; receptionistSlap: string; receptionistAfter: string; receptionistAllDown: string; friendlyFire: string[]; byPerson: Record<string, string[]>; player: string[] } = {
   opening: [
     'Yeah! Get that jerk!',
     'Smash his face in!',
@@ -695,6 +696,14 @@ export const brawlShouts: { opening: string[]; called: string[]; again: string[]
     'Mmm, from over here. Yes.',                // PROPOSAL
     "Y'all are going viral.", 
     "Oh Lawd he violent!!",                  // PROPOSAL
+  ],
+  // The player, in the brawl (owner): now and then, and sometimes when a blow gets through (config.brawl.playerShouts)
+  player: [
+    'Get away from me!!',
+    'Stay away!',
+    'What is wrong with you people?!',
+    'You people are crazy!!',
+    'I was just trying to do my taxes!!',
   ],
   // The receptionist, when the fight is over (the door unlocks); then she sits down and watches it back (owner's line)
   receptionistAfter: 'Oooo, this boutta go viral!',

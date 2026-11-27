@@ -1267,10 +1267,16 @@ export const waitingRoomBeats: Scene = {
             { do: 'anim', who: 'cougher', name: 'standUp', untilDone: true },
             { do: 'say', who: 'cougher', text: 'The man asked you a question, boy!' },
             { do: 'say', who: 'player', text: "You've got to be kidding me." },
-            // Shove after shove
-            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
-            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
-            { do: 'anim', who: 'newcomer', name: 'shove', untilDone: true },
+            // Shove after shove (owner: no dead air): he keeps coming, and the player backs off talking all the way
+            { do: 'anim', who: 'newcomer', name: 'shove' },
+            { do: 'say', who: 'player', text: 'Get away from me!' },
+            { do: 'await', who: 'newcomer' },
+            { do: 'anim', who: 'newcomer', name: 'shove' },
+            { do: 'say', who: 'player', text: 'Stay away!' },
+            { do: 'await', who: 'newcomer' },
+            { do: 'anim', who: 'newcomer', name: 'shove' },
+            { do: 'say', who: 'player', text: "Let's just calm down, okay?" },
+            { do: 'await', who: 'newcomer' },
             { do: 'emit', event: 'freeBirdSync' }, // (from here to the brawl it's all lines: Free Bird checks it's on time)
             { do: 'anim', who: 'newcomer', name: 'shove' }, // still at it while she talks
             { do: 'face', who: 'receptionist', expression: 'pleased' },

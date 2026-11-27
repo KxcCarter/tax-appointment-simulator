@@ -53,6 +53,13 @@ export const VOICES = {
   newcomer: { voiceId: 'Cx1u6YPIa1SPiAbYj3gJ' }, // the man in the trench coat (848)
   watchChecker: { voiceId: '3y1FmEGNzXJhlyyCO6Kr' }, // the man in the suit, with the briefcase and the watch
   reader: { voiceId: 'ejl43bbp2vjkAFGSmAMa' },   // the woman with the magazine
+  // The player (owner): "Brian - Midwestern Voice". Says his scripted lines and every dialogue choice he picks
+  // (not the silent ones, nor stage directions in brackets like "(Clear your throat)")
+  player: {
+    voiceId: 'oOxgWK7hYRcDqjiZMSoX',
+    model: 'eleven_v4',
+    settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
+  },
 };
 // (anyone without their own model / settings gets these)
 const DEFAULT_VOICE = { model: 'eleven_multilingual_v2', settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true } };
@@ -98,7 +105,7 @@ function requestFor(who, text) {
 }
 
 // ---- Lines whose text depends on the game ----
-const clockAt = (h, m) => ((h % 12) * 60 + m) * 60 + 12 * 3600; // state.clockTime for h:mm PM
+const clockAt = (h, m) => ((h % 12) * 60 + m) * 60; // state.clockTime for h:mm (the game counts from 12:00: config.clock.startHour 1 = 1:55)
 const times = (from, to) => { const out = []; for (let m = from; m <= to; m++) out.push(clockAt(1, 0) + (m - 60) * 60); return out; };
 const minutes = (h, m) => h * 60 + m; // 1:55 -> 115
 const EXPAND = [
@@ -150,7 +157,7 @@ async function collect() {
   const seen = new Set();
   const addText = (who, text) => {
     if (!found[who]) return;
-    if (typeof text === 'string') { if (/[A-Za-z0-9]/.test(text)) found[who].add(text); } // ("..." stays blips)
+    if (typeof text === 'string') { if (/[A-Za-z0-9]/.test(text) && !(who === 'player' && /^\(/.test(text.trim()))) found[who].add(text); } // ("..." stays blips; "(Say nothing)" isn't said)
     else if (Array.isArray(text)) text.forEach((t) => addText(who, t));
     else if (typeof text === 'function') {
       // try it at every likely time on the clock; keep the times this line can be said at
@@ -171,6 +178,9 @@ async function collect() {
     if (!o || typeof o !== 'object' || seen.has(o)) return;
     seen.add(o);
     if (typeof o.who === 'string' && 'text' in o) addText(o.who, o.text);
+    // The player's dialogue choices (said when picked: director.js), and his small-talk questions
+    if (Array.isArray(o.options)) for (const opt of o.options) if (opt && !opt.silent && 'text' in opt) addText('player', opt.text);
+    if (typeof o.ask === 'string') addText('player', o.ask);
     for (const v of Object.values(o)) walk(v);
   };
   walk(beats);
@@ -181,7 +191,7 @@ async function collect() {
   addText('receptionist', [...B.receptionist, ...B.receptionistMoving, B.receptionistAfter, B.receptionistAllDown, ...remarks.trespassLines]);
   // Brawl shouts go to whoever's standing (src/level/brawl.js), so everyone with a voice says them all
   for (const who of Object.keys(VOICES)) {
-    if (who === 'receptionist') continue;
+    if (who === 'receptionist' || who === 'player') continue;
     const shouts = [...B.opening, ...B.called, ...(B.again ?? []), ...B.anytime, ...B.friendlyFire, ...(B.byPerson?.[who] ?? [])];
     // (a shout that's also said outside the brawl shares its recording: it's angry there too)
     const shared = shouts.filter((t) => found[who].has(t));
@@ -190,6 +200,8 @@ async function collect() {
     addText(who, shouts);
     addText(who, convo.people?.[who]?.radioComplaints ?? []);
   }
+  // The player's lines in the brawl
+  addText('player', B.player ?? []);
   // Brushing him off after he hit the woman in red
   for (const [who, list] of Object.entries(convo.appalledReplies ?? {})) addText(who, list);
   // The sitter, caught being looked at (config.npc.eyesUp)

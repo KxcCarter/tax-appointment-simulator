@@ -178,6 +178,12 @@ export const config = {
     // round after round. Everyone else keeps their distance (hangBack) and throws things or shouts.
     // When a close fighter goes down, the nearest of the others moves in to take their place.
     maxAttackers: 2,
+    throwers: 1,                 // (owner) of the rest, this many fetch things and throw them; everyone else stands by
+    engageDistance: 1.7,         // walk this close to someone standing by and they're in (the furthest fighter drops back)
+    swapCooldown: 1.5,           // seconds between those swaps
+    // (owner) The player in the brawl (brawlShouts.player): a line every `every` s, and sometimes (onHitChance) when a
+    // blow gets through; never over anyone else, never within `gap` s of his last
+    playerShouts: { every: [7, 12], onHitChance: 0.45, gap: 3.5 },
     closeRest: [0.5, 1.3],       // seconds a close fighter catches their breath (in their stance) between attacks
     flankAngle: 1.9,             // radians between the two attackers' angles of approach (~110 degrees)
     speed: 2.7,                  // walking speed multiplier while fighting (x config.npc.walk.speed)
@@ -602,7 +608,7 @@ export const config = {
     // to be `target` seconds in when the brawl starts (expectedToBrawl: seconds from the emit to the brawl, measured).
     // `yellAfter` seconds after the station changes he yells "Free bird!! Wooo!" (at the next gap in the talking).
     freeBird: {
-      file: new URL('./audio/free_bird.wav', import.meta.url).href,
+      file: new URL('./audio/free_bird.mp3', import.meta.url).href,
       who: 'watchChecker',
       target: 58,
       expectedToBrawl: 46.6,    // (measured with the recorded voices and the argument's pacing: his line to "Get him!!")
@@ -611,12 +617,14 @@ export const config = {
       // place. (The shoves take as long as his walks to the player: that's what makes the scene's length vary.)
       syncToBrawl: 24.6,        // (measured: that emit to "Get him!!")
       syncSlack: 2,
-      volumeAtBrawl: 0.85,      // it swells from `volume` (background) to this once she's said she found the pens...
-      volumeBeforePens: 0.5,    // ...and not above this before then (owner: that line mustn't be missed)
-      duckForPens: 0.3,         // while she says it ({ do: 'emit', event: 'freeBirdDuck' } / 'freeBirdUp')
+      resync: false,            // (owner, for now) false: once it's on it just plays (no putting it back in time)
+      // (owner: much softer under the talking; louder once the punches fly, but still in the background)
+      volumeAtBrawl: 0.42,      // it swells from `volume` (background) to this once she's said she found the pens...
+      volumeBeforePens: 0.16,   // ...and not above this before then (owner: that line mustn't be missed)
+      duckForPens: 0.08,        // while she says it ({ do: 'emit', event: 'freeBirdDuck' } / 'freeBirdUp')
       crossfade: 0.6,           // seconds: put back in time (freeBirdSync) by crossfading, not cutting out
       yellAfter: 25,            // (his yell: sequence freeBirdYell in waitingRoomBeats.ts)
-      volume: 0.3,              // (a little louder than the soft station: he turned it up)
+      volume: 0.1,              // when he puts it on (soft: the talking comes first)
       hurry: 3,                 // how fast he goes (as an angry person's errand: config.npc.anger)
     },
   },
@@ -633,8 +641,10 @@ export const config = {
     // (The man with the watch stays seated, staring, until he goes to put on Free Bird; the reader, the newcomer and
     // the sitter get up when the script has them.) blocksExit: who ends up between the player and the door.
     closeIn: {
-      stand: { jiggler: 0.3, gamer: 0.5, cougher: 0.6, sitter: 0.75 },
-      radius: [2.6, 1.3], speed: 0.55, blocksExit: 'jiggler', every: 2, // (owner: a little slower than it was)
+      // (owner: more gradual) they get up later, start further off, and close in slowly at first: the radius goes
+      // from radius[0] to radius[1] as the tension goes from `from` to 1, along a curve (curve > 1: slow, then faster)
+      stand: { jiggler: 0.55, gamer: 0.7, cougher: 0.8, sitter: 0.88 },
+      radius: [3.3, 1.4], from: 0.55, curve: 1.8, speed: 0.55, blocksExit: 'jiggler', every: 2,
       minDistance: 0.65,              // nobody (the newcomer in his face included) stands closer to him than this
     },
     // The player's heart (stops at the first blow), and his breathing: they start `delay` s (game time) after the

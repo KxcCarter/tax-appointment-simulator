@@ -48,6 +48,7 @@ export type SoundName =
 export type Action =
   | { do: 'say'; who: string; text: Live<string> | Live<string>[]; vary?: 'order' | 'random' | 'any' | 'cycle'; cut?: Seconds } // cut: the next action starts after this long (talking over each other)
   | { do: 'anim'; who: string; name: ReceptionistAnim | NpcAnim; duration?: number; untilDone?: boolean }
+  | { do: 'await'; who: string } // wait for the move `who` was last given (an anim without untilDone, while lines are said)
   | { do: 'notice'; text: string; seconds?: number }
   | { do: 'wait'; seconds: Seconds }
   | { do: 'setPhase'; phase: Phase }

@@ -14,6 +14,11 @@ import { acrobatics } from '../theme.js';
                   stance (bouncing from foot to foot) or cheering
     throwing:     (sometimes, instead of hanging back) fetch something nearby, step out, throw it at him
   Only config.brawl.maxAttackers attack at once; the rest hang back and shout.
+
+  Roles (owner): 2 close fighters (maxAttackers), 1 thrower (throwers: fetches things and throws them, round after
+  round), everyone else on standby: a few metres back in their fighting stance, bouncing, now and then cheering.
+  One goes down: the nearest on standby takes their place. The player walks up to someone on standby (within
+  engageDistance): they're in, and the close fighter furthest from him drops back to standby (swapCooldown).
 */
 
 const B = () => config.brawl;
@@ -38,8 +43,57 @@ export class Brawl {
     this.shouts = shouts;
     this.started = false;
     this.attackers = new Set();
+    this.thrower = null;
+    this.swapT = 0;
     this.fighters = [];
     this.time = 0;
+  }
+
+  /** Stop what they're doing (after the move they're in the middle of) and take their next round from plan(). */
+  _replan(n) {
+    const w = n.walker, cur = w.current;
+    if (!w.steps || n.carrying) return;
+    w.steps.length = w.i + 1;
+    if (!cur || ['attack', 'leap', 'reach', 'getUp', 'rise'].includes(cur.type)) return; // (finishes it first)
+    w._next();
+  }
+
+  /** How far someone is from the player (on the floor). */
+  _dist(n) {
+    const p = this.camera.position, at = n.walker.pos ?? n.rig.root.position;
+    return Math.hypot(at.x - p.x, at.z - p.z);
+  }
+
+  /** The thrower: whoever's furthest back of those on standby (when there's none, or ours went down). */
+  _fillThrower() {
+    if (this.thrower && (this.thrower.down || !this.fighters.includes(this.thrower))) this.thrower = null;
+    if (this.thrower || !(B().throwers > 0) || !this.throws) return;
+    const standby = this.fighters.filter((n) => !n.down && !this.attackers.has(n));
+    this.thrower = standby.sort((a, b) => this._dist(b) - this._dist(a))[0] ?? null;
+  }
+
+  /**
+   * The player walked up to someone on standby: they're in, and the close fighter furthest from him drops back
+   * (not in the middle of a blow; not more often than swapCooldown).
+   */
+  _engageNearby(dt) {
+    if ((this.swapT -= dt) > 0) return;
+    const E = B().engageDistance;
+    const near = this.fighters
+      .filter((n) => !n.down && !this.attackers.has(n) && n !== this.thrower && !n.carrying && n.walker.active && this._dist(n) < E)
+      .sort((a, b) => this._dist(a) - this._dist(b))[0];
+    if (!near) return;
+    if (this.attackers.size >= B().maxAttackers) {
+      const out = [...this.attackers].sort((a, b) => this._dist(b) - this._dist(a))[0];
+      if (!out || out.walker.current?.type === 'attack' || this._dist(out) < this._dist(near) + 0.3) return;
+      this.attackers.delete(out);
+      out.angle = undefined;
+      this._replan(out);
+    }
+    this.attackers.add(near);
+    near.angle = this._attackAngle(near);
+    this._replan(near);
+    this.swapT = B().swapCooldown;
   }
 
   /** Everyone still standing joins in. `instigator` is already fighting. */
@@ -65,6 +119,7 @@ export class Brawl {
   reset() {
     this.started = false;
     this.attackers.clear();
+    this.thrower = null;
     this.queue = [];
   }
 
@@ -75,6 +130,7 @@ export class Brawl {
   restart() {
     this.started = false;
     this.attackers.clear();
+    this.thrower = null;
     for (const n of this.npcs()) n.angle = undefined;
     this.start(null, this.shouts.again ?? this.shouts.opening);
   }
@@ -122,9 +178,9 @@ export class Brawl {
         { type: 'hold', seconds: rand(...B().closeRest), target: tgt, pose: 'stance' },
       ];
     }
-    // Everyone else keeps their distance
-    // Sometimes: something to throw at him instead (config.brawl.throwing)
-    if (this.throws && !npc.carrying && Math.random() < B().throwing.chance) {
+    // Everyone else keeps their distance. The thrower: something to throw at him, round after round
+    this._fillThrower();
+    if (npc === this.thrower && this.throws && !npc.carrying) {
       const item = this.throws.find(npc);
       if (item) return this._throwRound(npc, item);
     }
@@ -189,7 +245,10 @@ export class Brawl {
     const p = this.camera.position;
     const far = (n) => { const at = n.walker.pos ?? n.rig.root.position; return Math.hypot(at.x - p.x, at.z - p.z); };
     while (this.attackers.size < B().maxAttackers) {
-      const next = this.fighters.filter((n) => !n.down && !this.attackers.has(n)).sort((a, b) => far(a) - far(b))[0];
+      // (the nearest on standby; the thrower only if there's nobody else)
+      const free = this.fighters.filter((n) => !n.down && !this.attackers.has(n));
+      const next = (free.filter((n) => n !== this.thrower).length ? free.filter((n) => n !== this.thrower) : free).sort((a, b) => far(a) - far(b))[0];
+      if (next === this.thrower) this.thrower = null;
       if (!next) break;
       this.attackers.add(next);
       next.angle = this._attackAngle(next);
@@ -266,6 +325,8 @@ export class Brawl {
     }
     this.time += dt;
     if ([...this.attackers].some((n) => n.down) || this.attackers.size < B().maxAttackers) this._fillCloseSlots();
+    this._fillThrower();
+    this._engageNearby(dt);
     const standing = this.fighters.filter((n) => !n.down && n.walker.active);
     this._separate(standing.filter((n) => n.walker.pos));
 

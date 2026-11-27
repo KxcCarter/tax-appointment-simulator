@@ -413,6 +413,7 @@ export class Director {
       }
       case 'anim': {
         const done = this.actors[a.who]?.play(a.name);
+        (this._moves ??= {})[a.who] = done; // (for { do: 'await', who }: carry on talking, then wait for it)
         if (a.untilDone && done?.then) await done; // e.g. a walk that takes as long as it takes
         else if (a.duration) await this.wait(a.duration);
         return;
@@ -420,6 +421,12 @@ export class Director {
       case 'notice':
         this.ui.toast(a.text, a.seconds ?? 3);
         return;
+      case 'await': {
+        // Wait for the move `who` was last given (an anim without untilDone: lines can be said meanwhile)
+        const m = this._moves?.[a.who];
+        if (m?.then) await m;
+        return;
+      }
       case 'wait':
         return this.wait(pick(a.seconds) * this.paceFactor()); // (shorter as the argument heats up)
       case 'setPhase':
