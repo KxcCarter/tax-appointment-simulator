@@ -552,6 +552,12 @@ export const config = {
     // then carries on. Not again for `cooldown` seconds.
     eyesUp: { enabled: true, who: 'sitter', angle: 0.3, distance: 9, lookFor: 0.4, holdFor: 2.4, cooldown: 12 },
     anger: { speedPerLevel: 0.45, maxSpeed: 3.2, expressions: ['annoyed', 'angry', 'furious'] },
+    // (owner: more lifelike) Walking: the hips twist with each stride (hipTwist, radians) and the shoulders turn
+    // back the other way (counterTwist); the hips sway over the planted foot (sway, m). Standing: a slow weight shift
+    // from foot to foot (shift m, every shiftEvery s), breathing in the chest (breathe, radians), and the head
+    // wandering a little (headDrift, m at the look target). Seated: the posture drifts (seatedLean, seatedTwist).
+    lively: { hipTwist: 0.07, counterTwist: 0.11, sway: 0.016, shift: 0.014, shiftEvery: 7, breathe: 0.012, headDrift: 0.05,
+      seatedLean: 0.025, seatedTwist: 0.035 },
     walk: { speed: 0.75, stride: 0.5, turnSpeed: 3.5, riseTime: 1.0, sitTime: 1.0, reachTime: 1.6, personalSpace: 0.55, getUpTime: 1.6,
       // Stuck (e.g. two people walking into each other): no closer to where they're going for this long
       // (seconds) and they step aside this far (metres) first, then carry on
@@ -643,6 +649,18 @@ export const config = {
 
   // ---- Character construction (shared by NPCs and the receptionist) ----
   characters: {
+    // (realistic models) Long hair and dress hems swinging (src/characters/realLook.js Sway; owner's request).
+    // Springs driven by how the head (hair) and hips (hems) speed up and slow down. stiffness / damping: the spring;
+    // gain: how much they're left behind; max: metres at most. hair: only hair longer than shortBelow (m, crown to
+    // its lowest point) swings, fully once it's longOver more than that; the top fixedTop m stays put, fully free
+    // fullBelow m further down.
+    sway: {
+      enabled: true,
+      // (short men's cuts measure 0.2-0.24 m: they stay put; `also`: hairstyles that swing anyway, at `alsoAmount`)
+      hair: { shortBelow: 0.25, longOver: 0.12, fixedTop: 0.07, fullBelow: 0.22, stiffness: 70, damping: 6, gain: 1.2, max: 0.07,
+        also: ['bob'], alsoAmount: 0.6 },
+      dress: { stiffness: 50, damping: 5, gain: 1.1, max: 0.08 },
+    },
     // Chunky, slightly big-headed toy figures. Metres at scale 1.
     proportions: {
       pelvis: { w: 0.36, h: 0.16, d: 0.24 },

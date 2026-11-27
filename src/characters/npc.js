@@ -607,6 +607,11 @@ export class Npc {
 
     this.face?.setExpression(this.scripted ?? expression);
     this.footLiftNow = footLift;
+    // Lifelike (config.npc.lively): the posture drifts a little, never quite still
+    const LV = N.lively, ph = this.time + (this._seed ??= Math.random() * 100);
+    desired.lean += Math.sin(ph * 0.23) * LV.seatedLean;
+    desired.twist += Math.sin(ph * 0.17 + 1.3) * LV.seatedTwist;
+    desired.look.x += Math.sin(ph * 0.41) * LV.headDrift; desired.look.y += Math.sin(ph * 0.59 + 2) * LV.headDrift * 0.6;
     this._solve(dt, desired, eyesOn, footLift);
   }
 

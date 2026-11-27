@@ -294,6 +294,18 @@ export const look = {
       player: new URL('./models/characters/mh-player.glb', import.meta.url).href, // (his first-person fists and kicking leg: player/realArms.js)
     },
     jiggleGain: 0.8, // how much a model's belly, breasts and double chin bounce, x her figure's wobble (config.characters.jiggle)
+    // Better materials for the models (src/characters/realLook.js shadeModel; owner's request). skin: scatter is how
+    // much light bleeds round the edges (reddish: scatterColor) and wrap how far round (0..1); specular and sheen
+    // keep it from looking matte and dead. hair: smoothEdges (anti-aliased edges, not hard cut-outs) and a sheen.
+    // eyes: a wet clearcoat. cloth: a soft fabric sheen. shoes: a little shine.
+    shading: {
+      enabled: true,
+      skin: { roughness: 0.66, specular: 0.3, sheen: 0.2, sheenColor: 0xffb4a0, sheenRoughness: 0.6, scatter: 0.55, scatterColor: 0xff5a3c, wrap: 0.55 },
+      hair: { roughness: 0.5, specular: 0.5, smoothEdges: true, alphaTest: 0.08 }, // (a highlight, no sheen: it greys dark hair)
+      eyes: { roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.04 },
+      cloth: { sheen: 0.18, sheenColor: 0x505050, sheenRoughness: 0.85 },
+      shoes: { roughness: 0.5 },
+    },
     // Colour multiplied over a model, or over materials whose name contains a key
     tint: {
       // Each character's look from characterPalettes. A value is a colour or [colour, brightness gain]

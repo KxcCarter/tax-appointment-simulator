@@ -142,6 +142,8 @@ export class Walker {
   constructor(host) {
     this.host = host;
     this.steps = null;
+    this.seed = Math.random() * 100; // (everyone's idle sway out of step with everyone else's)
+    this.clock = 0;
   }
 
   get active() {
@@ -434,11 +436,18 @@ export class Walker {
     const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const left = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const bob = -Math.abs(Math.sin(this.phase)) * 0.02 * (G.bob ?? 1) * this.moving;
+    // Lifelike (config.npc.lively): hips swaying over the planted foot as they walk; standing, a slow weight shift
+    const LV = config.npc.lively, still = (1 - this.moving) * (h.isFighting?.() || pose ? 0 : 1) * (1 - sit);
+    this.clock += dt;
+    const sideways = Math.cos(this.phase) * LV.sway * this.moving
+      + Math.sin(this.clock * (Math.PI * 2 / LV.shiftEvery) + this.seed) * LV.shift * still;
     const hop = (pose?.hop ?? 0) * rig.scale;
     const standRoot = this.pos.clone().setY(-0.03 + bob - (pose?.drop ?? 0) * rig.scale + hop + air);
     if (pose?.shift) standRoot.addScaledVector(fwd, pose.shift * rig.scale);
+    standRoot.addScaledVector(left, sideways * rig.scale);
     // A stance turns the hips side-on (the chest turns back halfway, towards the target)
-    const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw + (pose?.turn ?? 0));
+    const hipTwist = Math.sin(this.phase) * LV.hipTwist * this.moving; // (the hips turn with each stride)
+    const standQuat = new THREE.Quaternion().setFromAxisAngle(UP, this.yaw + (pose?.turn ?? 0) + hipTwist);
     if (flip) {
       // Somersault round the hips (+ = forwards, head first)
       const fq = new THREE.Quaternion().setFromAxisAngle(left, flip);
@@ -450,7 +459,9 @@ export class Walker {
     // Waddle: rolling onto each foot in turn
     if (G.waddle) standQuat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.cos(this.phase) * G.waddle * this.moving));
     root.quaternion.copy(standQuat).slerp(h.seatQuat, sit);
-    j.spine.rotation.set(bend + (pose?.lean ?? 0), -(pose?.turn ?? 0) * 0.5, 0);
+    // (the shoulders turn back against the hips; the chest rises and falls; leaning a touch onto the weighted foot)
+    j.spine.rotation.set(bend + (pose?.lean ?? 0) + Math.sin(this.clock * 1.6 + this.seed) * LV.breathe,
+      -(pose?.turn ?? 0) * 0.5 - hipTwist - Math.sin(this.phase) * LV.counterTwist * this.moving, -sideways * 1.5);
     root.updateMatrixWorld(true);
     const bodyPoint = (p) => this.pos.clone().addScaledVector(left, p.x).addScaledVector(fwd, p.z).setY(p.y * rig.scale);
 
@@ -512,7 +523,10 @@ export class Walker {
     }
 
     // --- head and face ---
-    const lookAt = look ?? this.pos.clone().addScaledVector(fwd, 3).setY(1.2);
+    const lookAt = (look ?? this.pos.clone().addScaledVector(fwd, 3).setY(1.2)).clone();
+    // (the head never quite still)
+    const hd = LV.headDrift * (pose ? 0.3 : 1);
+    lookAt.x += Math.sin(this.clock * 0.53 + this.seed) * hd; lookAt.y += Math.sin(this.clock * 0.71 + this.seed * 2) * hd * 0.6; lookAt.z += Math.sin(this.clock * 0.47 + this.seed * 3) * hd;
     aimJoint(j.neck, lookAt, { maxYaw: 1.1, maxPitch: 0.6, alpha: 1 - Math.exp(-config.npc.headTurnSpeed * dt) });
     if (h.face) {
       h.face.setExpression(expressionOverride ?? h.expression?.(this) ?? 'bored');

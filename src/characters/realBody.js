@@ -4,6 +4,7 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { theme } from '../theme.js';
 import { config } from '../config.js';
 import { addExtras, paintTie } from './realExtras.js';
+import { shadeModel, Sway } from './realLook.js';
 
 /*
   Realistic bodies (branch experiment): a rigged glTF person that copies the pose of a primitive
@@ -189,6 +190,7 @@ export function prepareModel(model, tint, look = {}) {
       }
     }
   });
+  shadeModel(model); // (better skin, hair, eyes and clothes: realLook.js)
 }
 
 export class RealBody {
@@ -288,6 +290,7 @@ export class RealBody {
     this._measureThighs(model, root);
     this._setupHands(model);
     this.extras = addExtras(this, look); // (watch, headphones, stubble, moustache hairs, glasses that can go crooked)
+    this.sway = new Sway(model); // (long hair and dress hems swinging: realLook.js)
 
     // Back to where the character was
     root.position.copy(saved.pos);
@@ -331,6 +334,9 @@ export class RealBody {
     for (const l of this.limbs) this._solveLimb(l, root, rootInv);
     if (this.hands) this._applyHands();
     if (this.wobble.length) this._applyWobble();
+    const now = performance.now() / 1000;
+    this.sway?.update(now - (this._swayT ?? now));
+    this._swayT = now;
   }
 
   /**

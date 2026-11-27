@@ -1,6 +1,6 @@
 {
   "name": "sitter",
-  "_note": "The woman in red: early 30s, hourglass figure, wine-red halter dress with a low, rounded neckline showing cleavage (recipe \"neckline\") (knee length), red stiletto heels, long dark hair.",
+  "_note": "The woman in red: early 30s, hourglass figure, wine-red halter dress with a low, rounded neckline showing cleavage, cut a little wider at the sides (recipe \"neckline\") (knee length), red stiletto heels, long dark hair.",
   "phenotype": {
     "gender": 0.0,
     "age": 0.55,
@@ -63,7 +63,7 @@
   "neckline": {
     "halter_dress": {
       "depth": -0.05,
-      "width": 0.11,
+      "width": 0.125,
       "shape": 2.5
     }
   }
