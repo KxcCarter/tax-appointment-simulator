@@ -863,6 +863,12 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   registerWeapon(A.clipboard, 'clipboard');
   for (const w of A.backRoomWeapons ?? []) registerWeapon(w.object, w.kind);
   for (const n of npcs) if (n.briefcase) registerWeapon(n.briefcase, 'briefcase');
+  // The old man's walking cane: his to fight with; once he's down, anyone's (config.npc.cane)
+  const caneOwner = npcs.find((n) => n.id === 'cougher');
+  if (A.cane && caneOwner) {
+    caneOwner.giveCane(A.cane);
+    registerWeapon(A.cane, 'cane', () => caneOwner.caneLoose);
+  }
   // The office things: on the table, her desk and the glass shelves (waitingRoom.js)
   for (const it of A.officeItems ?? []) registerWeapon(it.object, it.kind);
 

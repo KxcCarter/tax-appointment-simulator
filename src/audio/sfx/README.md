@@ -101,6 +101,7 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 | `hit_bat` | The baseball bat (a wooden crack). |
 | `swing_bat` | Swinging the baseball bat, hit or miss (a fast swoosh as it comes round). (No file: the whoosh.) |
 | `hit_chair` | A chair, or the fire extinguisher, hitting someone (a metal-and-vinyl clang). |
+| `hit_cane` | The old man's walking cane landing (his whacks and pokes; yours, once you've got it). (No file: hit_bat.) |
 | `hit_umbrella` | The umbrella, or the mop (a fabric fwump). |
 | `hit_keyboard` | The receptionist's keyboard (a plastic smack and loose keys clattering). |
 | `hit_clipboard` | The clipboard, smashed over someone's head (hardboard whack, the clip rattles). |

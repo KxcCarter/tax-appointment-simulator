@@ -643,3 +643,166 @@ export function buildOfficeTable(g, { w = 1.8, d = 0.7, h = 0.74 } = {}) {
   rbox(w - 0.06, 0.06, d - 0.06, 0.004, S('paintedMetal'), 0, h - 0.065, 0, g); // the apron
   for (const x of [-w / 2 + 0.04, w / 2 - 0.04]) for (const z of [-d / 2 + 0.04, d / 2 - 0.04]) rbox(0.035, h - 0.04, 0.035, 0.006, S('paintedMetal'), x, (h - 0.04) / 2, z, g);
 }
+
+// ------------------------------------------------------------------ the weapons, the radio and the cane (owner: realistic models)
+
+/** A wooden baseball bat: lathe-turned (knob, thin handle, swelling barrel, cupped end), grip tape on the handle.
+ *  Origin at the knob, the bat up +y, 0.87 m long. */
+export function buildBat(g) {
+  const wood = S('batWood');
+  const prof = [[0, 0], [0.021, 0.002], [0.025, 0.008], [0.024, 0.016], [0.015, 0.026], [0.0128, 0.04], [0.0128, 0.2],
+    [0.0135, 0.3], [0.016, 0.38], [0.021, 0.46], [0.027, 0.55], [0.032, 0.65], [0.034, 0.74], [0.034, 0.84],
+    [0.032, 0.862], [0.026, 0.872], [0.02, 0.868], [0.008, 0.862], [0, 0.86]];
+  const m = lathe(prof, wood, 40);
+  m.castShadow = true;
+  g.add(m);
+  // Grip tape, wound up the handle
+  const tape = lathe([[0.0128, 0.03], [0.0146, 0.032], [0.0146, 0.24], [0.0136, 0.25], [0.0128, 0.25]], S('batGrip'), 24);
+  g.add(tape);
+}
+
+/** A walking cane: a crook handle over a dark wooden shaft, a brass collar, a rubber tip. Origin at the top of the
+ *  crook (where it's held), the shaft down -y, the crook curling forward (+z). 0.92 m long. */
+export function buildCane(g) {
+  const wood = S('caneWood');
+  // The crook: a half circle from the top of the shaft, over and down in front
+  const R = 0.048, crook = new THREE.Mesh(new THREE.TorusGeometry(R, 0.0125, 10, 28, Math.PI), wood);
+  crook.rotation.y = -Math.PI / 2; // (in the y-z plane)
+  crook.position.set(0, -0.012, R);
+  g.add(crook);
+  const tipEnd = new THREE.Mesh(new THREE.SphereGeometry(0.0125, 12, 8), wood);
+  tipEnd.position.set(0, -0.012, 2 * R);
+  g.add(tipEnd);
+  // The shaft, tapering a little
+  const shaft = cylinder(0.0125, 0.0105, 0.88, wood, 0, -0.012 - 0.44, 0, g, 16);
+  shaft.castShadow = true;
+  cylinder(0.0138, 0.0138, 0.022, S('brass'), 0, -0.045, 0, g, 16); // (the collar)
+  cylinder(0.0125, 0.0135, 0.035, S('rubber'), 0, -0.012 - 0.88 - 0.012, 0, g, 14); // (the rubber tip)
+}
+
+/** A fire extinguisher: a red cylinder with a domed top, a valve with a carry handle and squeeze lever, a pressure
+ *  gauge, a safety pin, a hose to a nozzle, and a label. Origin at the top of the handle; the body's middle is
+ *  0.25 m below it (0.42 tall, 0.075 radius). */
+export function buildExtinguisher(g) {
+  const red = S('extinguisherPaint'), black = S('extinguisherBlack'), metal = S('chrome');
+  // Body: rounded at the bottom, domed at the top
+  const top = -0.04, bottom = -0.46, r = 0.075;
+  const prof = [[0, bottom], [0.06, bottom], [0.072, bottom + 0.006], [r, bottom + 0.02], [r, top - 0.05], [0.07, top - 0.025],
+    [0.055, top - 0.008], [0.03, top], [0.0, top]];
+  const body = lathe(prof, red, 40);
+  body.castShadow = true;
+  g.add(body);
+  cylinder(r + 0.002, r + 0.002, 0.018, black, 0, bottom + 0.009, 0, g, 40); // (the foot ring)
+  // The label, wrapped round the front
+  const tex = theme.canvasTexture(256, 160, (c, w, h) => {
+    c.fillStyle = theme.css('paperWhite'); c.fillRect(0, 0, w, h);
+    c.fillStyle = theme.css('extinguisherRed'); c.fillRect(0, 0, w, 34);
+    c.fillStyle = theme.css('paperWhite'); c.font = 'bold 20px sans-serif'; c.textAlign = 'center';
+    c.fillText('FIRE EXTINGUISHER', w / 2, 24);
+    c.fillStyle = theme.css('black'); c.font = 'bold 34px sans-serif'; c.fillText('ABC', w / 2, 74);
+    c.font = '11px sans-serif';
+    ['1. PULL PIN', '2. AIM AT BASE OF FIRE', '3. SQUEEZE LEVER', '4. SWEEP SIDE TO SIDE'].forEach((t, i) => c.fillText(t, w / 2, 96 + i * 15));
+  });
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.0015, r + 0.0015, 0.17, 32, 1, true, -Math.PI * 0.4, Math.PI * 0.8), theme.textured(tex, { lit: true }));
+  label.position.y = -0.27;
+  g.add(label);
+  // The valve: a brass-and-chrome neck, the carry handle under a squeeze lever (black), the safety pin and its ring
+  cylinder(0.022, 0.026, 0.03, S('brass'), 0, top + 0.012, 0, g, 20);
+  rbox(0.05, 0.03, 0.035, 0.006, metal, 0, top + 0.035, 0, g);
+  const handle = rbox(0.14, 0.012, 0.028, 0.005, black, 0.045, top + 0.045, 0, g);
+  handle.rotation.z = -0.08;
+  const lever = rbox(0.13, 0.012, 0.026, 0.005, black, 0.04, top + 0.068, 0, g);
+  lever.rotation.z = 0.18;
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.05, 8), metal);
+  pin.rotation.x = Math.PI / 2;
+  pin.position.set(-0.005, top + 0.05, 0);
+  g.add(pin);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0022, 6, 18), metal);
+  ring.position.set(-0.005, top + 0.05, 0.035);
+  g.add(ring);
+  // The pressure gauge: a little dial on the front of the valve, its needle in the green
+  const gTex = theme.canvasTexture(64, 64, (c, w, h) => {
+    c.fillStyle = theme.css('paperWhite'); c.beginPath(); c.arc(32, 32, 30, 0, Math.PI * 2); c.fill();
+    c.lineWidth = 8;
+    c.strokeStyle = theme.css('inkRed'); c.beginPath(); c.arc(32, 36, 20, Math.PI * 1.05, Math.PI * 1.35); c.stroke();
+    c.strokeStyle = theme.css('gaugeGreen'); c.beginPath(); c.arc(32, 36, 20, Math.PI * 1.35, Math.PI * 1.65); c.stroke();
+    c.strokeStyle = theme.css('inkRed'); c.beginPath(); c.arc(32, 36, 20, Math.PI * 1.65, Math.PI * 1.95); c.stroke();
+    c.strokeStyle = theme.css('black'); c.lineWidth = 3; c.beginPath(); c.moveTo(32, 36); c.lineTo(34, 16); c.stroke();
+  });
+  const gauge = cylinder(0.016, 0.016, 0.01, metal, 0, top + 0.035, 0.022, g, 20);
+  gauge.rotation.x = Math.PI / 2;
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.0135, 20), theme.textured(gTex, { lit: true }));
+  face.position.set(0, top + 0.035, 0.0276);
+  g.add(face);
+  // The hose: out of the valve's side, down the back of the body, to a nozzle held in a clip
+  const hose = bentTube([V(-0.03, top + 0.03, 0), V(-0.075, top + 0.0, 0), V(-0.09, top - 0.06, -0.02), V(-0.085, -0.3, -0.03), V(-0.08, -0.36, -0.03)], 0.008, black, { bend: 0.04 });
+  g.add(hose);
+  const nozzle = cylinder(0.012, 0.008, 0.06, black, -0.08, -0.39, -0.03, g, 14);
+  nozzle.rotation.z = 0.05;
+  rbox(0.02, 0.025, 0.03, 0.004, metal, -0.076, -0.33, -0.03, g); // (the clip)
+}
+
+/**
+ * A 1980s portable radio: a wood-grain case with rounded corners, a brushed silver front with a perforated speaker
+ * grille, a tuning scale (lit when it's on), knurled knobs, a row of keys on top, a chrome carry handle and a
+ * telescopic antenna. Origin at the bottom, the middle; front +z; 0.32 x 0.17 x 0.11.
+ * Returns { grille (the speaker: where the sound comes from), dial (the scale), knob, handle, dialOn, dialOff }.
+ */
+export function buildRadio(g) {
+  const W = 0.32, H = 0.17, D = 0.11;
+  rbox(W, H, D, 0.018, S('radioCasing'), 0, H / 2, 0, g).castShadow = true;
+  // The front panel
+  rbox(W - 0.02, H - 0.03, 0.006, 0.004, S('radioSilver'), 0, H / 2 - 0.004, D / 2, g);
+  // Speaker grille: perforated metal over a dark cone
+  const holes = theme.canvasTexture(128, 96, (c, w, h) => {
+    c.fillStyle = theme.css('radioSilver'); c.fillRect(0, 0, w, h);
+    c.fillStyle = theme.css('radioGrille');
+    for (let y = 4; y < h; y += 6) for (let x = (y / 6) % 2 ? 4 : 7; x < w; x += 6) { c.beginPath(); c.arc(x, y, 1.9, 0, Math.PI * 2); c.fill(); }
+  });
+  const grille = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.11), theme.textured(holes, { lit: true }));
+  grille.position.set(-0.07, H / 2 - 0.004, D / 2 + 0.0035);
+  grille.name = 'radioGrille';
+  g.add(grille);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.003, 6, 32), S('chrome'));
+  rim.position.set(-0.07, H / 2 - 0.004, D / 2 + 0.004);
+  g.add(rim);
+  // The tuning scale
+  const scale = theme.canvasTexture(160, 48, (c, w, h) => {
+    c.fillStyle = theme.css('white'); c.fillRect(0, 0, w, h);
+    c.fillStyle = theme.css('black'); c.font = 'bold 9px sans-serif'; c.textAlign = 'center';
+    c.fillText('FM', 10, 15); c.fillText('AM', 10, 39);
+    [88, 92, 96, 100, 104, 108].forEach((f, i) => { const x = 28 + i * 24; c.fillRect(x, 18, 1, 5); c.fillText(String(f), x, 14); });
+    [54, 70, 90, 110, 140, 160].forEach((f, i) => { const x = 28 + i * 24; c.fillRect(x, 25, 1, 5); c.fillText(String(f), x, 40); });
+    c.fillStyle = theme.css('inkRed'); c.fillRect(86, 6, 2, 36); // (the pointer)
+  });
+  const dialOff = theme.unlit('radioDialOff', { map: scale }), dialOn = theme.unlit('radioDialOn', { map: scale });
+  const dial = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.035), dialOff);
+  dial.position.set(0.085, H / 2 + 0.03, D / 2 + 0.0035);
+  g.add(dial);
+  // Knobs: knurled (many-sided) with a silver cap
+  const knob = (x, y) => {
+    const k = cylinder(0.016, 0.017, 0.016, S('plasticBlack'), x, y, D / 2 + 0.01, g, 18);
+    k.rotation.x = Math.PI / 2;
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(0.011, 18), S('radioSilver'));
+    cap.position.set(x, y, D / 2 + 0.0185);
+    g.add(cap);
+    return k;
+  };
+  const volume = knob(0.06, H / 2 - 0.035);
+  knob(0.11, H / 2 - 0.035);
+  // A row of keys along the top, and the carry handle over them
+  for (let i = 0; i < 4; i++) rbox(0.028, 0.012, 0.03, 0.004, S('plasticBlack'), 0.03 + i * 0.033, H + 0.004, 0.01, g);
+  const handle = bentTube([V(-0.12, H - 0.005, -0.02), V(-0.12, H + 0.035, -0.02), V(0.12, H + 0.035, -0.02), V(0.12, H - 0.005, -0.02)], 0.006, S('chrome'), { bend: 0.025 });
+  handle.name = 'radioHandle';
+  g.add(handle);
+  // The antenna: chrome sections, thinner as they go, a ball on the end, leaning out
+  const ant = new THREE.Group();
+  ant.position.set(0.14, H - 0.01, -0.04);
+  ant.rotation.z = -0.35;
+  g.add(ant);
+  [[0.0035, 0, 0.1], [0.0028, 0.1, 0.1], [0.0021, 0.2, 0.1]].forEach(([r, y, len]) => cylinder(r, r, len, S('chrome'), 0, y + len / 2, 0, ant, 8));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.005, 10, 8), S('chrome'));
+  ball.position.y = 0.3;
+  ant.add(ball);
+  return { grille, dial, knob: volume, handle, dialOn, dialOff };
+}

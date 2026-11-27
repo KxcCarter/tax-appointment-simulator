@@ -77,6 +77,10 @@ export const palette = {
   backRoomFloor: 0x3a3a34,
   batWood: 0xc8a06a,            // the baseball bat in the back room
   batGrip: 0x2a2420,
+  caneWood: 0x3b2516,            // the old man's walking cane (dark walnut)
+  radioSilver: 0xb4b6b4,         // the radio's brushed front panel
+  gaugeGreen: 0x2f9a40,          // the extinguisher's pressure gauge, in the green
+  extinguisherBlack: 0x1d1d1d,
   mopHandle: 0x9a8f7a,
   mopHead: 0xcfc7b0,
   extinguisherRed: 0xb3261e,
@@ -426,6 +430,14 @@ export const surfaces = {
   paper: { color: 'paperWhite', roughness: 0.9 },
   phone: { color: 'deskPhone', roughness: 0.35, texture: 'plastic', bump: 0.1 },
   brass: { color: 'brassKnob', roughness: 0.3, metalness: 1 },
+  // The back room's weapons, the radio and the old man's cane (props.js buildBat, buildExtinguisher, buildRadio, buildCane)
+  batWood: { color: 'batWood', roughness: 0.38, texture: 'wood', bump: 0.12, rotate: Math.PI / 2, repeat: [1, 3] },
+  batGrip: { color: 'batGrip', roughness: 0.92, texture: 'fabric', bump: 0.5, repeat: [8, 2] },
+  caneWood: { color: 'caneWood', roughness: 0.32, texture: 'wood', bump: 0.15, rotate: Math.PI / 2, repeat: [1, 4] },
+  extinguisherPaint: { color: 'extinguisherRed', roughness: 0.26, metalness: 0.15 },
+  extinguisherBlack: { color: 'extinguisherBlack', roughness: 0.55, texture: 'plastic', bump: 0.1 },
+  radioCasing: { color: 'radioCase', roughness: 0.45, texture: 'wood', bump: 0.04 },
+  radioSilver: { color: 'radioSilver', roughness: 0.32, metalness: 0.7, texture: 'brushed', bump: 0.05 },
   gold: { color: 'chainGold', roughness: 0.22, metalness: 1 },
   shelfGlass: { color: 'shelfGlassTint', roughness: 0.05, transparent: true, opacity: 0.32 },
   glassShard: { color: 'shelfGlassTint', roughness: 0.05, transparent: true, opacity: 0.5, side: 'double' },
@@ -601,6 +613,8 @@ export const theme = {
       if (t.map) { params.map = theme.prepareTexture(t.map.clone(), { repeat }); params.map.needsUpdate = true; }
       if (t.bump) { params.bumpMap = t.bump.clone(); params.bumpScale = S.bump ?? 1; prepareData(params.bumpMap, repeat); }
       if (t.rough) { params.roughnessMap = t.rough.clone(); prepareData(params.roughnessMap, repeat); }
+      // rotate: turn the texture (radians), e.g. wood grain running along a lathe-turned bat, not round it
+      if (S.rotate) for (const tx of [params.map, params.bumpMap, params.roughnessMap]) if (tx) { tx.rotation = S.rotate; tx.center.set(0.5, 0.5); }
     }
     const m = new THREE.MeshStandardMaterial(params);
     cache.set(key, m);

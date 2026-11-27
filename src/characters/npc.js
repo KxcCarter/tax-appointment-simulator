@@ -293,6 +293,52 @@ export class Npc {
     }
   }
 
+  /** The old man's walking cane (the level hands it over: waitingRoom.js anchors.cane). */
+  giveCane(cane) {
+    this.cane = cane;
+    this.caneLoose = false;
+  }
+
+  /**
+   * Where the cane is this frame (config.npc.cane): seated, leaning on his chair by his right knee; up and about,
+   * in his right hand with its tip on the floor in front of him; in the brawl, held like a club, in line with his
+   * forearm (so a poke thrusts it, a chop brings it down on someone).
+   */
+  _placeCane() {
+    const C = N.cane, cane = this.cane, rig = this.rig;
+    const place = (top, shaftDir, crookDir) => {
+      // The cane's frame: +y up the shaft (towards the crook), +z the way the crook curls
+      const y = shaftDir.clone().negate().normalize();
+      const z = crookDir.clone().addScaledVector(y, -crookDir.dot(y)).normalize();
+      const x = new THREE.Vector3().crossVectors(y, z);
+      cane.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+      cane.position.copy(top);
+    };
+    if (!this.walker.active) {
+      const tip = this.w(...C.seatedTip), lean = this.w(...C.seatedTop);
+      const dir = tip.clone().sub(lean).normalize();
+      place(tip.clone().addScaledVector(dir, -C.length), dir, this.w(0, 0, 1).sub(this.w(0, 0, 0)));
+      return;
+    }
+    const len = rig.lengths.lowerArm;
+    const elbow = rig.joints.rElbow.getWorldPosition(new THREE.Vector3());
+    const hand = rig.joints.rElbow.localToWorld(new THREE.Vector3(0, -len - 0.03, 0));
+    const fwd = new THREE.Vector3(Math.sin(this.walker.yaw), 0, Math.cos(this.walker.yaw));
+    if (this.brawling) {
+      // A club: the crook in his fist, the shaft carrying on from his forearm
+      const along = hand.clone().sub(elbow).normalize().add(new THREE.Vector3(0, C.clubTilt, 0)).normalize(); // (tipped up a little)
+      place(hand.clone().addScaledVector(along, -C.gripBelow), along, new THREE.Vector3(0, 1, 0));
+    } else {
+      // Walking with it: the tip on the floor a little ahead of his hand, the hand a little below the crook
+      const floor = hand.clone().addScaledVector(fwd, C.walkAhead).setY(0);
+      const dir = floor.clone().sub(hand).normalize();
+      place(floor.clone().addScaledVector(dir, -C.length), dir, fwd);
+    }
+    // His right hand closed round it (realistic body)
+    rig.handShape = { ...(rig.handShape ?? {}), [-1]: { shape: 'fist', aim: null, palm: null } };
+    rig.handShapeT = performance.now();
+  }
+
   /** Knocked down: the snacks fly (loose physics props, thrown along the blow). */
   _dropSnacks(dir) {
     if (this.snacksLoose) return;
@@ -307,6 +353,25 @@ export class Npc {
     };
     if (this.chips) throwIt(this.chips, [{ type: 'box', half: { x: 0.095, y: BAG_H * 0.45, z: 0.035 } }], 60);
     if (this.can) throwIt(this.can, [{ type: 'cylinder', halfHeight: CAN_H / 2, radius: 0.033 }], 400);
+  }
+
+  /** Knocked down: the cane goes flying (a loose prop: the player can pick it up, config.weapons.cane). */
+  _dropCane(dir) {
+    if (!this.cane || this.caneLoose) return;
+    this.caneLoose = true;
+    this.physics.addDynamic(this.cane, [{ type: 'cylinder', halfHeight: 0.45, radius: 0.015, offset: { x: 0, y: -0.46, z: 0 } }], { density: 600, restitution: 0.3 });
+    const b = this.cane.userData.body;
+    b.wakeUp();
+    b.setLinvel({ x: dir.x * 3 + rand(-0.5, 0.5), y: rand(1.5, 2.5), z: dir.z * 3 + rand(-0.5, 0.5) }, true);
+    b.setAngvel({ x: rand(-10, 10), y: rand(-10, 10), z: rand(-10, 10) }, true);
+  }
+
+  /** Back in his seat (the failure loop): his cane back too, unless the player's got it. */
+  _restoreCane() {
+    if (!this.cane || !this.caneLoose || this.cane.userData.held) return;
+    this.physics.remove(this.cane);
+    if (this.cane.parent !== this.rig.root.parent) this.rig.root.parent.attach(this.cane);
+    this.caneLoose = false;
   }
 
   _restoreSnacks() {
@@ -462,6 +527,7 @@ export class Npc {
     if (!this.down) this.react.undo();
     this._update(dt, camera);
     if (!this.down) this.react.apply(dt);
+    if (this.cane && !this.caneLoose) this._placeCane();
     this.damage.update(dt);
     if (this.chips || this.can) this._placeSnacks(dt);
     this.rig.jiggle(dt); // the belly wobbles (builds with P.jiggle)
@@ -995,6 +1061,7 @@ export class Npc {
    */
   resetToSeat() {
     this.forced = null;
+    this._restoreCane();
     this.react.clear();
     if (this._flashT > 0) { this._flashT = 0; for (const [o, m] of this._flashSaved) o.material = m; }
     if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
@@ -1093,6 +1160,7 @@ export class Npc {
     this.walker.steps = null; // abandon whatever they were doing
     if (this.carrying) { this.carrying.drop(this.rig.root.position.clone()); this.carrying = null; }
     if (this.chips || this.can) this._dropSnacks(dir);
+    this._dropCane(dir);
     if (this.chair?.occupant === this.id) this.chair.occupant = null;
     // Full physics ragdoll from the current pose, thrown along the blow
     this.ragdoll = new Ragdoll(this.physics, this.rig);

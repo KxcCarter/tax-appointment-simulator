@@ -198,7 +198,9 @@ export const config = {
     // Each person's moves (config.npc.attacks; a move listed twice comes up twice as often)
     moves: {
       newcomer: ['punch', 'chop', 'kick', 'roundhouse', 'combo'],
-      cougher: ['jab', 'jab', 'punch', 'boxCombo', 'kick'],   // a boxer; the kick is beneath him, but he'll do it
+      // a boxer with a walking cane (owner): the left jab, the cane brought down or jabbed in, a combo; the kick is
+      // beneath him, but he'll do it
+      cougher: ['jab', 'caneWhack', 'canePoke', 'caneCombo', 'caneWhack', 'kick'],
       watchChecker: ['punch', 'chop', 'kick', 'shove'],
       jiggler: ['punch', 'kick', 'roundhouse', 'chop', 'combo'],
       reader: ['slap', 'kick', 'chop', 'roundhouse'],
@@ -283,6 +285,8 @@ export const config = {
       grip: [0, 0, 0], axis: [0, 1, 0], out: [-0.3, 0.6, -0.75], at: [0.25, -0.45, -0.5] },
     coolerBottle: { label: 'water bottle', damage: 40, reach: 1.3, swingTime: 0.8, knock: 1.4, style: 'overhead', sound: 'kick',
       grip: [0, 0, 0], axis: [0, 1, 0], out: [0, 1, 0], at: [0.22, -0.3, -0.6] },
+    cane:         { label: 'walking cane', damage: 38, reach: 1.8, swingTime: 0.5, knock: 1.6, sound: 'cane', style: 'swing',
+      grip: [0, -0.06, 0], axis: [0, -1, 0], out: [-0.1, 0.12, -1], at: [0.26, -0.3, -0.4] }, // (the old man's, once he's down)
     bat:          { label: 'baseball bat', damage: 55, reach: 1.8, swingTime: 0.55, knock: 2.0, sound: 'bat', swingSound: 'bat', // swingSound: swing_bat
       grip: [0, 0.05, 0], axis: [0, 1, 0], out: [-0.25, 0.75, -0.6], at: [0.26, -0.32, -0.42] },
     mop:          { label: 'mop', damage: 25, reach: 2.1, swingTime: 0.6, knock: 1.1, sound: 'umbrella', style: 'swing',
@@ -471,6 +475,10 @@ export const config = {
     clockGlance: { every: [15, 32], duration: 2.0 },
     cough: { every: [6, 10], coughs: [2, 3], gap: 0.28 },
     watch: { every: [12, 20], lookAtWatch: 2.2, lookAtClock: 1.6 },
+    // (owner) The old man's walking cane (npc.js _placeCane). length: m; seatedTip / seatedTop: where it leans on his
+    // chair (the chair's space: x his left, y up, z forward); walkAhead: how far in front of his hand its tip goes
+    // down walking; gripBelow: in the brawl, how far below the crook he holds it.
+    cane: { length: 0.92, seatedTip: [-0.3, 0, 0.32], seatedTop: [-0.27, 0.86, 0.2], walkAhead: 0.18, gripBelow: 0.02, clubTilt: 0.35 },
     // (owner) The men (not the old man) watch the woman in red go by when she walks to and from the radio: before
     // the argument and the brawl only. Their eyes and heads follow her; nobody says anything
     ogle: { who: ['watchChecker', 'jiggler', 'newcomer', 'gamer'], expression: 'pleased' },
@@ -528,7 +536,11 @@ export const config = {
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
       chop: { duration: 0.95, knock: 1.8, shake: 0.9, damage: 11, sound: 'chop' },        // karate: a knife-hand chop from above
       roundhouse: { duration: 1.25, knock: 4.4, shake: 1.2, damage: 16, sound: 'kick' },  // karate: a sweeping kick
-      jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'jab' },         // boxing: quick, straight, the lead hand
+      jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'jab' },
+      // The old man's cane (owner): brought down from overhead (the chop's swing), jabbed in (the punch's), and both
+      caneWhack: { duration: 1.0, knock: 3.0, shake: 1.1, damage: 15, sound: 'cane', pose: 'chop' },
+      canePoke: { duration: 0.8, knock: 2.6, shake: 0.7, damage: 10, sound: 'cane', pose: 'punch' },
+      caneCombo: { duration: 2.0, sequence: ['jab', 'canePoke', 'caneWhack'] },         // boxing: quick, straight, the lead hand
       boxCombo: { duration: 1.9, sequence: ['jab', 'jab', 'punch'] },                     // boxing: jab, jab, cross
       throw: { duration: 1.1, pose: 'radio', knock: 0, shake: 0, damage: 0, sound: 'whoosh' }, // (throwing: brawl.throwing)
       radio: { duration: 1.3, knock: 4.6, shake: 1.5, damage: 25, sound: 'radioHit' },

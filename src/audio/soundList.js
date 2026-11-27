@@ -88,6 +88,7 @@ export const SOUNDS = {
   hit_bat: { group: 'Fighting', where: 'The baseball bat (a wooden crack).' },
   swing_bat: { group: 'Fighting', where: 'Swinging the baseball bat, hit or miss (a fast swoosh as it comes round). (No file: the whoosh.)' },
   hit_chair: { group: 'Fighting', where: 'A chair, or the fire extinguisher, hitting someone (a metal-and-vinyl clang).' },
+  hit_cane: { group: 'Fighting', where: "The old man's walking cane landing (his whacks and pokes; yours, once you've got it). (No file: hit_bat.)", fallback: 'hit_bat' },
   hit_umbrella: { group: 'Fighting', where: 'The umbrella, or the mop (a fabric fwump).' },
   hit_keyboard: { group: 'Fighting', where: "The receptionist's keyboard (a plastic smack and loose keys clattering)." },
   hit_clipboard: { group: 'Fighting', where: 'The clipboard, smashed over someone\'s head (hardboard whack, the clip rattles).' },

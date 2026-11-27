@@ -14,9 +14,9 @@ import { SOUNDS, soundNameOf } from './soundList.js';
 
 const A = config.audio;
 // hit(kind) -> its sound's name, where they differ (the rest: 'hit_' + kind)
-const HIT_FILES = { radioHit: 'hit_radio', punchHeavy: 'hit_punch_heavy', punchTaken: 'hit_punch_taken', jab: 'hit_jab' };
+const HIT_FILES = { radioHit: 'hit_radio', cane: 'hit_cane', punchHeavy: 'hit_punch_heavy', punchTaken: 'hit_punch_taken', jab: 'hit_jab' };
 // Hits with no synthesised version of their own: synthesised as these
-const HIT_SYNTH = { chop: 'slap', punchHeavy: 'kick', punchTaken: 'punch', jab: 'punch' };
+const HIT_SYNTH = { cane: 'bat', chop: 'slap', punchHeavy: 'kick', punchTaken: 'punch', jab: 'punch' };
 const rand = (a, b) => a + Math.random() * (b - a);
 
 // The recordings in src/audio/sfx/ (bundled by Vite; a file added while the dev server runs reloads the page)

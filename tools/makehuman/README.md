@@ -65,6 +65,9 @@ texture are repainted in the figure's tie colour (`tie` in `theme.look.realistic
   into its front (clean edges), from `depth` m below the chest bone (negative: above it; the sitter's bust is above it)
   up to the base of the neck, `width` m either side there. `shape`: 1 = a V, higher = rounder (a scoop). The skin
   under it stays (the garment is cut before the skin it covers is worked out).
+  Add `"strap": {"width": 0.06, "from": 0.06, "ramp": 0.06}` to narrow the straps either side of the opening: their
+  outer edge is cut back to `width` m from the opening's edge, from `from` m above the chest bone up, easing in over
+  `ramp` m (start it too low and it cuts across the bust; on a coarse garment mesh it can leave triangular notches).
 - `sleeveless`: `{"part of a garment's name": metres}`: its sleeves cut off, and the shoulders out past that far from
   the middle (a T-shirt into a tank top).
 - `fists`: `{"curl": [1.6, 1.75, 1.2], "thumb": [0.9, 0.5, 0.5]}` (radians): both hands clenched into fists and made the

@@ -315,6 +315,28 @@ def cut_garment(o):
             inside = lambda c: c.y < 0 and c.z > bottom and abs(c.x) < edge(min(1.0, (c.z - bottom) / max(0.01, top - bottom)))
             gone = [f for f in bm.faces if inside(f.calc_center_median())]
             bmesh.ops.delete(bm, geom=gone, context="FACES")
+            # "strap": {"width": m, "from": m, "ramp": m}: the straps either side of the opening narrowed to `width`
+            # (their outer edge cut back), from `from` above the chest bone up, easing in over `ramp` m
+            S = N.get("strap")
+            if S:
+                sw, s_from, ramp = S.get("width", 0.05), bone_head("spine_03").z + S.get("from", 0.04), S.get("ramp", 0.05)
+                def outer(z):
+                    t = min(1.0, max(0.0, (z - bottom) / max(0.01, top - bottom)))
+                    k = min(1.0, max(0.0, (z - s_from) / ramp)); k = k * k * (3 - 2 * k)
+                    return edge(t) + sw + (1 - k) * 0.4  # (below `from`: nothing cut)
+                n_steps, z_top = 12, top + 0.06
+                zs = [s_from + (z_top - s_from) * i / n_steps for i in range(n_steps + 1)]
+                for i in range(n_steps):
+                    z0, z1 = zs[i], zs[i + 1]
+                    for sx in (1, -1):
+                        a, b = Vector((sx * outer(z0), 0, z0)), Vector((sx * outer(z1), 0, z1))
+                        n = (b - a).cross(Vector((0, 1, 0))).normalized()
+                        faces = [f for f in bm.faces if f.calc_center_median().y < 0 and z0 - 0.03 < f.calc_center_median().z < z1 + 0.03]
+                        geom = list({v for f in faces for v in f.verts}) + list({e for f in faces for e in f.edges}) + faces
+                        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=a, plane_no=n)
+                cut = [f for f in bm.faces if (lambda c: c.y < 0 and s_from < c.z < z_top and abs(c.x) > outer(c.z))(f.calc_center_median())]
+                bmesh.ops.delete(bm, geom=cut, context="FACES")
+                print("STRAPS", o.name, len(cut), "faces cut, straps", sw, "wide")
             bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
             bm.transform(mw.inverted())
             bm.to_mesh(o.data); bm.free(); o.data.update()
