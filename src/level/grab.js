@@ -130,6 +130,7 @@ export function createGrab({ camera, player, physics, sfx, glass, npcs, combat, 
         flying.splice(i, 1);
         continue;
       }
+      if (![f.vel.x, f.vel.z, n.forced.pos.x, n.forced.pos.z].every(Number.isFinite)) { n.forced = null; flying.splice(i, 1); continue; }
       const dir = f.vel.clone().divideScalar(speed), step = speed * dt, pos = n.forced.pos;
       const sc = n.rig.scale ?? 1;
       let slammed = false;
@@ -206,7 +207,8 @@ export function createGrab({ camera, player, physics, sfx, glass, npcs, combat, 
     update(dt) {
       if (held) {
         const n = held.npc;
-        if (n.down || !combat.enabled || player.seat) { release(); }
+        if (!n.forced) { held = null; combat.grabbing = null; } // (taken out of his hands: back in their seat...)
+        else if (n.down || !combat.enabled || player.seat) { release(); }
         else {
           held.t += dt;
           // At arm's length in front of him, facing him

@@ -875,6 +875,7 @@ export const config = {
       enabled: true,
       volume: 0.8,
       byWho: {},              // x volume per speaker, e.g. receptionist: 1.2
+      off: ['player'],        // (owner) never use recordings for these: the player's lines stay as text (and blips)
       refDistance: 2.5, rolloff: 0.6, // (positional: quieter further from her, but heard across the room)
     },
   },

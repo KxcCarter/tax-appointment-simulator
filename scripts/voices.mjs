@@ -53,13 +53,8 @@ export const VOICES = {
   newcomer: { voiceId: 'Cx1u6YPIa1SPiAbYj3gJ' }, // the man in the trench coat (848)
   watchChecker: { voiceId: '3y1FmEGNzXJhlyyCO6Kr' }, // the man in the suit, with the briefcase and the watch
   reader: { voiceId: 'ejl43bbp2vjkAFGSmAMa' },   // the woman with the magazine
-  // The player (owner): "Brian - Midwestern Voice". Says his scripted lines and every dialogue choice he picks
-  // (not the silent ones, nor stage directions in brackets like "(Clear your throat)")
-  player: {
-    voiceId: 'oOxgWK7hYRcDqjiZMSoX',
-    model: 'eleven_v4',
-    settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
-  },
+  // (The player has no voice (owner): whoever's playing imagines his delivery. Tried: "Brian - Midwestern Voice",
+  // oOxgWK7hYRcDqjiZMSoX on eleven_v4. Adding him back here collects his choices and lines again.)
 };
 // (anyone without their own model / settings gets these)
 const DEFAULT_VOICE = { model: 'eleven_multilingual_v2', settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true } };

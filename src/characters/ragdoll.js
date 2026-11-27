@@ -69,6 +69,9 @@ export class Ragdoll {
     this.byName = {};
     for (const [name, group, parentName, col, kind, jointOpts] of spec) {
       group.matrixWorld.decompose(_p, _q, _s);
+      // (a broken pose: never into the physics engine)
+      if (![_p.x, _p.y, _p.z].every(Number.isFinite)) { console.warn('Ragdoll: bad position for', name); _p.set(0, 1, 0); }
+      if (![_q.x, _q.y, _q.z, _q.w].every(Number.isFinite)) { console.warn('Ragdoll: bad rotation for', name); _q.identity(); }
       const body = this.world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(_p.x, _p.y, _p.z)

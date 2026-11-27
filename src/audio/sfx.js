@@ -83,7 +83,7 @@ export class Sfx {
 
   /** Is there a recording of this line, ready to play? Its length in seconds, or 0. */
   voiceLength(who, text) {
-    if (!A.voices?.enabled) return 0;
+    if (!A.voices?.enabled || A.voices.off?.includes(who)) return 0;
     return this.voices?.[who]?.[text]?.duration ?? 0;
   }
 

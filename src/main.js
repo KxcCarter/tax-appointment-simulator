@@ -169,21 +169,35 @@ let last = performance.now();
 let accumulator = 0;
 let fpsTimer = 0, fpsFrames = 0;
 
+// A part of the frame that fails is reported (on screen, once per message) and the rest carries on: one bad
+// subsystem mustn't freeze the whole game (owner: a freeze in the brawl, the camera and everything stuck)
+const reported = new Set();
+function guard(where, fn) {
+  try { return fn(); } catch (err) {
+    const msg = `${where}: ${err?.message ?? err}`;
+    if (!reported.has(msg)) {
+      reported.add(msg);
+      console.error(msg, err);
+      ui.toast?.(`Something went wrong (${msg.slice(0, 140)})`, 8);
+    }
+  }
+}
+
 /** Advance the game by dt seconds (physics in fixed steps). */
 function simulate(dt) {
   const step = config.physics.fixedStep;
   accumulator += dt;
   let n = 0;
   while (accumulator >= step && n < config.physics.maxSubSteps) {
-    player.fixedUpdate(step);
-    physics.step();
+    guard('player', () => player.fixedUpdate(step));
+    guard('physics', () => physics.step());
     accumulator -= step;
     n++;
   }
   if (n === config.physics.maxSubSteps) accumulator = 0; // don't spiral after a hitch
-  physics.sync();
+  guard('physics sync', () => physics.sync());
   state.clockTime += dt * config.clock.timeScale;
-  level.update(dt);
+  guard('game', () => level.update(dt));
 }
 
 function loop(now) {
@@ -208,16 +222,16 @@ function loop(now) {
   } else if (state.started && !state.paused && !frozen) {
     simulate(simDt);
   }
-  player.updateCamera(Math.min(1, accumulator / step));
-  level.frame();
-  sfx.updateListener(camera);
+  guard('camera', () => player.updateCamera(Math.min(1, accumulator / step)));
+  guard('frame', () => level.frame());
+  guard('audio', () => sfx.updateListener(camera));
 
   if (debugView) {
     camera.position.set(debugView.x, debugView.y, debugView.z);
     camera.rotation.set(debugView.pitch, debugView.yaw, 0, 'YXZ');
   }
 
-  render();
+  guard('render', () => render());
 
   if (config.debug.showFps) {
     fpsFrames++;

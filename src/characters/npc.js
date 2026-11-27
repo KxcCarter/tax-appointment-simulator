@@ -309,7 +309,10 @@ export class Npc {
     const place = (top, shaftDir, crookDir) => {
       // The cane's frame: +y up the shaft (towards the crook), +z the way the crook curls
       const y = shaftDir.clone().negate().normalize();
-      const z = crookDir.clone().addScaledVector(y, -crookDir.dot(y)).normalize();
+      let z = crookDir.clone().addScaledVector(y, -crookDir.dot(y));
+      if (z.lengthSq() < 1e-6) z = new THREE.Vector3(1, 0, 0).addScaledVector(y, -y.x); // (straight along it: any side will do)
+      z.normalize();
+      if (![y.x, y.y, y.z, z.x, z.y, z.z, top.x, top.y, top.z].every(Number.isFinite)) return; // (a broken pose: leave it where it was)
       const x = new THREE.Vector3().crossVectors(y, z);
       cane.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
       cane.position.copy(top);

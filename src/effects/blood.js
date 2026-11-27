@@ -65,6 +65,7 @@ export function updateBlood(dt) {
     step.copy(d.v).multiplyScalar(dt);
     const len = step.length();
     let landed = null;
+    if (!Number.isFinite(len) || !Number.isFinite(d.p.x + d.p.y + d.p.z)) { B.live.splice(i, 1); continue; }
     if (len > 1e-6) {
       // Only the room and its furniture (not people, not loose props): fixed colliders
       const ray = new RAPIER.Ray(d.p, { x: step.x / len, y: step.y / len, z: step.z / len });

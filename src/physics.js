@@ -63,6 +63,9 @@ export class Physics {
    *          { type: 'ball', radius, offset? }]
    */
   addDynamic(object3d, shapes, opts = {}) {
+    // (never hand the physics engine a NaN: once it has one it fails on every call after)
+    if (![object3d.position.x, object3d.position.y, object3d.position.z].every(Number.isFinite)) { console.warn('addDynamic: bad position', object3d); object3d.position.set(0, 1, 0); }
+    if (![object3d.quaternion.x, object3d.quaternion.y, object3d.quaternion.z, object3d.quaternion.w].every(Number.isFinite)) { console.warn('addDynamic: bad rotation', object3d); object3d.quaternion.identity(); }
     const p = object3d.position;
     const q = object3d.quaternion;
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
