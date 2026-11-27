@@ -195,6 +195,9 @@ function loop(now) {
   // Hit-stop: a blow that lands freezes the game for a few frames (config.combat.hitStop)
   const frozen = state.hitStop > 0;
   if (frozen) state.hitStop = Math.max(0, state.hitStop - dt);
+  // Slow motion (a knockdown: config.combat.slowMo): the game runs slower for a moment of real time
+  let simDt = dt;
+  if (state.slowMo > 0) { state.slowMo = Math.max(0, state.slowMo - dt); simDt = dt * config.combat.slowMo.scale; }
   if (state.started && !state.paused && skipper?.active) {
     // Debug ?beat=: many game steps per frame until the target beat comes up
     for (let k = 0; k < config.debug.skipStepsPerFrame && skipper.active; k++) {
@@ -203,7 +206,7 @@ function loop(now) {
       skipper.update(step);
     }
   } else if (state.started && !state.paused && !frozen) {
-    simulate(dt);
+    simulate(simDt);
   }
   player.updateCamera(Math.min(1, accumulator / step));
   level.frame();

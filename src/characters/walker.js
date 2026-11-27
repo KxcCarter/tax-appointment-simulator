@@ -342,6 +342,7 @@ export class Walker {
       case 'attack': {
         const A = config.npc.attacks;
         const def = A[S.kind];
+        if (first) h.onAttackStart?.(S.kind); // (e.g. a yell as she goes for him)
         const realT = this.t / this.speedMul; // attacks play at their own pace
         const u = Math.min(1, realT / def.duration);
         const tgt = S.target();

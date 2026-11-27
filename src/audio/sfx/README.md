@@ -13,10 +13,29 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 | `hum` | The fluorescent lights: a low hum under everything, all the time. **Loops.** |
 | `mouse_click` | The receptionist clicking her mouse at solitaire (positional, at the desk; sometimes twice quickly). |
 | `chime` | The NOW SERVING display changing number (a two-tone electronic chime). |
+| `glass_break` | A glass shelf shattering (hit, or something thrown or someone knocked into it). |
+| `phone_shutter` | A phone camera's shutter, quiet (the man with the watch sneaking a photo of the woman in red). |
+| `phone_ring` | The receptionist's cellphone ringing (her cousin calls: beat phone_call). |
 | `radio_click` | The radio switched on or off (a plastic knob, then a little warm-up static). |
 | `glug` | The water cooler, when you use it (big hollow glugs). |
 | `ticket_tear` | Taking a ticket from the dispenser (a clunk, then paper tearing). You, and the newcomer. |
 | `paper_slide` | The receptionist sliding the check-in clipboard across the counter. |
+
+## Player
+
+| File name | When it plays |
+|---|---|
+| `heartbeat` | The player's heart pounding as the argument heats up (one lub-dub; it speeds up). Used if there are none of the three below. |
+| `heartbeat_slow` | One heartbeat, the argument just heating up (falls back to heartbeat). |
+| `heartbeat_medium` | One heartbeat, the argument well under way (falls back to heartbeat). |
+| `heartbeat_fast` | One heartbeat, the argument about to boil over (falls back to heartbeat). |
+| `breathing_slow` | The player breathing hard, steadily: a loop (several seconds). Crossfades into breathing_fast as he gets worked up (the argument) or tired and hurt (the brawl). With these two, the breath_* sounds below are not used. **Loops.** |
+| `breathing_fast` | The player panting, out of breath: a loop (several seconds). See breathing_slow. **Loops.** |
+| `breath_in` | The player breathing in, hard, as the argument heats up. |
+| `brawl_breath_in` | The player breathing in, heavily, out of breath in the brawl (falls back to breath_in). |
+| `brawl_breath_out` | The player breathing out, heavily, out of breath in the brawl (falls back to breath_out). |
+| `breath_out` | The player breathing out, hard, as the argument heats up. |
+| `player_hurt` | The player grunting when a blow gets through (not when he blocks it). |
 
 ## Doors
 
@@ -24,7 +43,7 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 |---|---|
 | `knock` | Knocking on the accountant's door (three knocks). |
 | `door_rattle` | Trying the accountant's door while it's locked (the handle rattles). |
-| `door_unlock` | The accountant's door unlocking when the 4th person goes down (a deadbolt clunk). |
+| `door_unlock` | The accountant's door unlocking when the last of them goes down (a deadbolt clunk). |
 | `door_open` | Opening the accountant's door (a long low creak). |
 
 ## You
@@ -44,6 +63,14 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 | `page_turn` | The woman turning a magazine page. |
 | `chair_shift` | The woman in red shifting her weight on her vinyl chair. |
 | `watch_tick` | The man with the briefcase's wristwatch: a tiny tick every second, only audible up close. |
+| `hurt_male_loud` | A man hit hard (a heavy blow, a knockdown): a loud grunt. |
+| `hurt_male` | A man hit (a grunt). |
+| `hurt_male_quiet` | A man hit lightly, or grabbed (a small grunt). |
+| `hurt_female_hard` | A woman hit hard (a heavy blow, a knockdown). |
+| `hurt_female` | A woman hit (a grunt). |
+| `hurt_female_soft` | A woman hit lightly (a small grunt). |
+| `gasp_female` | A woman gasping: grabbed by the player; the woman with the magazine when he first hits the woman in red. |
+| `effort_female` | The woman in red or the woman with the magazine yelling as she attacks (now and then, only when nobody is talking). |
 | `stomp` | A heavy footstep: someone angry walking (the radio war), the gamer walking, and landing from a leap in the brawl. Played louder the angrier they are. |
 
 ## The gamer
@@ -64,7 +91,11 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 | `hit_slap` | A slap. Also a magazine hitting someone. |
 | `hit_shove` | A shove (you being shoved, by the newcomer, the receptionist guarding her space). |
 | `hit_punch` | A punch landing (anyone's fists, a jab), also thrown things with no sound of their own. |
-| `hit_kick` | A kick landing; your heavy 3rd punch (the hook); the briefcase, potted plant and water bottle as weapons. |
+| `hit_kick` | A kick landing; the briefcase, potted plant and water bottle as weapons. |
+| `hit_punch_heavy` | Your heavy punches: the hook (every 3rd quick punch) and wound-up ones. (No file: hit_kick.) |
+| `hit_punch_taken` | Their punches landing on you. (No file: hit_punch.) |
+| `hit_jab` | The old man's boxing jabs. (No file: hit_punch.) |
+| `wall_slam` | Someone shoved (G, then click) into a wall or the furniture: a crash. |
 | `hit_block` | A blow caught on your raised arms (blocking). |
 | `hit_chop` | A karate chop landing. (No file: uses hit_slap.) |
 | `hit_bat` | The baseball bat (a wooden crack). |
@@ -81,13 +112,20 @@ Per sound, `config.audio.sounds` in src/config.js can say `synth` (keep the synt
 |---|---|
 | `prop_metal` | A chair landing or hitting something (a metal clatter). Louder for harder impacts. |
 | `prop_paper` | A magazine or the clipboard landing (a paper slap). |
-| `debris` | A small thing landing or hitting something: the bat, the radio, the keyboard, the gamer's can and chips, hats, glasses... (anything under `config.physics.impact.debrisBelow` kg; no file: `prop_thud`). |
-| `prop_thud` | Anything heavier landing or hitting something: briefcase, plant, water bottle, umbrella stand, fire extinguisher... (a thud; louder for harder impacts). |
+| `glass_tinkle` | Pieces of a broken glass shelf landing. |
+| `debris` | A small thing landing or hitting something: the bat, the radio, the keyboard, the gamer's can and chips, hats, glasses... (lighter than config.physics.impact.debrisBelow kg; heavier things: prop_thud). |
+| `prop_thud` | Anything else landing or hitting something: briefcase, umbrella, plant, water bottle, radio, the gamer's can... (a thud; louder for harder impacts). |
 
 ## Already files (not here)
 
 - `src/audio/clock_tick.mp3`: the wall clock (config.audio.clockTick)
 - `src/audio/look_to_the_sky.mp3`: the radio song (config.radio.file)
+
+## From the weloveindies.com pack
+
+Most of the grunts, gasps, yells, the breathing loops, the heartbeats, the coughs, the glass, the wall slams and the
+heavy / taken / jab punches came from a pack (renamed from their labels). Unused from it, left in `sound_fx_pack/`:
+a stone-debris explosion and two long heartbeat sequences. Like your own recordings, the scripts never touch them.
 
 ## Generated
 

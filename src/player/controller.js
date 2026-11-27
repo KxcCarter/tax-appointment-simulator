@@ -200,10 +200,14 @@ export class PlayerController {
     const feetY = pos.y - this.centreHeight;
     const moving = Math.min(1, this.velocity.length() / cfg.walkSpeed);
     const bob = Math.sin(this.bobPhase) * cfg.headBobAmount * moving;
-    this.camera.position.set(pos.x, feetY + cfg.eyeHeight + bob, pos.z);
+    // Out of breath (the brawl: the level sets this.breath): the head rises and tips back a little on each breath in
+    const br = this.breath, inhale = br ? (1 - Math.cos(br.phase)) / 2 : 0, amt = br?.amount ?? 0;
+    const B = config.combat.breathing;
+    this.camera.position.set(pos.x, feetY + cfg.eyeHeight + bob + inhale * amt * B.rise, pos.z);
     // Camera shake from being hit
     const sh = this.shake * 0.05;
     const jitter = () => (Math.random() * 2 - 1) * sh;
-    this.camera.rotation.set(this.pitch + jitter(), this.yaw + jitter(), jitter() * 1.5, 'YXZ');
+    this.camera.rotation.set(this.pitch + jitter() + inhale * amt * B.tilt, this.yaw + jitter(),
+      jitter() * 1.5 + Math.sin(br?.phase ?? 0) * amt * B.roll, 'YXZ');
   }
 }

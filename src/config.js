@@ -57,6 +57,11 @@ export const config = {
 
   // ---- Player fighting (first draft: punching only) ----
   combat: {
+    // (owner) Out of breath in the brawl: the view rises and falls with his breathing, faster and deeper the more
+    // he's been hurt. amount: 0..1 (at full health .. nearly out); rise: metres, tilt and roll: radians, at amount 1.
+    // Sounds: brawl_breath_in / brawl_breath_out in src/audio/sfx/ (else the argument's breath_in / breath_out)
+    breathing: { enabled: true, perMinute: [26, 44], amount: [0.5, 1], rise: 0.022, tilt: 0.028, roll: 0.007,
+      sound: true, volume: [0.12, 0.35] },
     punchReach: 1.2,         // metres from the eye
     punchTime: 0.32,         // whole jab, out and back
     punchHitAt: 0.4,         // fraction of punchTime when the fist connects
@@ -64,7 +69,51 @@ export const config = {
     punchDamage: 25,         // people have config.brawl.health
     // Kick (right click or F): slower, longer reach, harder
     kick: { reach: 1.55, time: 0.44, hitAt: 0.5, damage: 34, knock: 1.7, cooldown: 0.25 },
-    hitStop: 0.06,           // seconds the game freezes when a blow lands (game feel)
+    // Hit-stop: the game freezes for a moment when a blow lands, longer the harder it is: base + perDamage x damage,
+    // up to max (a jab ~0.07 s, a computer to the head ~0.13 s). A weapon can set its own (hitStop in config.weapons).
+    hitStop: { base: 0.035, perDamage: 0.0014, max: 0.16 },
+    // Knocking someone down: a moment of slow motion (scale: game speed), longer for the last one standing
+    slowMo: { scale: 0.3, time: 0.45, last: 1.1 },
+    // Hit reactions (src/characters/hitReact.js): the part hit is thrown and springs back. Radians a second per
+    // unit of strength (strength: from the damage and knock, at most maxStrength). headBand / legBand: metres
+    // below the head / above the hips counted as a head shot / a low blow.
+    react: {
+      enabled: true, maxStrength: 2.2, headBand: 0.14, legBand: 0.12,
+      head: { pitch: 9, turn: 7, roll: 5 },
+      body: { fold: 6, pitch: 4, twist: 5, lean: 3 },
+      leg: { hip: 6, knee: 11 },
+      arms: 5,
+      // The springs: stiffer snaps back faster; less damping flops about more; max: radians at most
+      springs: {
+        head: { stiffness: 140, damping: 11, max: 0.75 },
+        spine: { stiffness: 110, damping: 10, max: 0.6 },
+        hip: { stiffness: 120, damping: 12, max: 0.6 },
+        knee: { stiffness: 120, damping: 12, max: 0.9 },
+        shoulder: { stiffness: 90, damping: 8, max: 0.9 },
+        body: { stiffness: 110, damping: 10, max: 0.6 },
+      },
+    },
+    // Stamina (the bar under his health): attacks, grabs and blocking use it up; it comes back once he's let up
+    // for `regenDelay` s. Short of what an attack costs, he's exhausted: slower (x tiredSlow) and weaker
+    // (x tiredDamage). It also makes his breathing heavier (config.combat.breathing).
+    stamina: {
+      max: 100, regen: 26, regenDelay: 0.7, tiredSlow: 1.6, tiredDamage: 0.6,
+      cost: { punch: 8, kick: 15, swing: 11, overhead: 20, grab: 12, shove: 14, block: 6 /* a second */, blocked: 8 /* a blow blocked */ },
+      chargeCost: 10, // more, at full charge
+    },
+    // Charged attacks: hold the left mouse button to wind up, let go to hit. A tap (shorter than `tap`) is an
+    // ordinary punch or swing; held for `time` s it's fully wound up: x damage, x knock, and extra stamina.
+    // Getting hit while winding up loses it.
+    charge: { tap: 0.18, time: 0.9, damage: 2.3, knock: 2.4 },
+    // Grab and shove (G): grab whoever's in front of you (empty hands), then left click (hold to wind up) shoves
+    // them away; G again lets them go. They break free after `hold` s. Shoved, they fly at `speed` m/s
+    // (x the wind-up) and slam into whatever they hit: walls and furniture hurt (slam damage, x how fast), glass
+    // breaks, loose things get knocked flying, someone in the way goes down like a skittle.
+    grab: {
+      reach: 1.4, holdAt: 0.72, hold: 3, squirmEvery: 0.22, breakFreeKnock: 3,
+      speed: [5, 10], friction: 2.2, flyTime: 1.2,
+      slam: { damage: 30, refSpeed: 6, knock: 2.2, glassDamage: 18, bowlDamage: 15, propPush: 2.5, rattle: 0.9 },
+    },
     moveSpeedMul: 1.9,       // walking is this much faster while there's a fight on
     swingTimeMul: 0.8,       // every weapon swing takes this share of its swingTime (snappier)
     // Block: hold the right mouse button. Blows from the front do `damage` x their damage and knock you
@@ -416,6 +465,25 @@ export const config = {
     clockGlance: { every: [15, 32], duration: 2.0 },
     cough: { every: [6, 10], coughs: [2, 3], gap: 0.28 },
     watch: { every: [12, 20], lookAtWatch: 2.2, lookAtClock: 1.6 },
+    // (owner) The men (not the old man) watch the woman in red go by when she walks to and from the radio: before
+    // the argument and the brawl only. Their eyes and heads follow her; nobody says anything
+    ogle: { who: ['watchChecker', 'jiggler', 'newcomer', 'gamer'], expression: 'pleased' },
+    // (owner) The man with the watch, now and then, leans forward in his seat for a look at her, or takes her picture
+    // on his phone, held low: before the brawl, and in the argument until "Oh, I know where this is going...".
+    // Nobody notices
+    peek: {
+      firstAfter: [20, 35],     // seconds into the game before the first one
+      every: [16, 30],          // seconds between them
+      photoChance: 0.35,        // ...this often it's a photo
+      lean: 0.32,               // how far forward he leans (radians)
+      look: { duration: [2.2, 3.6] },
+      photo: {
+        duration: 4.6,
+        hold: [-0.05, 0.9, 0.3], // where the phone is, low in front of him (his chair's space: -x his right, +z forward)
+        shutterAt: 2.6,           // (a quiet shutter click: sfx.phoneShutter, sound phone_shutter)
+        glances: [[1.3, 1.9], [2.4, 3.1]], // seconds when he looks up at her (otherwise at the screen)
+      },
+    },
     pageTurn: { every: [7, 13], duration: 0.7 },
     jiggle: {
       rate: 5.5, height: 0.028,
@@ -449,12 +517,12 @@ export const config = {
       reach: 1.15,
       slap: { duration: 0.9, knock: 1.4, shake: 0.5, damage: 6, sound: 'slap' },
       shove: { duration: 1.0, knock: 3.4, shake: 0.4, damage: 5, sound: 'shove' },
-      punch: { duration: 0.9, knock: 2.6, shake: 0.9, damage: 12, sound: 'punch' },
+      punch: { duration: 0.9, knock: 2.6, shake: 0.9, damage: 12, sound: 'punchTaken' },
       kick: { duration: 1.1, knock: 3.8, shake: 1.0, damage: 15, sound: 'kick' },
       combo: { duration: 2.4, sequence: ['slap', 'shove', 'punch'] },
       chop: { duration: 0.95, knock: 1.8, shake: 0.9, damage: 11, sound: 'chop' },        // karate: a knife-hand chop from above
       roundhouse: { duration: 1.25, knock: 4.4, shake: 1.2, damage: 16, sound: 'kick' },  // karate: a sweeping kick
-      jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'punch' },         // boxing: quick, straight, the lead hand
+      jab: { duration: 0.55, knock: 1.2, shake: 0.5, damage: 6, sound: 'jab' },         // boxing: quick, straight, the lead hand
       boxCombo: { duration: 1.9, sequence: ['jab', 'jab', 'punch'] },                     // boxing: jab, jab, cross
       throw: { duration: 1.1, pose: 'radio', knock: 0, shake: 0, damage: 0, sound: 'whoosh' }, // (throwing: brawl.throwing)
       radio: { duration: 1.3, knock: 4.6, shake: 1.5, damage: 25, sound: 'radioHit' },
@@ -519,7 +587,10 @@ export const config = {
       // place. (The shoves take as long as his walks to the player: that's what makes the scene's length vary.)
       syncToBrawl: 24.6,        // (measured: that emit to "Get him!!")
       syncSlack: 2,
-      volumeAtBrawl: 0.85,      // it swells from `volume` (background) to this by the time the brawl starts
+      volumeAtBrawl: 0.85,      // it swells from `volume` (background) to this once she's said she found the pens...
+      volumeBeforePens: 0.5,    // ...and not above this before then (owner: that line mustn't be missed)
+      duckForPens: 0.3,         // while she says it ({ do: 'emit', event: 'freeBirdDuck' } / 'freeBirdUp')
+      crossfade: 0.6,           // seconds: put back in time (freeBirdSync) by crossfading, not cutting out
       yellAfter: 25,            // (his yell: sequence freeBirdYell in waitingRoomBeats.ts)
       volume: 0.3,              // (a little louder than the soft station: he turned it up)
       hurry: 3,                 // how fast he goes (as an angry person's errand: config.npc.anger)
@@ -711,6 +782,13 @@ export const config = {
     ticketTear: { volume: 0.5 },
     paperSlide: { volume: 0.45 },
     cough: { volume: 0.5, refDistance: 1.5, rolloff: 1.1 },
+    // Grunts, gasps and yells (recordings only: hurt_male..., gasp_female, effort_female, player_hurt). female: who
+    // uses the female ones. gap: seconds before the same person grunts again. effortChance: how often a woman
+    // yells as she attacks (only when nobody's talking). player: his grunt's volume; playerGap: s between them.
+    vocals: { volume: 0.7, refDistance: 2, rolloff: 0.9, female: ['sitter', 'reader', 'receptionist'], gap: 0.4,
+      effortChance: 0.35, player: 0.55, playerGap: 0.5 },
+    // The breathing loops (breathing_slow / breathing_fast): how loud, at the argument's / the brawl's heaviest
+    breathingLoop: { argument: 0.35, brawl: 0.45 },
     sigh: { volume: 0.35, refDistance: 1.2, rolloff: 1.2 },
     pageTurn: { volume: 0.3, refDistance: 1.0, rolloff: 1.3 },
     chairShift: { volume: 0.25 },

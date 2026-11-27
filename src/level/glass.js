@@ -59,6 +59,24 @@ export function createGlass({ scene, physics, sfx, panels, movers }) {
   for (const p of panels) p.mesh.userData.onBreak = (dir, point) => shatter(p, dir, point);
 
   return {
+    /**
+     * Someone shoved into a glass shelf (grab.js): is `pos` (on the floor) within `margin` of one? Every sheet of it
+     * between yMin and yMax still in one piece breaks. Returns { shelf: true if there's a shelf there, broken: n }.
+     */
+    crashInto(pos, margin, yMin, yMax, dir) {
+      let shelf = false, broken = 0;
+      for (const p of panels) {
+        if (!inside(p, { x: pos.x, y: p.center.y, z: pos.z }, margin)) continue;
+        shelf = true;
+        if (live.has(p) && p.center.y >= yMin && p.center.y <= yMax) { shatter(p, dir, p.center); broken++; }
+      }
+      return { shelf, broken };
+    },
+    /** Is this collider a sheet of glass still in one piece? Then it breaks (someone shoved into it: grab.js). */
+    shatterCollider(collider, dir, point) {
+      for (const p of live) if (p.collider.handle === collider.handle) { shatter(p, dir, point); return true; }
+      return false;
+    },
     /** The sheets still in one piece (what a swing can break). */
     meshes: () => [...live].map((p) => p.mesh),
     update() {

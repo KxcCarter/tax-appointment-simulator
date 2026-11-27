@@ -8,10 +8,11 @@ import { waitingRoomBeats } from '../data/waitingRoomBeats.ts';
 import { roomRemarks, trespassLines } from '../data/roomRemarks.ts';
 import { appalledReplies, npcConversations, people, onlookers, brawlShouts, overheard, overheardWhen, doorVoice, eyesUp } from '../data/npcConversations.ts';
 import { Interaction } from '../player/interaction.js';
-import { Combat, weaponDef } from '../player/combat.js';
+import { Combat, weaponDef, slowMo } from '../player/combat.js';
 import { Brawl } from './brawl.js';
 import { initBlood, updateBlood } from '../effects/blood.js';
 import { createGlass } from './glass.js';
+import { createGrab } from './grab.js';
 import { createNpcThrows } from './npcThrows.js';
 import { Npc } from '../characters/npc.js';
 import { waitingRoomCast, gamer as gamerDef } from '../data/waitingRoomCast.js';
@@ -60,6 +61,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       // "The creep's trying to run away! Get him!!": everyone goes for him (not switched off by config.brawl.enabled)
       if (type === 'freeBird') freeBird(); // (owner) the man with the watch changes the station
       if (type === 'freeBirdSync') freeBirdSync();
+      // "Oh look at that, I just found all the pens.": Free Bird dips while she says it, then up to full (owner)
+      if (type === 'freeBirdDuck') pensDuck = true;
+      if (type === 'freeBirdUp') { pensDuck = false; pensSaid = true; }
       if (type === 'brawlStart' && !brawl.started) {
         state.tension = 0; // (the first blow: the heart and the breathing stop; the crowd's in the fight now)
         state.phase = 'brawl';
@@ -257,15 +261,67 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     }
   }
 
+  /**
+   * The men watching the woman in red (owner): as she walks to and from the radio, all of them but the old man
+   * follow her with their eyes (config.npc.ogle); the man with the watch also sneaks looks at her, and photos
+   * (config.npc.peek), until he knows where this is going. Before the brawl only; nobody notices.
+   */
+  const fighting = () => state.phase === 'brawl' || state.phase === 'doorOpen';
+  const arguing = () => (state.tension ?? 0) > 0 || director.currentId === 'newcomer_checks_in';
+  const herChest = (s) => s.rig.joints.spine.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.24 * (s.rig.scale ?? 1), 0));
+  function watchHer() {
+    for (const n of npcs) {
+      if (n._wired) continue; // (once each: the newcomer and the gamer when they come in)
+      n._wired = true;
+      if (config.npc.ogle.who.includes(n.id)) n.ogleAt = () => {
+        const s = radioWho();
+        if (!s || s === n || s.down || s.brawling || !s.walker.active || fighting() || arguing()) return null;
+        return herChest(s);
+      };
+      // The women yell now and then as they attack (effort_female), when nobody's talking
+      if (config.audio.vocals.female.includes(n.id)) n.onAttackStart = (kind) => {
+        if (kind === 'throw' || Math.random() > config.audio.vocals.effortChance) return;
+        if (director.talking || onlookerTalk.talking || onlookerTalk.active) return;
+        sfx.vocal('effort_female', n.voicePosition());
+      };
+      if (n.id === 'watchChecker') n.peekAt = () => {
+        const s = radioWho();
+        if (!s || s.down || fighting() || freeBirdAt != null || n.conversation?.active) return null;
+        return herChest(s);
+      };
+    }
+  }
+
+  /** Out of breath in the brawl (owner): the view rises and falls with his breathing (sounds: sfx.brawlBreath). */
+  let breathPhase = 0, breathHalf = 0, breathWant = null; // (breathWant: the breathing loops this frame, if any)
+  function brawlBreathing(dt) {
+    const Br = config.combat.breathing;
+    if (!Br.enabled || !fighting() || ended || player.seat) { player.breath = null; return; }
+    // Harder the more he's been hurt, or the more he's worn himself out (stamina)
+    const k = Math.max(1 - THREE.MathUtils.clamp(state.playerHealth / B.playerHealth, 0, 1), 1 - combat.stamina / config.combat.stamina.max);
+    const perMinute = lerp(Br.perMinute[0], Br.perMinute[1], k);
+    breathPhase += dt * (perMinute / 60) * Math.PI * 2;
+    player.breath = { phase: breathPhase, amount: lerp(Br.amount[0], Br.amount[1], k) };
+    // A breath in at the start of each cycle, out halfway
+    const half = Math.floor(breathPhase / Math.PI);
+    if (Br.sound && sfx.hasBreathingLoops) breathWant = { level: k, volume: config.audio.breathingLoop.brawl * lerp(0.5, 1, k) };
+    else if (half !== breathHalf) {
+      breathHalf = half;
+      if (Br.sound) sfx.brawlBreath(half % 2 === 1, lerp(Br.volume[0], Br.volume[1], k), (60 / perMinute) * 0.45);
+    }
+  }
+
   /** Every frame in the argument: the crowd, Free Bird swelling, his heart and his breathing. */
   function argumentTick(dt) {
     // Free Bird: background at first, swelling to `volumeAtBrawl` by the brawl (and staying there)
     if (freeBirdOn && radioLoop?.setVolume && (freeBirdVolT -= dt) <= 0) {
       freeBirdVolT = 0.25;
       const FB = config.radio.freeBird, pos = sfx.ctx.currentTime - stationStart;
-      const k = state.phase === 'brawl' || state.phase === 'doorOpen' ? 1 : (pos - freeBirdFrom) / Math.max(1, FB.target - freeBirdFrom);
-      radioVolume = lerp(FB.volume, FB.volumeAtBrawl, k);
-      radioLoop.setVolume(radioVolume);
+      const full = pensSaid || state.phase === 'brawl' || state.phase === 'doorOpen';
+      // Swelling, but under her pens line (owner: it mustn't be missed); full volume only once she's said it
+      const k = THREE.MathUtils.clamp((pos - freeBirdFrom) / Math.max(1, FB.target - freeBirdFrom), 0, 1);
+      radioVolume = pensDuck ? FB.duckForPens : full ? FB.volumeAtBrawl : lerp(FB.volume, FB.volumeBeforePens, k);
+      radioLoop.setVolume(radioVolume, full && !pensDuck ? 1.0 : 0.3); // (up to full over a few seconds)
     }
     if (!tenseNow()) return;
     // In his face, but never in him: anyone up and about is kept at least minDistance from the player
@@ -281,9 +337,13 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (t >= H.from && (heartT -= dt) <= 0) {
       const k = (t - H.from) / (1 - H.from);
       heartT = 60 / lerp(H.bpm[0], H.bpm[1], k);
-      sfx.heartbeat(lerp(H.volume[0], H.volume[1], k));
+      sfx.heartbeat(lerp(H.volume[0], H.volume[1], k), k);
     }
-    if (t >= Br.from && (breathT -= dt) <= 0) {
+    if (t >= Br.from && sfx.hasBreathingLoops) {
+      // Recorded: the loops, steady to panting (every frame: sfx.breathingLoop, in update)
+      const k = (t - Br.from) / (1 - Br.from);
+      breathWant = { level: k, volume: config.audio.breathingLoop.argument * lerp(0.4, 1, k) };
+    } else if (t >= Br.from && (breathT -= dt) <= 0) {
       const k = (t - Br.from) / (1 - Br.from), cycle = 60 / lerp(Br.perMinute[0], Br.perMinute[1], k);
       breathOut = !breathOut;
       breathT = cycle / 2;
@@ -356,12 +416,14 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     // hand: config.brawl.receptionistHit)
     targets: () => (combat.held?.kind === config.brawl.receptionistHit.weapon ? [...npcs, receptionist] : npcs),
     onHit: (target) => {
-      state.hitStop = config.combat.hitStop; // a tiny freeze on impact (main loop)
+      // (the freeze on impact, and slow motion on a knockdown: impact() in combat.js)
       // The first punch that lands on the sitter: everyone else is appalled, at the player. Only before the brawl
       // (the radio war): in the brawl everyone's at it, and she's just one of them (owner)
       if (target.id !== config.radio.who || state.foughtBack || state.phase === 'brawl' || state.phase === 'doorOpen') return;
       state.foughtBack = true;
       for (const n of npcs) n.onPlayerFoughtBack();
+      const gasper = npcs.find((n) => n.id === 'reader' && !n.down); // (a gasp, before "Oh my God.")
+      if (gasper) sfx.vocal('gasp_female', gasper.voicePosition());
       onlookerTalk.play('playerFoughtBack');
     },
   });
@@ -418,6 +480,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
 
   /** Someone's blow reaches the moment of impact: does it land? */
   function hitPlayer(who, kind) {
+    if (who.forced) return false; // (held in his grab, or flying from a shove)
     const def = config.npc.attacks[kind];
     const at = who.walker.pos;
     const d = Math.hypot(camera.position.x - at.x, camera.position.z - at.z);
@@ -440,12 +503,16 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       player.knock(dir, def.knock * Bk.knock, def.shake * Bk.shake);
       sfx.hit('block', camera.position);
       hurtPlayer((def.damage ?? 0) * Bk.damage, who);
+      combat.tire(config.combat.stamina.cost.blocked); // (it takes it out of him)
       if (who) who.walker.stun = Bk.attackerStun; // the blow bounces off; they stagger
       return;
     }
+    combat.interrupt(); // (a wind-up is lost)
+    if (who && grab?.holding !== who) grab?.release(); // (hit by someone else: he lets go)
     player.knock(dir, def.knock, def.shake);
     sfx.hit(def.sound, camera.position);
     hurtPlayer(def.damage ?? 0, who);
+    if ((def.damage ?? 0) > 0) sfx.playerHurt(); // (a grunt)
   }
 
   /** One of the sitter's radio-war blows. */
@@ -473,6 +540,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
    * radio and changes the station: the song comes in partway through, as if the station were already playing it,
    * so that it's about `target` seconds in when the brawl starts. Then, a while later, he yells.
    */
+  let pensDuck = false, pensSaid = false; // (her pens line: Free Bird under it, full after it)
   let radioVolume = config.radio.volume, freeBirdAt = null, freeBirdYell = null, freeBirdSyncAt = null, freeBirdOn = false, freeBirdFrom = 0;
   /** Seconds until the brawl, best guess: from the last shove if that's happened, else from his line. */
   const toBrawl = () => {
@@ -487,11 +555,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     if (!freeBirdOn || !state.radioOn || !radioBuffer) return; // (not on yet: it'll start in the right place)
     const should = freeBirdShouldBe(radioBuffer), is = sfx.ctx.currentTime - stationStart;
     if (Math.abs(should - is) <= config.radio.freeBird.syncSlack) return;
-    // Interference: a crackle, and the song carries on from where it should be
-    sfx.radioClick(radioPos());
-    radioLoop?.stop();
+    // Put back in time without a gap (owner: it cut out for a moment): crossfaded to where it should be
+    const fade = config.radio.freeBird.crossfade;
+    radioLoop?.stop(fade);
     stationStart = sfx.ctx.currentTime - should;
-    radioLoop = sfx.playLoop(radioBuffer, radioPos(), { ...config.radio, volume: radioVolume }, should);
+    radioLoop = sfx.playLoop(radioBuffer, radioPos(), { ...config.radio, volume: radioVolume, fadeIn: fade }, should);
   }
   function freeBird() {
     const FB = config.radio.freeBird, who = npcs.find((n) => n.id === FB.who);
@@ -804,6 +872,9 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
   });
 
   // The waiting people throwing things at him in the brawl (config.brawl.throwing)
+  // Grab and shove (G; config.combat.grab)
+  const grab = createGrab({ camera, player, physics, sfx, glass, npcs: () => npcs, combat, onHit: (t) => combat.onHit(t) });
+
   const npcThrows = createNpcThrows({
     camera, sfx, npcs: () => npcs, weaponDef,
     items: () => weaponList,
@@ -933,6 +1004,8 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
         receptionist.play('backToPhone');
       })();
     }
+    // The last one down: a longer moment of slow motion
+    if (npcs.every((n) => n.down)) slowMo(config.combat.slowMo.last);
     // Everyone's down (owner's line): after whatever she's saying, she lets him in
     if (!allDownSaid && !receptionist.down && (state.phase === 'brawl' || state.phase === 'doorOpen') && npcs.every((n) => n.down)) {
       allDownSaid = true;
@@ -1015,6 +1088,7 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
     brawl,
     npcThrows, // (exposed for tests)
     glass,     // (exposed for tests)
+    grab,      // (exposed for tests)
     officeItems: A.officeItems, // (exposed for tests)
     radioStatus: () => ({ started: radioStarted, playing: !!radioLoop }),
     takeTicket, // (for ?beat=, src/debug/skipToBeat.js)
@@ -1065,6 +1139,11 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       lastLine = ty;
       brawl.update(dt);
       argumentTick(dt);
+      watchHer();
+      brawlBreathing(dt);
+      // His breathing loops (recordings): where the argument or the brawl wants them, or fading out
+      sfx.breathingLoop(breathWant?.level ?? 0, breathWant?.volume ?? 0);
+      breathWant = null;
       // Free Bird: his yell, at the next gap in the talking once it's time (sequence freeBirdYell)
       if (freeBirdYell != null && (freeBirdYell -= dt) <= 0 && !director.talking && !onlookerTalk.talking && !onlookerTalk.active) {
         freeBirdYell = null;
@@ -1097,17 +1176,21 @@ export function setupWaitingRoom({ scene, physics, player, camera, ui, sfx, fast
       const sitterNow = radioWho();
       combat.enabled = state.canFightBack && (state.phase === 'brawl' || state.phase === 'doorOpen' || !!(sitterNow?.violent && !sitterNow.down));
       combat.update(dt);
+      grab.update(dt);
       checkTrespass(dt);
       checkEyesUp(dt);
       overhear(dt);
       player.speedMul = combat.enabled ? config.combat.moveSpeedMul : 1; // quicker on your feet in a fight
       // Fight options (only while the fists are up)
       ui.setFightHelp(combat.enabled ? (combat.held
-        ? [`LEFT CLICK ...... swing the ${combat.held.def.label}`, 'F ............... kick', 'RIGHT CLICK ..... block (hold)', 'Q ............... throw it', 'R ............... pick up something else']
-        : ['LEFT CLICK ...... punch (quick 3rd: hook)', 'F ............... kick', 'RIGHT CLICK ..... block (hold)', 'R ............... pick something up']) : null);
+        ? [`LEFT CLICK ...... swing the ${combat.held.def.label}`, '  (hold) ........ wind up a big one', 'F ............... kick', 'RIGHT CLICK ..... block (hold)', 'Q ............... throw it', 'R ............... pick up something else']
+        : combat.grabbing
+          ? ['LEFT CLICK ...... shove (hold: harder)', 'G ............... let go']
+          : ['LEFT CLICK ...... punch (quick 3rd: hook)', '  (hold) ........ wind up a big one', 'F ............... kick', 'G ............... grab', 'RIGHT CLICK ..... block (hold)', 'R ............... pick something up']) : null);
       // Brawl HUD
       const fighting = state.phase === 'brawl' || state.phase === 'doorOpen';
       ui.setHealth(fighting ? state.playerHealth / B.playerHealth : null);
+      ui.setStamina(combat.enabled ? combat.stamina / config.combat.stamina.max : null);
       {
         const Hu = B.hurt, health = state.playerHealth / B.playerHealth;
         hurtLevel = Math.max(0, hurtLevel - dt / Hu.fade);

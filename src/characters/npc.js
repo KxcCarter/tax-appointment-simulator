@@ -7,6 +7,7 @@ import { RAPIER } from '../physics.js';
 import { buildRig, solveTwoBone, aimJoint } from './rig.js';
 import { Walker } from './walker.js';
 import { Ragdoll } from './ragdoll.js';
+import { HitReact } from './hitReact.js';
 import { Damage } from './damage.js';
 import { realBodyFor } from './realBody.js';
 import { RealDamage } from './realDamage.js';
@@ -66,6 +67,7 @@ export class Npc {
     body?.setBodyType(RAPIER.RigidBodyType.Fixed, false);
     this.chairHome = { pos: chair.object.position.clone(), quat: chair.object.quaternion.clone() };
     this._seat();
+    this.react = new HitReact(this.rig); // hit reactions (config.combat.react)
     this.realBody = realBodyFor(def.id, this.rig, look); // experiment: realistic body (theme.look.realistic)
     if (this.realBody?.ok) this.damage = new RealDamage({ realBody: this.realBody, rig: this.rig, look, physics, scene }); // (painted onto the model)
     this.walker = new Walker(this._walkerHost());
@@ -457,7 +459,9 @@ export class Npc {
   // ------------------------------------------------------------------ per frame
 
   update(dt, camera) {
+    if (!this.down) this.react.undo();
     this._update(dt, camera);
+    if (!this.down) this.react.apply(dt);
     this.damage.update(dt);
     if (this.chips || this.can) this._placeSnacks(dt);
     this.rig.jiggle(dt); // the belly wobbles (builds with P.jiggle)
@@ -471,6 +475,7 @@ export class Npc {
       if (this._flashT <= 0) for (const [o, m] of this._flashSaved) o.material = m;
     }
     if (this.down) return this._updateDown(dt);
+    if (this.forced) return this._updateForced(dt, camera);
     if (this.walker.active) {
       this.walker.update(dt, camera);
       if (this.carrying && this.walker.hands) {
@@ -486,6 +491,7 @@ export class Npc {
         this.magazine.quaternion.copy(this.chair.object.quaternion);
       }
       if (!this.walker.active) this.nextAction = rand(3, 6);
+      if (this.peek) { this.peek = null; if (this.phone) this.phone.visible = false; } // (up out of his seat: no sneaking a look)
       return;
     }
     const desired = {
@@ -541,7 +547,7 @@ export class Npc {
     }
 
     // --- personality actions on timers ---
-    if (!this.called && !this.attending && !this.appalled) {
+    if (!this.called && !this.attending && !this.appalled && !this.peek) {
       this.nextAction -= dt;
       if (!this.action && this.nextAction <= 0) this._startAction();
       if (this.action) expression = this._runAction(dt, desired) ?? expression;
@@ -576,6 +582,17 @@ export class Npc {
       if (r.t >= r.delay + r.dur) this.reaction = null;
     }
 
+    // --- the woman in red walking by (config.npc.ogle): the men watch her go (the level says when) ---
+    const ogle = !this.attending && !this.appalled ? this.ogleAt?.() : null;
+    if (ogle) {
+      desired.look.copy(this.local(ogle));
+      eyesOn = ogle;
+      expression = N.ogle.expression;
+    }
+    // --- the man with the watch: now and then he leans forward for a look at her, or sneaks a photo ---
+    const peek = this._peek(dt, desired);
+    if (peek) { eyesOn = peek.eyesOn; expression = peek.expression; }
+
     // --- crowded: lean away and give the player a look ---
     if (this.crowdSide && !this.called) {
       desired.lean = this.crowdSide * N.crowdLean;
@@ -591,6 +608,66 @@ export class Npc {
     this.face?.setExpression(this.scripted ?? expression);
     this.footLiftNow = footLift;
     this._solve(dt, desired, eyesOn, footLift);
+  }
+
+  /**
+   * The man with the watch sneaking a look at the woman in red (config.npc.peek): every so often he leans forward
+   * in his seat and looks over at her; sometimes he gets his phone out, holds it low, and takes her picture.
+   * `peekAt()` (set by the level) says where she is, or null when it's off. Nobody notices. Returns
+   * { eyesOn, expression } while it's going on, else null.
+   */
+  _peek(dt, d) {
+    const P = N.peek, target = this.peekAt?.();
+    if (!this.peek) {
+      if (!target) return null;
+      this.nextPeek = (this.nextPeek ?? rand(...P.firstAfter)) - dt;
+      if (this.nextPeek > 0) return null;
+      this.action = null; this.reaction = null; // (whatever he was doing: this comes first)
+      const photo = Math.random() < P.photoChance;
+      this.peek = { t: 0, photo, dur: photo ? P.photo.duration : rand(...P.look.duration), shot: false };
+    }
+    const p = this.peek;
+    p.t += dt;
+    if (!target || p.t >= p.dur) {
+      this.peek = null;
+      this.nextPeek = rand(...P.every);
+      if (this.phone) this.phone.visible = false;
+      return null;
+    }
+    // In and out of it smoothly
+    const env = smooth(Math.min(1, p.t / 0.6)) * (1 - smooth(Math.max(0, (p.t - (p.dur - 0.6)) / 0.6)));
+    d.bend += P.lean * env;
+    if (!p.photo) {
+      d.look.lerp(this.local(target), env);
+      return { eyesOn: target, expression: N.ogle.expression };
+    }
+    // The photo: phone up from his lap to low in front of his chest, screen to him, its camera at her
+    const F = P.photo, hold = V(...F.hold);
+    d.rHand.lerp(hold, env);
+    this.phone ??= this._makePhone();
+    this.phone.visible = env > 0.5;
+    const hand = this.w(this.t.rHand.x, this.t.rHand.y, this.t.rHand.z);
+    this.phone.position.copy(hand).add(V(0, 0.05, 0));
+    this.phone.lookAt(target);
+    if (!p.shot && p.t >= F.shutterAt) { p.shot = true; this.sfx.phoneShutter?.(hand); }
+    // Mostly eyes on the phone's screen, with quick looks over at her (the real thing)
+    const atHer = F.glances.some(([a, b]) => p.t >= a && p.t < b);
+    const eyes = atHer ? target : hand;
+    d.look.lerp(this.local(eyes), env);
+    return { eyesOn: eyes, expression: N.ogle.expression };
+  }
+
+  /** His phone (the man with the watch: for the sneaky photo). */
+  _makePhone() {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.13, 0.011), theme.material('phoneBody')));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 0.11), theme.material('phoneScreen'));
+    screen.position.z = -0.0065; // facing him: the camera side faces her
+    screen.rotation.y = Math.PI;
+    g.add(screen);
+    g.visible = false;
+    this.rig.root.parent.add(g);
+    return g;
   }
 
   _startAction() {
@@ -912,6 +989,8 @@ export class Npc {
    * Their chair goes back where it was, too.
    */
   resetToSeat() {
+    this.forced = null;
+    this.react.clear();
     if (this._flashT > 0) { this._flashT = 0; for (const [o, m] of this._flashSaved) o.material = m; }
     if (this.ragdoll) { this.ragdoll.dispose(); this.ragdoll = null; }
     this._restoreSnacks();
@@ -951,6 +1030,8 @@ export class Npc {
     if (this.down) return;
     if (damage > 0) this.damage.add({ hit, dir, knock, source }); // (before the flash, which swaps materials)
     if (damage > 0) bloodSpray(hit?.point ?? this._bloodPoint(), dir, { damage, source });
+    this.react.hit(dir, hit?.point ?? null, { damage, knock });
+    if (damage > 0) this.grunt(damage >= 40 || this.health - damage <= 0 ? 2 : damage >= 15 ? 1 : 0);
     // The sitter, before the brawl (the radio war): tougher (config.radio.toughness)
     const tough = this.id === config.radio.who && !this.brawling ? config.radio.toughness ?? 1 : 1;
     this.health = (this.health ?? config.brawl.health * tough) - damage;
@@ -966,6 +1047,32 @@ export class Npc {
     if (this.health <= 0) { this._knockDown(dir, knock); this.onKnockedDown?.(this); }
   }
 
+  /**
+   * Held where the player puts them (grab.js: grabbed, or flying from a shove): `forced` = { pos, yaw }, set every
+   * frame. Their pose stays as it was (the hit reactions make them squirm); the walker carries on after.
+   */
+  _updateForced(dt, camera) {
+    const F = this.forced, root = this.rig.root;
+    root.position.set(F.pos.x, 0, F.pos.z);
+    root.quaternion.setFromAxisAngle(V(0, 1, 0), F.yaw);
+    if (this.walker.pos) this.walker.pos.set(F.pos.x, 0, F.pos.z);
+    this.walker.yaw = F.yaw;
+    if (this.face) { this.face.setExpression(F.expression ?? 'surprised'); this.face.lookAt(camera.position); this.face.update(dt); }
+  }
+
+  /**
+   * A grunt (config.audio.vocals: recordings only): 0 a small one, 1 a grunt, 2 a loud one (a heavy blow, going
+   * down). Not again within `gap` s. Women: the female recordings.
+   */
+  grunt(strength = 1) {
+    const V = config.audio.vocals, now = performance.now() / 1000;
+    if (now - (this._gruntAt ?? -9) < V.gap) return;
+    this._gruntAt = now;
+    const f = V.female.includes(this.id);
+    const name = strength >= 2 ? (f ? 'hurt_female_hard' : 'hurt_male_loud') : strength >= 1 ? (f ? 'hurt_female' : 'hurt_male') : (f ? 'hurt_female_soft' : 'hurt_male_quiet');
+    this.sfx.vocal(name, this.voicePosition());
+  }
+
   /** Where blood comes from when there's no exact spot (thrown things): the head. */
   _bloodPoint() {
     return this.rig.parts.head?.getWorldPosition(new THREE.Vector3()) ?? this.rig.root.position.clone().setY(1.5);
@@ -973,6 +1080,8 @@ export class Npc {
 
   _knockDown(dir, knock = 1) {
     bloodSpray(this._bloodPoint(), dir, { damage: 25 * knock, source: 'knockdown' });
+    this.react.forget(); // (the ragdoll takes it from here)
+    this.forced = null;
     this.down = true;
     this.scripted = null;
     this.rig.root.visible = true;
@@ -1025,6 +1134,7 @@ export class Npc {
       frontOffset: 0.34,
       stance: () => config.brawl.stances[self.id] ?? config.brawl.stances.default,
       isFighting: () => self.brawling,
+      onAttackStart: (kind) => self.onAttackStart?.(kind),
       gait: this.def.gait, hipWidth: this.def.gait?.hipWidth, shoulderWidth: this.def.gait?.shoulderWidth, // (the gamer's heavy walk)
       w: (x, y, z) => self.w(x, y, z),
       seatedFoot: (side) => self.w(side * 0.11, 0, 0.44),

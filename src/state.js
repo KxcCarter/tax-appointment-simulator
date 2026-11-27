@@ -46,6 +46,7 @@ export const state = {
 
   // runtime flags (not narrative)
   hitStop: 0,              // seconds of hit-stop left
+  slowMo: 0,               // seconds of slow motion left (real time; config.combat.slowMo)
   started: false,
   paused: false,
 };

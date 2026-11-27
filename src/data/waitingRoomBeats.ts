@@ -148,7 +148,13 @@ export const waitingRoomBeats: Scene = {
     // Proposal from the brief; the wording is easy to change.
     // Free Bird (owner): the man with the watch, a while after changing the station (config.radio.freeBird.yellAfter)
     // (owner) Trying to sit back down in the argument: the chair gets kicked away first (config.argument)
-    refuseSeat: [{ do: 'say', who: 'newcomer', text: ["Nuh-uh. You ain't sittin' down.", 'Oh, now he wants to sit down.', "Don't you sit down on me!"] }],
+    refuseSeat: [
+      {
+        do: 'say',
+        who: 'newcomer',
+        text: ["Nuh-uh. You ain't sittin' down.", 'Oh, now he wants to sit down.', "Don't you sit down on me!"],
+      },
+    ],
     freeBirdYell: [{ do: 'say', who: 'watchChecker', text: 'Free bird!! Wooo!' }],
     call: [
       { do: 'goto', beat: null }, // whatever stage the reception exchange reached, it's over
@@ -681,14 +687,23 @@ export const waitingRoomBeats: Scene = {
         {
           do: 'say',
           who: 'receptionist',
-          text: ["Sir, I'm on the phone?", "Hol' up, talkin' to my cousin.", "Didn't yo mamma ever teach you not to interrupt people?"],
+          text: [
+            "Sir, I'm on the phone?",
+            "Hol' up, talkin' to my cousin.",
+            "Didn't yo mamma ever teach you not to interrupt people?",
+          ],
           vary: 'random',
         },
         { do: 'wait', seconds: 0.8 },
         {
           do: 'say',
           who: 'receptionist',
-          text: ['This man so impatient!', "Sorry, Sha-kwanda, this man over here tryna talk to me.", 'This man trying my nerves!', 'I gotta deal with this all day long.'],
+          text: [
+            'This man so impatient!',
+            'Sorry, Sha-kwanda, this man over here tryna talk to me.',
+            'This man trying my nerves!',
+            'I gotta deal with this all day long.',
+          ],
         },
       ],
       // Her side of the conversation (PROPOSAL: the lines)
@@ -699,7 +714,15 @@ export const waitingRoomBeats: Scene = {
           {
             do: 'say',
             who: 'receptionist',
-            text: ['Hey girl!', 'Mm-hmm.', "No she didn't!", 'Girl, stop.', 'Uh-huh... uh-huh...', 'Hoo! You crazy.', "You still comin' Saturday?"],
+            text: [
+              'Hey girl!',
+              'Mm-hmm.',
+              "No she didn't!",
+              'Girl, stop.',
+              'Uh-huh... uh-huh...',
+              'Hoo! You crazy.',
+              "You still comin' Saturday?",
+            ],
           },
         ],
       },
@@ -827,6 +850,7 @@ export const waitingRoomBeats: Scene = {
     {
       id: 'pen_borrow',
       trigger: { type: 'interact', target: 'receptionist' },
+      onOpen: [{ do: 'set', key: 'askedForPen', value: false }],
       options: [
         {
           text: 'Do you have a pen I can borrow?',
@@ -849,20 +873,7 @@ export const waitingRoomBeats: Scene = {
                 { do: 'set', key: 'nowServing', value: config.ticket.number + 1 }, // display chimes, jumps
               ],
             },
-          ],
-        },
-        // PROPOSAL (more-dialogue)
-        {
-          text: 'What about the pen you use for solitaire?',
-          showIf: (state: GameState) => !state.asked['receptionist.solitairePen'], // asked once in the whole game
-          response: [
-            {
-              do: 'set',
-              key: 'asked',
-              value: (state: GameState) => ({ ...state.asked, 'receptionist.solitairePen': true }),
-            },
-            pause,
-            { do: 'say', who: 'receptionist', text: "Solitaire's on the computer." },
+            { do: 'set', key: 'askedForPen', value: true },
           ],
         },
         {
@@ -923,16 +934,19 @@ export const waitingRoomBeats: Scene = {
     // Every reply opens by itself: it's an argument. It ends with the newcomer grabbing the clipboard.
     {
       id: 'argument_1',
-      tension: 0.15, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: 'But I was here first. I have an appointment at 2:00.', advance: true },
         { text: "Excuse me? I've been here since 1:55. Sit down.", aggression: 2, advance: true }, // (the aggressive way: same replies)
-        { // (owner: trying to calm it down backfires)
+        {
+          // (owner: trying to calm it down backfires)
           text: "Okay, let's everybody take a breath.",
           advance: true,
-          actions: [{ do: 'face', who: 'newcomer', expression: 'furious' }, { do: 'say', who: 'newcomer', text: 'Did you just tell me to breathe?' }],
+          actions: [
+            { do: 'face', who: 'newcomer', expression: 'furious' },
+            { do: 'say', who: 'newcomer', text: 'Did you just tell me to breathe?' },
+          ],
         },
         pleaCheckIn,
         pleaLetMeIn,
@@ -957,10 +971,10 @@ export const waitingRoomBeats: Scene = {
       ],
       next: 'argument_2',
       nextUnlockAfter: 0,
+      tension: 0.15, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_2',
-      tension: 0.25, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -977,11 +991,11 @@ export const waitingRoomBeats: Scene = {
       onAdvance: [pause, { do: 'say', who: 'newcomer', text: "Why didn't you check in then?" }],
       next: 'argument_2_checkin',
       nextUnlockAfter: 0,
+      tension: 0.25, // (the argument heating up: config.argument)
     },
     {
       // (owner's addition) Why didn't he check in? Politely, or blaming her solitaire
       id: 'argument_2_checkin',
-      tension: 0.32, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -1006,18 +1020,22 @@ export const waitingRoomBeats: Scene = {
         pleaEveryone,
       ],
       lockedOptions: [],
+      tension: 0.32, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_3',
-      tension: 0.4, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: "I'm not yelling. I'm just saying I was here first.", advance: true },
-        { // (owner: trying to calm it down backfires)
+        {
+          // (owner: trying to calm it down backfires)
           text: "I'm sorry.",
           advance: true,
-          actions: [{ do: 'face', who: 'reader', expression: 'appalled' }, { do: 'say', who: 'reader', text: 'Oh, so you admit it.' }],
+          actions: [
+            { do: 'face', who: 'reader', expression: 'appalled' },
+            { do: 'say', who: 'reader', text: 'Oh, so you admit it.' },
+          ],
         },
         pleaCheckIn,
         pleaLetMeIn,
@@ -1039,10 +1057,10 @@ export const waitingRoomBeats: Scene = {
       ],
       next: 'argument_4',
       nextUnlockAfter: 0,
+      tension: 0.4, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_4',
-      tension: 0.5, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // (whose E reopens the choices if they're closed: her, or the reader it's asked of)
       autoOpen: true,
       options: [
@@ -1054,16 +1072,13 @@ export const waitingRoomBeats: Scene = {
         pleaEveryone,
       ],
       lockedOptions: [],
-      onAdvance: [
-        pause,
-        { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." },
-      ],
+      onAdvance: [pause, { do: 'say', who: 'reader', text: "I don't have an appointment. I was here first." }],
       next: 'argument_5',
       nextUnlockAfter: 0,
+      tension: 0.5, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_5',
-      tension: 0.6, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: ['receptionist', 'reader'] }, // ("Okay, well do you have a number?": to the reader too)
       autoOpen: true,
       options: [
@@ -1086,18 +1101,22 @@ export const waitingRoomBeats: Scene = {
       ],
       next: 'argument_6',
       nextUnlockAfter: 0,
+      tension: 0.6, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_6',
-      tension: 0.7, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
         { text: "I wasn't asking for her phone number!", advance: true },
-        { // (owner: trying to calm it down backfires)
+        {
+          // (owner: trying to calm it down backfires)
           text: 'Can we talk about this like adults?',
           advance: true,
-          actions: [{ do: 'face', who: 'cougher', expression: 'angry' }, { do: 'say', who: 'cougher', text: 'Oh, now he wants to talk.' }],
+          actions: [
+            { do: 'face', who: 'cougher', expression: 'angry' },
+            { do: 'say', who: 'cougher', text: 'Oh, now he wants to talk.' },
+          ],
         },
         {
           // (the aggressive way)
@@ -1132,10 +1151,10 @@ export const waitingRoomBeats: Scene = {
       ],
       next: 'argument_7',
       nextUnlockAfter: 0,
+      tension: 0.7, // (the argument heating up: config.argument)
     },
     {
       id: 'argument_7',
-      tension: 0.8, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -1164,10 +1183,10 @@ export const waitingRoomBeats: Scene = {
       ],
       next: 'fighting_words',
       nextUnlockAfter: 0,
+      tension: 0.8, // (the argument heating up: config.argument)
     },
     {
       id: 'fighting_words',
-      tension: 0.88, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true,
       options: [
@@ -1189,10 +1208,10 @@ export const waitingRoomBeats: Scene = {
       onAdvance: [],
       next: 'you_calling_me_a_liar',
       nextUnlockAfter: 0,
+      tension: 0.88, // (the argument heating up: config.argument)
     },
     {
       id: 'calm_down',
-      tension: 0.92, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' },
       autoOpen: true, // (it's an argument: no walking up and pressing E)
       onOpen: [{ do: 'say', who: 'receptionist', text: 'Sir you need to calm down.' }],
@@ -1210,10 +1229,10 @@ export const waitingRoomBeats: Scene = {
       onAdvance: [{ do: 'say', who: 'newcomer', text: 'You got a problem, pal?' }],
       next: 'you_calling_me_a_liar',
       nextUnlockAfter: 0,
+      tension: 0.92, // (the argument heating up: config.argument)
     },
     {
       id: 'you_calling_me_a_liar',
-      tension: 0.96, // (the argument heating up: config.argument)
       trigger: { type: 'interact', target: 'receptionist' }, // (whose E reopens the choices if they're closed)
       autoOpen: true,
       options: [
@@ -1268,9 +1287,11 @@ export const waitingRoomBeats: Scene = {
               ],
             },
             { do: 'say', who: 'player', text: "You know what? I'm just going to go..." },
+            { do: 'emit', event: 'freeBirdDuck' }, // (Free Bird dips under her line: it mustn't be missed)
             { do: 'wait', seconds: 1.2 },
             { do: 'say', who: 'receptionist', text: 'Oh look at that, I just found all the pens.' },
             { do: 'say', who: 'receptionist', text: 'My bad.' },
+            { do: 'emit', event: 'freeBirdUp' }, // (...and up to full from here)
             { do: 'wait', seconds: 0.6 },
             { do: 'face', who: 'jiggler', expression: 'furious' },
             { do: 'say', who: 'jiggler', text: "The creep's trying to run away! Get him!!" },
@@ -1292,6 +1313,7 @@ export const waitingRoomBeats: Scene = {
       lockedOptions: [],
       onAdvance: [],
       nextUnlockAfter: 0,
+      tension: 0.96, // (the argument heating up: config.argument)
     },
     {
       id: 'how_check_in',
@@ -1337,6 +1359,7 @@ export const waitingRoomBeats: Scene = {
         },
         {
           text: "It's supposed to be right now.",
+          aggression: 1,
           goto: 'pen_borrow',
           actions: [
             { do: 'anim', who: 'receptionist', name: 'glanceAtClock', duration: T.clockGlance },
@@ -1352,6 +1375,8 @@ export const waitingRoomBeats: Scene = {
             { do: 'say', who: 'player', text: ['Of course...', '*sigh*', 'Here we go...'] },
           ],
         },
+        // // CLAUDE: adjust this so that the number of minutes stated in the dialogue are the number of minutes past 2:00
+        { text: 'It was supposed to start {n} minutes ago', response: [] },
       ],
       lockedOptions: [],
     },

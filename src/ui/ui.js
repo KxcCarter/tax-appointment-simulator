@@ -6,8 +6,9 @@ const CONTROLS = [
   'SHIFT ........ walk briskly',
   'E ............ interact',
   'R ............ pick up (when there is a fight on)',
-  'LEFT CLICK ... punch / swing',
+  'LEFT CLICK ... punch / swing (hold: harder)',
   'F ............ kick',
+  'G ............ grab (click: shove)',
   'RIGHT CLICK .. block (hold)',
   'Q ............ throw what you hold',
   'ESC .......... pause',
@@ -25,6 +26,7 @@ export class UI {
       </div>
       <div id="ticket" class="hidden"></div>
       <div id="health" class="hidden"><div id="health-fill"></div></div>
+      <div id="stamina" class="hidden"><div id="stamina-fill"></div></div>
       <div id="knockdowns" class="hidden"></div>
       <div id="held" class="hidden"></div>
       <div id="fighthelp" class="hidden"></div>
@@ -232,6 +234,15 @@ export class UI {
     if (f == null) return;
     this.$('health-fill').style.width = `${Math.max(0, f) * 100}%`;
     el.classList.toggle('low', f < 0.3);
+  }
+
+  /** Player stamina 0..1, or null to hide the bar (config.combat.stamina). */
+  setStamina(f) {
+    const el = this.$('stamina');
+    el.classList.toggle('hidden', f == null);
+    if (f == null) return;
+    this.$('stamina-fill').style.width = `${Math.max(0, f) * 100}%`;
+    el.classList.toggle('low', f < 0.25);
   }
 
   /** "Knocked down: n / of", or null to hide. */

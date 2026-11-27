@@ -288,6 +288,7 @@ export class Receptionist {
     if (damage > 0) this.damage?.add({ hit, dir, knock, source });
     if (damage > 0) bloodSpray(hit?.point ?? this.rig.parts.head?.getWorldPosition(new THREE.Vector3()), dir, { damage, source });
     this.health -= damage;
+    if (damage > 0) this.sfx?.vocal('hurt_female_hard', this.voicePosition());
     this.face?.setExpression('surprised', 3);
     if (this.health <= 0) this._knockDown(dir, knock);
   }

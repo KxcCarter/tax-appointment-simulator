@@ -192,6 +192,9 @@ html, body {
 #health { position: absolute; left: 18px; bottom: 18px; width: 160px; height: 6px; border: 1px solid var(--phosphor-dim); background: var(--hud-bg); opacity: 0.8; }
 #health-fill { height: 100%; width: 100%; background: var(--health); transition: width 0.15s; }
 #health.low #health-fill { background: var(--health-low); }
+#stamina { position: absolute; left: 18px; bottom: 9px; width: 160px; height: 4px; border: 1px solid var(--phosphor-dim); background: var(--hud-bg); opacity: 0.7; }
+#stamina-fill { height: 100%; width: 100%; background: var(--stamina); transition: width 0.1s; }
+#stamina.low #stamina-fill { background: var(--stamina-low); }
 #knockdowns { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: var(--amber); background: var(--hud-bg); padding: 4px 12px; letter-spacing: 0.08em; }
 #held { position: absolute; right: 18px; bottom: 56px; color: var(--phosphor-dim); background: var(--hud-bg); padding: 3px 10px; font-size: 0.85rem; }
 /* Being hurt (ui.setHurt): the edges of the view blurred and greyed, and blood creeping in from the edges */

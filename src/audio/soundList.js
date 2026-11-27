@@ -19,10 +19,8 @@ export const SOUNDS = {
   hum: { group: 'Room', where: 'The fluorescent lights: a low hum under everything, all the time.', loop: true },
   mouse_click: { group: 'Room', where: 'The receptionist clicking her mouse at solitaire (positional, at the desk; sometimes twice quickly).' },
   chime: { group: 'Room', where: 'The NOW SERVING display changing number (a two-tone electronic chime).' },
-  heartbeat: { group: 'Player', where: "The player's heart pounding as the argument heats up (one lub-dub; it speeds up)." },
-  breath_in: { group: 'Player', where: 'The player breathing in, hard, as the argument heats up.' },
-  breath_out: { group: 'Player', where: 'The player breathing out, hard, as the argument heats up.' },
   glass_break: { group: 'Room', where: 'A glass shelf shattering (hit, or something thrown or someone knocked into it).' },
+  phone_shutter: { group: 'Room', where: "A phone camera's shutter, quiet (the man with the watch sneaking a photo of the woman in red)." },
   phone_ring: { group: 'Room', where: "The receptionist's cellphone ringing (her cousin calls: beat phone_call)." },
   radio_click: { group: 'Room', where: 'The radio switched on or off (a plastic knob, then a little warm-up static).' },
   glug: { group: 'Room', where: 'The water cooler, when you use it (big hollow glugs).' },
@@ -30,9 +28,21 @@ export const SOUNDS = {
   paper_slide: { group: 'Room', where: 'The receptionist sliding the check-in clipboard across the counter.' },
 
   // ---- Doors ----
+  heartbeat: { group: 'Player', where: "The player's heart pounding as the argument heats up (one lub-dub; it speeds up). Used if there are none of the three below." },
+  heartbeat_slow: { group: 'Player', where: 'One heartbeat, the argument just heating up (falls back to heartbeat).', fallback: 'heartbeat' },
+  heartbeat_medium: { group: 'Player', where: 'One heartbeat, the argument well under way (falls back to heartbeat).', fallback: 'heartbeat' },
+  heartbeat_fast: { group: 'Player', where: 'One heartbeat, the argument about to boil over (falls back to heartbeat).', fallback: 'heartbeat' },
+  breathing_slow: { group: 'Player', where: 'The player breathing hard, steadily: a loop (several seconds). Crossfades into breathing_fast as he gets worked up (the argument) or tired and hurt (the brawl). With these two, the breath_* sounds below are not used.', loop: true },
+  breathing_fast: { group: 'Player', where: 'The player panting, out of breath: a loop (several seconds). See breathing_slow.', loop: true },
+  breath_in: { group: 'Player', where: 'The player breathing in, hard, as the argument heats up.' },
+  brawl_breath_in: { group: 'Player', where: 'The player breathing in, heavily, out of breath in the brawl (falls back to breath_in).' },
+  brawl_breath_out: { group: 'Player', where: 'The player breathing out, heavily, out of breath in the brawl (falls back to breath_out).' },
+  breath_out: { group: 'Player', where: 'The player breathing out, hard, as the argument heats up.' },
+  player_hurt: { group: 'Player', where: 'The player grunting when a blow gets through (not when he blocks it).' },
+
   knock: { group: 'Doors', where: "Knocking on the accountant's door (three knocks)." },
   door_rattle: { group: 'Doors', where: "Trying the accountant's door while it's locked (the handle rattles)." },
-  door_unlock: { group: 'Doors', where: "The accountant's door unlocking when the 4th person goes down (a deadbolt clunk)." },
+  door_unlock: { group: 'Doors', where: "The accountant's door unlocking when the last of them goes down (a deadbolt clunk)." },
   door_open: { group: 'Doors', where: "Opening the accountant's door (a long low creak)." },
 
   // ---- You ----
@@ -46,6 +56,14 @@ export const SOUNDS = {
   page_turn: { group: 'Waiting people', where: 'The woman turning a magazine page.' },
   chair_shift: { group: 'Waiting people', where: 'The woman in red shifting her weight on her vinyl chair.' },
   watch_tick: { group: 'Waiting people', where: "The man with the briefcase's wristwatch: a tiny tick every second, only audible up close." },
+  hurt_male_loud: { group: 'Waiting people', where: 'A man hit hard (a heavy blow, a knockdown): a loud grunt.' },
+  hurt_male: { group: 'Waiting people', where: 'A man hit (a grunt).' },
+  hurt_male_quiet: { group: 'Waiting people', where: 'A man hit lightly, or grabbed (a small grunt).' },
+  hurt_female_hard: { group: 'Waiting people', where: 'A woman hit hard (a heavy blow, a knockdown).' },
+  hurt_female: { group: 'Waiting people', where: 'A woman hit (a grunt).' },
+  hurt_female_soft: { group: 'Waiting people', where: 'A woman hit lightly (a small grunt).' },
+  gasp_female: { group: 'Waiting people', where: 'A woman gasping: grabbed by the player; the woman with the magazine when he first hits the woman in red.' },
+  effort_female: { group: 'Waiting people', where: 'The woman in red or the woman with the magazine yelling as she attacks (now and then, only when nobody is talking).' },
   stomp: { group: 'Waiting people', where: 'A heavy footstep: someone angry walking (the radio war), the gamer walking, and landing from a leap in the brawl. Played louder the angrier they are.' },
 
   // ---- The gamer ----
@@ -60,7 +78,11 @@ export const SOUNDS = {
   hit_slap: { group: 'Fighting', where: 'A slap. Also a magazine hitting someone.' },
   hit_shove: { group: 'Fighting', where: 'A shove (you being shoved, by the newcomer, the receptionist guarding her space).' },
   hit_punch: { group: 'Fighting', where: "A punch landing (anyone's fists, a jab), also thrown things with no sound of their own." },
-  hit_kick: { group: 'Fighting', where: "A kick landing; your heavy 3rd punch (the hook); the briefcase, potted plant and water bottle as weapons." },
+  hit_kick: { group: 'Fighting', where: "A kick landing; the briefcase, potted plant and water bottle as weapons." },
+  hit_punch_heavy: { group: 'Fighting', where: 'Your heavy punches: the hook (every 3rd quick punch) and wound-up ones. (No file: hit_kick.)', fallback: 'hit_kick' },
+  hit_punch_taken: { group: 'Fighting', where: "Their punches landing on you. (No file: hit_punch.)", fallback: 'hit_punch' },
+  hit_jab: { group: 'Fighting', where: "The old man's boxing jabs. (No file: hit_punch.)", fallback: 'hit_punch' },
+  wall_slam: { group: 'Fighting', where: 'Someone shoved (G, then click) into a wall or the furniture: a crash.' },
   hit_block: { group: 'Fighting', where: 'A blow caught on your raised arms (blocking).' },
   hit_chop: { group: 'Fighting', where: 'A karate chop landing. (No file: uses hit_slap.)', fallback: 'hit_slap' },
   hit_bat: { group: 'Fighting', where: 'The baseball bat (a wooden crack).' },
@@ -74,6 +96,7 @@ export const SOUNDS = {
   // ---- Things falling over ----
   prop_metal: { group: 'Things falling', where: 'A chair landing or hitting something (a metal clatter). Louder for harder impacts.' },
   prop_paper: { group: 'Things falling', where: 'A magazine or the clipboard landing (a paper slap).' },
+  glass_tinkle: { group: 'Things falling', where: 'Pieces of a broken glass shelf landing.' },
   debris: { group: 'Things falling', where: 'A small thing landing or hitting something: the bat, the radio, the keyboard, the gamer\'s can and chips, hats, glasses... (lighter than config.physics.impact.debrisBelow kg; heavier things: prop_thud).' },
   prop_thud: { group: 'Things falling', where: 'Anything else landing or hitting something: briefcase, umbrella, plant, water bottle, radio, the gamer\'s can... (a thud; louder for harder impacts).' },
 };

@@ -14,7 +14,9 @@ import { SOUNDS, soundNameOf } from './soundList.js';
 
 const A = config.audio;
 // hit(kind) -> its sound's name, where they differ (the rest: 'hit_' + kind)
-const HIT_FILES = { radioHit: 'hit_radio' };
+const HIT_FILES = { radioHit: 'hit_radio', punchHeavy: 'hit_punch_heavy', punchTaken: 'hit_punch_taken', jab: 'hit_jab' };
+// Hits with no synthesised version of their own: synthesised as these
+const HIT_SYNTH = { chop: 'slap', punchHeavy: 'kick', punchTaken: 'punch', jab: 'punch' };
 const rand = (a, b) => a + Math.random() * (b - a);
 
 // The recordings in src/audio/sfx/ (bundled by Vite; a file added while the dev server runs reloads the page)
@@ -359,6 +361,11 @@ export class Sfx {
   /** A dry, unproductive cough: two noise bursts through a throaty band-pass. */
   cough(position = null) {
     if (!this.ctx) return;
+    // A recorded cough is a whole cough or two: the rest of the fit's coughs wait until it's over
+    if (this.files?.cough && this._mode('cough') !== 'synth') {
+      if (this.ctx.currentTime < (this._coughUntil ?? 0)) return;
+      this._coughUntil = this.ctx.currentTime + 0.9;
+    }
     if (this._play('cough', A.cough.volume * rand(0.8, 1.1), position, A.cough)) return;
     const t = this.ctx.currentTime;
     const out = this._out(A.cough.volume * rand(0.8, 1.1), position, A.cough);
@@ -434,8 +441,10 @@ export class Sfx {
   }
 
   /** The player's heart, pounding (the argument): a low lub-dub. Not positional: it's in his chest. */
-  heartbeat(volume = 0.4) {
+  /** One heartbeat. k: how worked up he is (0..1): the slow, medium or fast recording, if there are any. */
+  heartbeat(volume = 0.4, k = 0.5) {
     if (!this.ctx) return;
+    if (this._play(k < 0.34 ? 'heartbeat_slow' : k < 0.67 ? 'heartbeat_medium' : 'heartbeat_fast', volume, null)) return;
     if (this._play('heartbeat', volume, null)) return;
     const t = this.ctx.currentTime, out = this._out(volume, null);
     for (const [dt, v] of [[0, 1], [0.17, 0.7]]) {
@@ -445,6 +454,72 @@ export class Sfx {
   }
 
   /** The player breathing hard (the argument): in, or out (a longer, rougher breath). */
+  /**
+   * His breathing as recorded loops (breathing_slow, breathing_fast), crossfaded: level 0 (steady) .. 1
+   * (panting), at `volume` (0: fades out). Called every frame while he's breathing hard. Returns false if there
+   * are no loop recordings (then the breath_* sounds are played one breath at a time instead).
+   */
+  get hasBreathingLoops() {
+    return !!(this.files?.breathing_slow || this.files?.breathing_fast) && this._mode('breathing_slow') !== 'synth';
+  }
+
+  breathingLoop(level, volume) {
+    if (!this.ctx || !this.files?.breathing_slow && !this.files?.breathing_fast) return false;
+    const B = (this._breathing ??= {});
+    for (const [name, gain] of [['breathing_slow', 1 - level], ['breathing_fast', level]]) {
+      const list = this.files[name] ?? this.files.breathing_slow ?? this.files.breathing_fast;
+      const v = volume * gain * (A.fileVolume?.[name] ?? 1);
+      if (!B[name] && v > 0.001) {
+        // A take at random, from a random point in it (so it doesn't always start the same way)
+        const buf = list[Math.floor(Math.random() * list.length)];
+        B[name] = this.playLoop(buf, null, { volume: Math.max(0.0001, v), fadeIn: 0.8 }, Math.random() * buf.duration);
+      } else if (B[name]) {
+        if (v <= 0.001) { B[name].stop(1.2); B[name] = null; } else B[name].setVolume(v, 0.4);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * A grunt, gasp or yell (the vocal recordings: hurt_male, gasp_female, effort_female...), from `position`.
+   * Nothing if there's no recording (these have no synthesised version). Returns true if one played.
+   */
+  vocal(name, position = null, volume = 1) {
+    if (!this.ctx) return false;
+    const V = A.vocals;
+    return !!this._play(name, V.volume * volume * rand(0.9, 1.1), position, V);
+  }
+
+  /** The player grunting as a blow gets through. */
+  playerHurt() {
+    if (!this.ctx || this.ctx.currentTime < (this._hurtUntil ?? 0)) return;
+    this._hurtUntil = this.ctx.currentTime + A.vocals.playerGap;
+    this._play('player_hurt', A.vocals.player * rand(0.85, 1.05), null);
+  }
+
+  /** Someone slammed into a wall or the furniture (grab.js). Returns false if there's no recording. */
+  wallSlam(position, strength = 1) {
+    if (!this.ctx) return false;
+    return !!this._play('wall_slam', A.hits.volume * (0.5 + 0.5 * strength), position, A.hits);
+  }
+
+  /** The player out of breath in the brawl: his own recordings if there are any (brawl_breath_in/out), else the
+   *  argument's (breath_in/out, or synthesised). */
+  brawlBreath(out_ = false, volume = 0.3, seconds = 0.8) {
+    if (!this.ctx) return;
+    if (this._play(out_ ? 'brawl_breath_out' : 'brawl_breath_in', volume, null)) return;
+    this.breath(out_, volume, seconds);
+  }
+
+  /** A phone's camera shutter, quietly (the man with the watch, sneaking a photo of the woman in red). */
+  phoneShutter(position = null) {
+    if (!this.ctx) return;
+    if (this._play('phone_shutter', 0.25, position, { refDistance: 1, rolloff: 1.5 })) return;
+    const t = this.ctx.currentTime, o = this._out(0.25, position, { refDistance: 1, rolloff: 1.5 });
+    this._noise(t, 0.025, o, 'bandpass', 4200, 2, 0.8, 0.001);
+    this._noise(t + 0.07, 0.03, o, 'bandpass', 3000, 2, 0.6, 0.001);
+  }
+
   breath(out_ = false, volume = 0.3, seconds = 0.8) {
     if (!this.ctx) return;
     if (this._play(out_ ? 'breath_out' : 'breath_in', volume, null)) return;
@@ -505,7 +580,7 @@ export class Sfx {
    * Loop a decoded buffer from a point in the room, optionally band-limited like a small speaker.
    * offset: seconds into the track to start from. Returns { stop() }.
    */
-  playLoop(buffer, position, { volume, refDistance, rolloff, tinny, highpass, lowpass }, offset = 0) {
+  playLoop(buffer, position, { volume, refDistance, rolloff, tinny, highpass, lowpass, fadeIn = null }, offset = 0) {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
@@ -521,20 +596,23 @@ export class Sfx {
       chain = chain.connect(hp).connect(lp);
     }
     chain.connect(out);
-    // Fade in, as a radio warming up
+    // Fade in, as a radio warming up (or, fadeIn: s, quickly and evenly: a crossfade from another copy)
     const t = this.ctx.currentTime;
     out.gain.setValueAtTime(0.0001, t);
-    out.gain.exponentialRampToValueAtTime(volume, t + 1.5);
+    if (fadeIn != null) out.gain.linearRampToValueAtTime(volume, t + fadeIn);
+    else out.gain.exponentialRampToValueAtTime(volume, t + 1.5);
     src.start(0, (offset ?? 0) % buffer.duration);
     return {
       /** Louder or quieter, smoothly (e.g. Free Bird swelling into the brawl). */
-      setVolume: (v) => { out.gain.setTargetAtTime(Math.max(0.0001, v), this.ctx.currentTime, 0.3); },
-      stop: () => {
+      setVolume: (v, tau = 0.3) => { out.gain.setTargetAtTime(Math.max(0.0001, v), this.ctx.currentTime, tau); },
+      /** fade: s, evenly (a crossfade); else the usual quick fade. */
+      stop: (fade = null) => {
         const now = this.ctx.currentTime;
         out.gain.cancelScheduledValues(now);
         out.gain.setValueAtTime(out.gain.value, now);
-        out.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-        src.stop(now + 0.85);
+        if (fade != null) out.gain.linearRampToValueAtTime(0.0001, now + fade);
+        else out.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+        src.stop(now + (fade ?? 0.8) + 0.05);
       },
     };
   }
@@ -620,7 +698,7 @@ export class Sfx {
   hit(kind, position = null) {
     if (!this.ctx) return;
     if (this._play(HIT_FILES[kind] ?? 'hit_' + kind, A.hits.volume * rand(0.9, 1.1), position, A.hits)) return;
-    if (kind === 'chop') kind = 'slap'; // (synthesised: the same as a slap)
+    kind = HIT_SYNTH[kind] ?? kind; // (e.g. a chop: synthesised as a slap)
     const t = this.ctx.currentTime;
     const out = this._out(A.hits.volume * rand(0.9, 1.1), position, A.hits);
     if (kind === 'slap') {
@@ -678,6 +756,7 @@ export class Sfx {
     if (!this.ctx) return;
     // Small things (the bat, radio, keyboard, can, hats...): the debris recordings, if there are any
     if (kind === 'glass') { // a shard landing: a little tinkle
+      if (this._play('glass_tinkle', 0.1 + 0.35 * strength, position, A.hits)) return;
       const t = this.ctx.currentTime, out = this._out(0.08 + 0.25 * strength, position, A.hits);
       this._tone(t, 0.05, out, 'sine', rand(3500, 6500), 0.3, 0.001);
       return;
